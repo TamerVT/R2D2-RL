@@ -28,7 +28,7 @@
     <camera name="side_view" pos="1.760 -1.205 0.621" xyaxes="0.681 0.733 0.000 -0.105 0.097 0.990"/>
     
     <body name="box_geom" pos="0.44 0.1 0.03" quat="0 0 0 1">
-			<geom type="box" size="0.032 0.016 0.0288" rgba="0 0.984 0.373 1" name="box_geom" friction="1 0.3 0.1" density="50" />
+			<geom type="box" size="0.032 0.016 0.0288" rgba="0 0.984 0.373 1" name="box_geom" friction="1 0.3 0.1" density="50" group="1" />
 			<joint type="free" name="box_joint" />
     </body>
   </worldbody>

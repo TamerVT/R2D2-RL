@@ -18,7 +18,7 @@ from rcs import camera, envs, hand, sim
 class Scene:
     """Scene configuration."""
 
-    mjb: str
+    mjb: str | None = None
     """Path to the Mujoco binary scene file."""
     mjcf_scene: str
     """Path to the Mujoco scene XML file."""

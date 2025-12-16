@@ -472,6 +472,12 @@ PYBIND11_MODULE(_core, m) {
       .def_readwrite("joints", &rcs::sim::SimRobotConfig::joints)
       .def_readwrite("actuators", &rcs::sim::SimRobotConfig::actuators)
       .def_readwrite("base", &rcs::sim::SimRobotConfig::base)
+      .def("__copy__",  [](const rcs::sim::SimRobotConfig &self) {
+            return rcs::sim::SimRobotConfig(self);
+        })
+        .def("__deepcopy__", [](const rcs::sim::SimRobotConfig &self, py::dict) {
+            return rcs::sim::SimRobotConfig(self);
+        })
       .def("add_id", &rcs::sim::SimRobotConfig::add_id, py::arg("id"));
   py::class_<rcs::sim::SimRobotState, rcs::common::RobotState>(sim,
                                                                "SimRobotState")
@@ -510,6 +516,12 @@ PYBIND11_MODULE(_core, m) {
                      &rcs::sim::SimGripperConfig::max_actuator_width)
       .def_readwrite("min_actuator_width",
                      &rcs::sim::SimGripperConfig::min_actuator_width)
+      .def("__copy__",  [](const rcs::sim::SimGripperConfig &self) {
+            return rcs::sim::SimGripperConfig(self);
+        })
+        .def("__deepcopy__", [](const rcs::sim::SimGripperConfig &self, py::dict) {
+            return rcs::sim::SimGripperConfig(self);
+        })
       .def("add_id", &rcs::sim::SimGripperConfig::add_id, py::arg("id"));
   py::class_<rcs::sim::SimGripperState, rcs::common::GripperState>(
       sim, "SimGripperState")
