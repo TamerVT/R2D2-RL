@@ -71,6 +71,9 @@ class QuestOperator(BaseOperator):
         self._step_env = False
         self._set_frame = {key: Pose() for key in self.controller_names}
         if self.config.simulation:
+            sim = self.env.unwrapped.envs[self.controller_names[0]].sim  # type: ignore
+            MujocoPublisher(sim.model, sim.data, self.config.mq3_addr, visible_geoms_groups=list(range(1, 3)))
+        else:
             FakeSimPublisher(FakeSimScene(), self.config.mq3_addr)
             # robot_cfg = default_sim_robot_cfg("fr3_empty_world")
             # sim_cfg = SimConfig()
@@ -86,16 +89,18 @@ class QuestOperator(BaseOperator):
             # sim.open_gui()
             # MujocoPublisher(sim.model, sim.data, MQ3_ADDR, visible_geoms_groups=list(range(1, 3)))
             # env_rel = DigitalTwin(env_rel, twin_env)
-        else:
-            sim = self.env.unwrapped.envs[self.controller_names[0]].sim  # type: ignore
-            MujocoPublisher(sim.model, sim.data, self.config.mq3_addr, visible_geoms_groups=list(range(1, 3)))
 
-
-
+    def reset_operator_state(self):
+        """Resets the hardware offsets when the environment resets."""
+        with self.resource_lock:
+            for controller in self.controller_names:
+                self._offset_pose[controller] = Pose()
+                self._last_controller_pose[controller] = Pose()
+                self._grp_pos[controller] = 1
 
     def get_action(self) -> dict[str, ArmWithGripper]:
+        transforms = {}
         with self.resource_lock:
-            transforms = {}
             for controller in self.controller_names:
                 transform = Pose(
                     translation=(
@@ -125,48 +130,33 @@ class QuestOperator(BaseOperator):
     def run(self):
         rate_limiter = SimpleFrameRate(self.config.read_frame_rate, "teleop readout")
         warning_raised = False
+        
         while not self._exit_requested:
-            # pos, buttons = self._reader.get_transformations_and_buttons()
             input_data = self._reader.get_controller_data()
-            if not warning_raised and input_data is None:
-                logger.warning("[Quest Reader] packets empty")
-                warning_raised = True
-                sleep(0.5)
-                continue
+            
             if input_data is None:
+                if not warning_raised:
+                    logger.warning("[Quest Reader] packets empty")
+                    warning_raised = True
                 sleep(0.5)
                 continue
+                
             if warning_raised:
                 logger.warning("[Quest Reader] packets arriving again")
                 warning_raised = False
 
-            # start recording
-            if input_data[self._start_btn] and (self._prev_data is None or not self._prev_data[self._start_btn]):
-                print("start button pressed")
-                self.env.get_wrapper_attr("start_record")()
+            # === Update Semantic Commands ===
+            with self._cmd_lock:
+                if input_data[self._start_btn] and (self._prev_data is None or not self._prev_data[self._start_btn]):
+                    self._commands.record = True
 
-            if input_data[self._stop_btn] and (self._prev_data is None or not self._prev_data[self._stop_btn]):
-                print("reset successful pressed: resetting env")
-                with self.reset_lock:
-                    # set successful
-                    self.env.get_wrapper_attr("success")()
-                    # sleep to allow to let the robot reach the goal
-                    sleep(1)
-                    # this might also move the robot to the home position
-                    self.env.reset()
-                    for controller in self.controller_names:
-                        self._offset_pose[controller] = Pose()
-                        self._last_controller_pose[controller] = Pose()
-                        self._grp_pos[controller] = 1
-                    continue
+                if input_data[self._stop_btn] and (self._prev_data is None or not self._prev_data[self._stop_btn]):
+                    self._commands.success = True
 
-            # reset unsuccessful
-            if input_data[self._unsuccessful_btn] and (
-                self._prev_data is None or not self._prev_data[self._unsuccessful_btn]
-            ):
-                print("reset unsuccessful pressed: resetting env")
-                self.env.reset()
+                if input_data[self._unsuccessful_btn] and (self._prev_data is None or not self._prev_data[self._unsuccessful_btn]):
+                    self._commands.failure = True
 
+            # === Update Poses & Grippers ===
             for controller in self.controller_names:
                 last_controller_pose = Pose(
                     translation=np.array(input_data[controller]["pos"]),
@@ -190,18 +180,6 @@ class QuestOperator(BaseOperator):
                 elif not input_data[controller][self._trg_btn[controller]] and (
                     self._prev_data is None or self._prev_data[controller][self._trg_btn[controller]]
                 ):
-                    # released
-                    transform = Pose(
-                        translation=(
-                            self._last_controller_pose[controller].translation()  # type: ignore
-                            - self._offset_pose[controller].translation()
-                        ),
-                        quaternion=(
-                            self._last_controller_pose[controller] * self._offset_pose[controller].inverse()
-                        ).rotation_q(),
-                    )
-                    print(np.linalg.norm(transform.translation()))
-                    print(np.rad2deg(transform.total_angle()))
                     with self.resource_lock:
                         self._last_controller_pose[controller] = Pose()
                         self._offset_pose[controller] = Pose()

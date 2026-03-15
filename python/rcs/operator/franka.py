@@ -64,7 +64,7 @@ operators = {
 }
 
 
-def main():
+def get_env():
     if ROBOT_INSTANCE == RobotPlatform.HARDWARE:
 
         cams = []
@@ -105,9 +105,11 @@ def main():
         )
         sim = env_rel.unwrapped.envs[ROBOT2IP.keys().__iter__().__next__()].sim  # type: ignore
         sim.open_gui()
+    return env_rel
 
+def main():
+    env_rel = get_env()
     env_rel.reset()
-
     with env_rel, operators[TELEOP](env_rel, configs[TELEOP]) as op:  # type: ignore
         op.environment_step_loop()
 
