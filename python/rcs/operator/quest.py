@@ -1,3 +1,4 @@
+import copy
 from dataclasses import dataclass
 import logging
 import threading
@@ -6,7 +7,8 @@ from time import sleep
 import numpy as np
 from rcs._core.common import Pose
 from rcs.envs.base import ArmWithGripper, ControlMode, GripperDictType, RelativeActionSpace, RelativeTo, TQuatDictType
-from rcs.operator.interface import BaseOperator, BaseOperatorConfig
+from rcs.operator.interface import BaseOperator, BaseOperatorConfig, TeleopCommands
+from rcs.sim.sim import Sim
 from rcs.utils import SimpleFrameRate
 from simpub.core.simpub_server import SimPublisher
 from simpub.parser.simdata import SimObject, SimScene
@@ -21,38 +23,37 @@ logger = logging.getLogger(__name__)
 # install it on your quest with
 # adb install IRIS-Meta-Quest3.apk
 
+
 class FakeSimPublisher(SimPublisher):
     def get_update(self):
         return {}
+
 
 class FakeSimScene(SimScene):
     def __init__(self):
         super().__init__()
         self.root = SimObject(name="root")
 
+
 @dataclass(kw_only=True)
 class QuestConfig(BaseOperatorConfig):
-    robot_keys: list[str]
-    read_frame_rate: int = 30
     include_rotation: bool = True
-    simulation: bool = False
     mq3_addr: str = "10.42.0.1"
 
 
 class QuestOperator(BaseOperator):
 
-    transform_to_robot = Pose()
-
     control_mode = (ControlMode.CARTESIAN_TQuat, RelativeTo.CONFIGURED_ORIGIN)
+    controller_names = ["left", "right"]
 
-    def __init__(self, env, config: QuestConfig):
-        super().__init__(env, config)
+    def __init__(self, config: QuestConfig, sim: Sim | None = None):
+        super().__init__(config, sim)
         self.config: QuestConfig
         self._reader = MetaQuest3("RCSNode")
 
-        self.resource_lock = threading.Lock()
+        self._resource_lock = threading.Lock()
+        self._cmd_lock = threading.Lock()
 
-        self.controller_names = self.config.robot_keys
         self._trg_btn = {"left": "index_trigger", "right": "index_trigger"}
         self._grp_btn = {"left": "hand_trigger", "right": "hand_trigger"}
         self._start_btn = "A"
@@ -65,14 +66,13 @@ class QuestOperator(BaseOperator):
         self._last_controller_pose = {key: Pose() for key in self.controller_names}
         self._offset_pose = {key: Pose() for key in self.controller_names}
 
-        for robot in self.config.robot_keys:
-            self.env.envs[robot].set_origin_to_current()
+        self._commands = TeleopCommands()
+        self._reset_origin_to_current()
 
         self._step_env = False
         self._set_frame = {key: Pose() for key in self.controller_names}
         if self.config.simulation:
-            sim = self.env.unwrapped.envs[self.controller_names[0]].sim  # type: ignore
-            MujocoPublisher(sim.model, sim.data, self.config.mq3_addr, visible_geoms_groups=list(range(1, 3)))
+            MujocoPublisher(self.sim.model, self.sim.data, self.config.mq3_addr, visible_geoms_groups=list(range(1, 3)))
         else:
             FakeSimPublisher(FakeSimScene(), self.config.mq3_addr)
             # robot_cfg = default_sim_robot_cfg("fr3_empty_world")
@@ -90,17 +90,35 @@ class QuestOperator(BaseOperator):
             # MujocoPublisher(sim.model, sim.data, MQ3_ADDR, visible_geoms_groups=list(range(1, 3)))
             # env_rel = DigitalTwin(env_rel, twin_env)
 
-    def reset_operator_state(self):
-        """Resets the hardware offsets when the environment resets."""
-        with self.resource_lock:
+    def _reset_origin_to_current(self, controller: str | None = None):
+        with self._cmd_lock:
+            if controller is None:
+                self._commands.reset_origin_to_current = {key: True for key in self.controller_names}
+            else:
+                self._commands.reset_origin_to_current[controller] = True
+
+    def _reset_state(self):
+        with self._resource_lock:
             for controller in self.controller_names:
                 self._offset_pose[controller] = Pose()
                 self._last_controller_pose[controller] = Pose()
                 self._grp_pos[controller] = 1
 
+    def consume_commands(self) -> TeleopCommands:
+        # must be threadsafe
+        with self._cmd_lock:
+            cmds = copy.copy(self._commands)
+            self._commands = TeleopCommands()
+            return cmds
+
+    def reset_operator_state(self):
+        """Resets the hardware offsets when the environment resets."""
+        self._reset_state()
+        self._reset_origin_to_current()
+
     def get_action(self) -> dict[str, ArmWithGripper]:
         transforms = {}
-        with self.resource_lock:
+        with self._resource_lock:
             for controller in self.controller_names:
                 transform = Pose(
                     translation=(
@@ -114,33 +132,29 @@ class QuestOperator(BaseOperator):
 
                 set_axes = Pose(quaternion=self._set_frame[controller].rotation_q())
 
-                transform = (
-                      set_axes.inverse()
-                    * transform
-                    * set_axes
-                )
+                transform = set_axes.inverse() * transform * set_axes
                 if not self.config.include_rotation:
                     transform = Pose(translation=transform.translation())  # identity rotation
-                transforms[controller] = TQuatDictType(tquat=np.concatenate([transform.translation(), transform.rotation_q()]))
-                transforms[controller].update(
-                    GripperDictType(gripper=self._grp_pos[controller])
+                transforms[controller] = TQuatDictType(
+                    tquat=np.concatenate([transform.translation(), transform.rotation_q()])
                 )
+                transforms[controller].update(GripperDictType(gripper=self._grp_pos[controller]))
         return transforms
 
     def run(self):
-        rate_limiter = SimpleFrameRate(self.config.read_frame_rate, "teleop readout")
+        rate_limiter = SimpleFrameRate(self.config.read_frequency, "teleop readout")
         warning_raised = False
-        
+
         while not self._exit_requested:
             input_data = self._reader.get_controller_data()
-            
+
             if input_data is None:
                 if not warning_raised:
                     logger.warning("[Quest Reader] packets empty")
                     warning_raised = True
                 sleep(0.5)
                 continue
-                
+
             if warning_raised:
                 logger.warning("[Quest Reader] packets arriving again")
                 warning_raised = False
@@ -153,7 +167,9 @@ class QuestOperator(BaseOperator):
                 if input_data[self._stop_btn] and (self._prev_data is None or not self._prev_data[self._stop_btn]):
                     self._commands.success = True
 
-                if input_data[self._unsuccessful_btn] and (self._prev_data is None or not self._prev_data[self._unsuccessful_btn]):
+                if input_data[self._unsuccessful_btn] and (
+                    self._prev_data is None or not self._prev_data[self._unsuccessful_btn]
+                ):
                     self._commands.failure = True
 
             # === Update Poses & Grippers ===
@@ -173,21 +189,21 @@ class QuestOperator(BaseOperator):
                 ):
                     # trigger just pressed (first data sample with button pressed)
 
-                    with self.resource_lock:
+                    with self._resource_lock:
                         self._offset_pose[controller] = last_controller_pose
                         self._last_controller_pose[controller] = last_controller_pose
 
                 elif not input_data[controller][self._trg_btn[controller]] and (
                     self._prev_data is None or self._prev_data[controller][self._trg_btn[controller]]
                 ):
-                    with self.resource_lock:
+                    with self._resource_lock:
                         self._last_controller_pose[controller] = Pose()
                         self._offset_pose[controller] = Pose()
-                    self.env.envs[controller].set_origin_to_current()
+                    self._reset_origin_to_current(controller)
 
                 elif input_data[controller][self._trg_btn[controller]]:
                     # button is pressed
-                    with self.resource_lock:
+                    with self._resource_lock:
                         self._last_controller_pose[controller] = last_controller_pose
 
                 if input_data[controller][self._grp_btn[controller]] and (
