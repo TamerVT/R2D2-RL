@@ -3,7 +3,9 @@ import threading
 from time import sleep
 
 import numpy as np
+import rcs
 from rcs._core.common import RPY, Pose, RobotPlatform
+from rcs._core import common
 from rcs._core.sim import SimConfig
 from rcs.camera.hw import HardwareCameraSet
 from rcs.envs.base import (
@@ -21,20 +23,23 @@ from rcs_fr3.creators import RCSFR3MultiEnvCreator
 from rcs_fr3.utils import default_fr3_hw_gripper_cfg, default_fr3_hw_robot_cfg
 from rcs_realsense.utils import default_realsense
 from rcs.operator.quest import QuestConfig, QuestOperator
+from rcs.operator.interface import TeleopLoop
 
 logger = logging.getLogger(__name__)
-
-
 
 
 ROBOT2IP = {
     # "left": "192.168.102.1",
     "right": "192.168.101.1",
 }
+ROBOT2ID = {
+    "left": "0",
+    "right": "1",
+}
 
 
-# ROBOT_INSTANCE = RobotPlatform.SIMULATION
-ROBOT_INSTANCE = RobotPlatform.HARDWARE
+ROBOT_INSTANCE = RobotPlatform.SIMULATION
+# ROBOT_INSTANCE = RobotPlatform.HARDWARE
 
 RECORD_FPS = 30
 # set camera dict to none disable cameras
@@ -45,7 +50,7 @@ RECORD_FPS = 30
 #     "bird_eye": "243522070364",
 # }
 CAMERA_DICT = None
-MQ3_ADDR = "10.42.0.1"
+MQ3_ADDR = "192.168.1.219"
 
 # DIGIT_DICT = {
 #     "digit_right_left": "D21182",
@@ -56,12 +61,9 @@ DIGIT_DICT = None
 
 DATASET_PATH = "test_data_iris_dual_arm14"
 INSTRUCTION = "build a tower with the blocks in front of you"
-TELEOP = "quest"
 
-configs = {"quest": QuestConfig(robot_keys=ROBOT2IP.keys(), simulation=ROBOT_INSTANCE == RobotPlatform.SIMULATION, mq3_addr=MQ3_ADDR)}
-operators = {
-    "quest": QuestOperator,
-}
+
+config = QuestConfig(mq3_addr=MQ3_ADDR, simulation=ROBOT_INSTANCE == RobotPlatform.SIMULATION)
 
 
 def get_env():
@@ -79,39 +81,70 @@ def get_env():
             name2ip=ROBOT2IP,
             camera_set=camera_set,
             robot_cfg=default_fr3_hw_robot_cfg(async_control=True),
-            control_mode=operators[TELEOP].control_mode[0],
+            control_mode=QuestOperator.control_mode[0],
             gripper_cfg=default_fr3_hw_gripper_cfg(async_control=True),
             max_relative_movement=(0.5, np.deg2rad(90)),
-            relative_to=operators[TELEOP].control_mode[1],
+            relative_to=QuestOperator.control_mode[1],
         )
         env_rel = StorageWrapper(
             env_rel, DATASET_PATH, INSTRUCTION, batch_size=32, max_rows_per_group=100, max_rows_per_file=1000
         )
+        operator = QuestOperator(config)
     else:
         # FR3
-        robot_cfg = default_sim_robot_cfg("fr3_empty_world")
+        rcs.scenes["rcs_icra_scene"] = rcs.Scene(
+            mjcf_scene="/home/tobi/coding/rcs_clones/prs/models/scenes/rcs_icra_scene/scene.xml",
+            mjcf_robot=rcs.scenes["fr3_simple_pick_up"].mjcf_robot,
+            robot_type=common.RobotType.FR3,
+        )
+        rcs.scenes["pick"] = rcs.Scene(
+            mjcf_scene="/home/tobi/coding/rcs_clones/prs/assets/scenes/fr3_simple_pick_up/scene.xml",
+            mjcf_robot=rcs.scenes["fr3_simple_pick_up"].mjcf_robot,
+            robot_type=common.RobotType.FR3,
+        )
+
+        # robot_cfg = default_sim_robot_cfg("fr3_empty_world")
+        # robot_cfg = default_sim_robot_cfg("fr3_simple_pick_up")
+        robot_cfg = default_sim_robot_cfg("rcs_icra_scene")
+        # robot_cfg = default_sim_robot_cfg("pick")
+
+        # resolution = (256, 256)
+        # cameras = {
+        #     cam: SimCameraConfig(
+        #         identifier=cam,
+        #         type=CameraType.fixed,
+        #         resolution_height=resolution[1],
+        #         resolution_width=resolution[0],
+        #         frame_rate=0,
+        #     )
+        #     for cam in ["side", "wrist"]
+        # }
 
         sim_cfg = SimConfig()
         sim_cfg.async_control = True
         env_rel = SimMultiEnvCreator()(
-            name2id=ROBOT2IP,
+            name2id=ROBOT2ID,
             robot_cfg=robot_cfg,
-            control_mode=operators[TELEOP].control_mode[0],
+            control_mode=QuestOperator.control_mode[0],
             gripper_cfg=default_sim_gripper_cfg(),
             # cameras=default_mujoco_cameraset_cfg(),
             max_relative_movement=0.5,
-            relative_to=operators[TELEOP].control_mode[1],
+            relative_to=QuestOperator.control_mode[1],
             sim_cfg=sim_cfg,
         )
-        sim = env_rel.unwrapped.envs[ROBOT2IP.keys().__iter__().__next__()].sim  # type: ignore
+        # sim = env_rel.unwrapped.envs[ROBOT2IP.keys().__iter__().__next__()].sim  # type: ignore
+        sim = env_rel.get_wrapper_attr("sim")
+        operator = QuestOperator(config, sim)
         sim.open_gui()
-    return env_rel
+    return env_rel, operator
+
 
 def main():
-    env_rel = get_env()
+    env_rel, operator = get_env()
     env_rel.reset()
-    with env_rel, operators[TELEOP](env_rel, configs[TELEOP]) as op:  # type: ignore
-        op.environment_step_loop()
+    tele = TeleopLoop(env_rel, operator)
+    with env_rel, tele:  # type: ignore
+        tele.environment_step_loop()
 
 
 if __name__ == "__main__":

@@ -31,6 +31,7 @@ class BaseOperator(ABC, threading.Thread):
     controller_names: list[str] = field(default=["left", "right"])
 
     def __init__(self, config: BaseOperatorConfig, sim: Sim | None = None):
+        threading.Thread.__init__(self)
         self.config = config
         self.sim = sim
 
@@ -123,7 +124,8 @@ class TeleopLoop:
                     print(f"Command: Resetting origin for {robot}...")
                     assert (
                         self.operator.control_mode[1] == RelativeTo.CONFIGURED_ORIGIN
-                        and self.env.get_wrapper_attr("relative_to") == RelativeTo.CONFIGURED_ORIGIN
+                        # TODO the following is a dict and can thus not easily be used like this
+                        # and self.env.get_wrapper_attr("relative_to") == RelativeTo.CONFIGURED_ORIGIN
                     ), "both robot env and operator must be configured to relative_to.CONFIGURED_ORIGIN"
                     self.env.get_wrapper_attr("envs")[robot].set_origin_to_current()
 

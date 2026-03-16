@@ -5,7 +5,7 @@ import threading
 from time import sleep
 
 import numpy as np
-from rcs._core.common import Pose
+from rcs._core.common import Pose, RPY
 from rcs.envs.base import ArmWithGripper, ControlMode, GripperDictType, RelativeActionSpace, RelativeTo, TQuatDictType
 from rcs.operator.interface import BaseOperator, BaseOperatorConfig, TeleopCommands
 from rcs.sim.sim import Sim
@@ -49,7 +49,6 @@ class QuestOperator(BaseOperator):
     def __init__(self, config: QuestConfig, sim: Sim | None = None):
         super().__init__(config, sim)
         self.config: QuestConfig
-        self._reader = MetaQuest3("RCSNode")
 
         self._resource_lock = threading.Lock()
         self._cmd_lock = threading.Lock()
@@ -89,6 +88,7 @@ class QuestOperator(BaseOperator):
             # sim.open_gui()
             # MujocoPublisher(sim.model, sim.data, MQ3_ADDR, visible_geoms_groups=list(range(1, 3)))
             # env_rel = DigitalTwin(env_rel, twin_env)
+        self._reader = MetaQuest3("RCSNode")
 
     def _reset_origin_to_current(self, controller: str | None = None):
         with self._cmd_lock:
@@ -116,7 +116,7 @@ class QuestOperator(BaseOperator):
         self._reset_state()
         self._reset_origin_to_current()
 
-    def get_action(self) -> dict[str, ArmWithGripper]:
+    def consume_action(self) -> dict[str, ArmWithGripper]:
         transforms = {}
         with self._resource_lock:
             for controller in self.controller_names:
