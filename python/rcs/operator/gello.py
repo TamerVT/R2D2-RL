@@ -304,7 +304,10 @@ class GelloHardware:
         return [self._driver._rad_to_pulses(rad) for rad in goals_raw]
 
     def close(self):
-        self._driver.write_value_by_name("torque_enable", [0] * self._num_total_joints)
+        try:
+            self._driver.write_value_by_name("torque_enable", [0] * self._num_total_joints)
+        except:
+            pass
         self._driver.close()
 
 
@@ -312,6 +315,7 @@ class GelloHardware:
 
 @dataclass(kw_only=True)
 class GelloConfig(BaseOperatorConfig):
+    # Single arm defaults (used if 'arms' is empty)
     com_port: str = "/dev/ttyUSB0"
     num_arm_joints: int = 7
     joint_signs: List[int] = field(default_factory=lambda: [1] * 7)
@@ -324,10 +328,12 @@ class GelloConfig(BaseOperatorConfig):
     dynamixel_torque_enable: List[int] = field(default_factory=lambda: [0] * 8)
     dynamixel_goal_position: List[float] = field(default_factory=lambda: [0.0] * 8)
 
+    # Dictionary for multi-arm setups: {"left": {"com_port": "/dev/..."}, "right": {...}}
+    arms: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+
 
 class GelloOperator(BaseOperator):
     control_mode = (ControlMode.JOINTS, RelativeTo.NONE)
-    controller_names = ["right"]
 
     def __init__(self, config: GelloConfig, sim: Sim | None = None):
         super().__init__(config, sim)
@@ -338,9 +344,14 @@ class GelloOperator(BaseOperator):
         self._exit_requested = False
         self._commands = TeleopCommands()
         
-        self._hw = None
-        self._last_joints = None
-        self._last_gripper = 1.0
+        if self.config.arms:
+            self.controller_names = list(self.config.arms.keys())
+        else:
+            self.controller_names = ["right"]
+
+        self._last_joints = {name: None for name in self.controller_names}
+        self._last_gripper = {name: 1.0 for name in self.controller_names}
+        self._hws: Dict[str, GelloHardware] = {}
 
     def consume_commands(self) -> TeleopCommands:
         with self._cmd_lock:
@@ -349,55 +360,68 @@ class GelloOperator(BaseOperator):
             return cmds
 
     def reset_operator_state(self):
-        # GELLO is absolute, but we might want to reset internal deltas if HW allows
+        # GELLO is absolute, no internal state to reset typically
         pass
 
     def consume_action(self) -> Dict[str, Any]:
         actions = {}
         with self._resource_lock:
-            if self._last_joints is not None:
-                actions["right"] = {
-                    "joints": self._last_joints.copy(),
-                    "gripper": self._last_gripper
-                }
+            for name in self.controller_names:
+                if self._last_joints[name] is not None:
+                    actions[name] = {
+                        "joints": self._last_joints[name].copy(),
+                        "gripper": self._last_gripper[name]
+                    }
         return actions
 
     def run(self):
-        hw_params: GelloHardwareParams = {
-            "com_port": self.config.com_port,
-            "num_arm_joints": self.config.num_arm_joints,
-            "joint_signs": self.config.joint_signs,
-            "gripper": self.config.gripper,
-            "gripper_range_rad": self.config.gripper_range_rad,
-            "assembly_offsets": self.config.assembly_offsets,
-            "dynamixel_kp_p": self.config.dynamixel_kp_p,
-            "dynamixel_kp_i": self.config.dynamixel_kp_i,
-            "dynamixel_kp_d": self.config.dynamixel_kp_d,
-            "dynamixel_torque_enable": self.config.dynamixel_torque_enable,
-            "dynamixel_goal_position": self.config.dynamixel_goal_position,
-        }
+        # Prepare hardware parameters for each arm
+        arms_to_init = self.config.arms if self.config.arms else {"right": {}}
+        
+        arm_configs = {}
+        for name, cfg in arms_to_init.items():
+            # Merge with top-level defaults for any missing keys
+            arm_configs[name] = {
+                "com_port": cfg.get("com_port", self.config.com_port),
+                "num_arm_joints": cfg.get("num_arm_joints", self.config.num_arm_joints),
+                "joint_signs": cfg.get("joint_signs", self.config.joint_signs),
+                "gripper": cfg.get("gripper", self.config.gripper),
+                "gripper_range_rad": cfg.get("gripper_range_rad", self.config.gripper_range_rad),
+                "assembly_offsets": cfg.get("assembly_offsets", self.config.assembly_offsets),
+                "dynamixel_kp_p": cfg.get("dynamixel_kp_p", self.config.dynamixel_kp_p),
+                "dynamixel_kp_i": cfg.get("dynamixel_kp_i", self.config.dynamixel_kp_i),
+                "dynamixel_kp_d": cfg.get("dynamixel_kp_d", self.config.dynamixel_kp_d),
+                "dynamixel_torque_enable": cfg.get("dynamixel_torque_enable", self.config.dynamixel_torque_enable),
+                "dynamixel_goal_position": cfg.get("dynamixel_goal_position", self.config.dynamixel_goal_position),
+            }
 
-        try:
-            self._hw = GelloHardware(hw_params)
-        except Exception as e:
-            logger.error(f"Failed to initialize GELLO hardware: {e}")
+        # Initialize all hardware instances
+        for name, params in arm_configs.items():
+            try:
+                self._hws[name] = GelloHardware(params)
+            except Exception as e:
+                logger.error(f"Failed to initialize GELLO hardware for {name}: {e}")
+
+        if not self._hws:
+            logger.error("No GELLO hardware initialized. Exiting.")
             return
 
         rate_limiter = SimpleFrameRate(self.config.read_frequency, "gello readout")
         
         while not self._exit_requested:
-            try:
-                joints, gripper = self._hw.get_joint_and_gripper_positions()
-                with self._resource_lock:
-                    self._last_joints = joints
-                    self._last_gripper = gripper
-            except Exception as e:
-                logger.warning(f"Error reading GELLO: {e}")
+            for name, hw in self._hws.items():
+                try:
+                    joints, gripper = hw.get_joint_and_gripper_positions()
+                    with self._resource_lock:
+                        self._last_joints[name] = joints
+                        self._last_gripper[name] = gripper
+                except Exception as e:
+                    logger.warning(f"Error reading GELLO {name}: {e}")
             
             rate_limiter()
 
     def close(self):
         self._exit_requested = True
-        if self._hw:
-            self._hw.close()
+        for hw in self._hws.values():
+            hw.close()
         self.join()
