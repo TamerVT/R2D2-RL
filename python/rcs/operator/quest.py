@@ -71,9 +71,9 @@ class QuestOperator(BaseOperator):
         self._step_env = False
         self._set_frame = {key: Pose() for key in self.controller_names}
         if self.config.simulation:
-            MujocoPublisher(self.sim.model, self.sim.data, self.config.mq3_addr, visible_geoms_groups=list(range(1, 3)))
+            self._publisher = MujocoPublisher(self.sim.model, self.sim.data, self.config.mq3_addr, visible_geoms_groups=list(range(1, 3)))
         else:
-            FakeSimPublisher(FakeSimScene(), self.config.mq3_addr)
+            self._publisher = FakeSimPublisher(FakeSimScene(), self.config.mq3_addr)
             # robot_cfg = default_sim_robot_cfg("fr3_empty_world")
             # sim_cfg = SimConfig()
             # sim_cfg.async_control = True
@@ -140,6 +140,12 @@ class QuestOperator(BaseOperator):
                 )
                 transforms[controller].update(GripperDictType(gripper=self._grp_pos[controller]))
         return transforms
+
+    def close(self):
+        self._reader.disconnect()
+        self._publisher.shutdown()
+        self._exit_requested = True
+        self.join()
 
     def run(self):
         rate_limiter = SimpleFrameRate(self.config.read_frequency, "teleop readout")

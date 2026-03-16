@@ -50,6 +50,9 @@ class BaseOperator(ABC, threading.Thread):
         """Returns the action dictionary to step the environment. Must be thread-safe."""
         raise NotImplementedError()
 
+    def close(self):
+        pass
+
 
 class TeleopLoop:
     """Interface for an operator device"""
@@ -76,6 +79,7 @@ class TeleopLoop:
             self.key_translation = key_translation
 
     def stop(self):
+        self.operator.close()
         self._exit_requested = True
         self.operator.join()
 
