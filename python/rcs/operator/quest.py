@@ -10,10 +10,15 @@ from rcs.envs.base import ArmWithGripper, ControlMode, GripperDictType, Relative
 from rcs.operator.interface import BaseOperator, BaseOperatorConfig, TeleopCommands
 from rcs.sim.sim import Sim
 from rcs.utils import SimpleFrameRate
-from simpub.core.simpub_server import SimPublisher
-from simpub.parser.simdata import SimObject, SimScene
-from simpub.sim.mj_publisher import MujocoPublisher
-from simpub.xr_device.meta_quest3 import MetaQuest3
+
+try:
+    from simpub.core.simpub_server import SimPublisher
+    from simpub.parser.simdata import SimObject, SimScene
+    from simpub.sim.mj_publisher import MujocoPublisher
+    from simpub.xr_device.meta_quest3 import MetaQuest3
+    HAS_SIMPUB = True
+except ImportError:
+    HAS_SIMPUB = False
 
 logger = logging.getLogger(__name__)
 
@@ -23,16 +28,15 @@ logger = logging.getLogger(__name__)
 # install it on your quest with
 # adb install IRIS-Meta-Quest3.apk
 
+if HAS_SIMPUB:
+    class FakeSimPublisher(SimPublisher):
+        def get_update(self):
+            return {}
 
-class FakeSimPublisher(SimPublisher):
-    def get_update(self):
-        return {}
-
-
-class FakeSimScene(SimScene):
-    def __init__(self):
-        super().__init__()
-        self.root = SimObject(name="root")
+    class FakeSimScene(SimScene):
+        def __init__(self):
+            super().__init__()
+            self.root = SimObject(name="root")
 
 
 @dataclass(kw_only=True)
@@ -48,6 +52,9 @@ class QuestOperator(BaseOperator):
 
     def __init__(self, config: QuestConfig, sim: Sim | None = None):
         super().__init__(config, sim)
+        if not HAS_SIMPUB:
+            raise ImportError("simpub is not installed. Please install it to use QuestOperator.")
+
         self.config: QuestConfig
 
         self._resource_lock = threading.Lock()
