@@ -105,10 +105,10 @@ class Gripper:
     def shut(self) -> None: ...
 
 class GripperConfig:
-    pass
+    def __init__(self) -> None: ...
 
 class GripperState:
-    pass
+    def __init__(self) -> None: ...
 
 class Hand:
     def __init__(self) -> None: ...
@@ -276,7 +276,7 @@ class RobotPlatform:
     def value(self) -> int: ...
 
 class RobotState:
-    pass
+    def __init__(self) -> None: ...
 
 class RobotType:
     """
