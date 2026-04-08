@@ -373,8 +373,10 @@ PYBIND11_MODULE(_core, m) {
       .def_readwrite("robot_platform",
                      &rcs::common::RobotConfig::robot_platform);
   py::class_<rcs::common::RobotState>(common, "RobotState").def(py::init<>());
-  py::class_<rcs::common::GripperConfig>(common, "GripperConfig").def(py::init<>());
-  py::class_<rcs::common::GripperState>(common, "GripperState").def(py::init<>());
+  py::class_<rcs::common::GripperConfig>(common, "GripperConfig")
+      .def(py::init<>());
+  py::class_<rcs::common::GripperState>(common, "GripperState")
+      .def(py::init<>());
   py::enum_<rcs::common::GraspType>(common, "GraspType")
       .value("POWER_GRASP", rcs::common::GraspType::POWER_GRASP)
       .value("PRECISION_GRASP", rcs::common::GraspType::PRECISION_GRASP)
