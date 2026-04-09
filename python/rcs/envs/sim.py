@@ -68,6 +68,7 @@ class RobotSimWrapper(gym.Wrapper):
         # truncate episode if collision
         obs.update(self.unwrapped.get_obs())
         return obs, 0, False, info["collision"] or not state.ik_success, info
+        # return obs, 0, False, False, info
 
     def reset(
         self, *, seed: int | None = None, options: dict[str, Any] | None = None

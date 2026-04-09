@@ -12,6 +12,7 @@ from rcs.camera.interface import BaseCameraSet
 from rcs.envs.space_utils import (
     ActObsInfoWrapper,
     RCSpaceType,
+    Vec1Type,
     Vec6Type,
     Vec7Type,
     Vec18Type,
@@ -99,12 +100,12 @@ class LimitedJointsRelDictType(RCSpaceType):
 
 class GripperDictType(RCSpaceType):
     # 0 for closed, 1 for open (>=0.5 for open)
-    gripper: Annotated[float, gym.spaces.Box(low=0, high=1, dtype=np.float32)]
+    gripper: Annotated[Vec1Type, gym.spaces.Box(low=0, high=1, shape=(1,), dtype=np.float32)]
 
 
 class HandBinDictType(RCSpaceType):
     # 0 for closed, 1 for open (>=0.5 for open)
-    gripper: Annotated[float, gym.spaces.Box(low=0, high=1, dtype=np.float32)]
+    gripper: Annotated[Vec1Type, gym.spaces.Box(low=0, high=1, shape=(1,), dtype=np.float32)]
 
 
 class HandVecDictType(RCSpaceType):
@@ -166,6 +167,9 @@ class ArmObsType(TQuatDictType, JointsDictType, TRPYDictType): ...
 
 CartOrJointContType: TypeAlias = TQuatDictType | JointsDictType | TRPYDictType
 LimitedCartOrJointContType: TypeAlias = LimitedTQuatRelDictType | LimitedJointsRelDictType | LimitedTRPYRelDictType
+
+
+class ArmWithGripper(TQuatDictType, GripperDictType): ...
 
 
 class ControlMode(Enum):
@@ -310,9 +314,28 @@ class RobotEnv(gym.Env):
 class MultiRobotWrapper(gym.Env):
     """Wraps a dictionary of environments to allow for multi robot control."""
 
-    def __init__(self, envs: dict[str, gym.Env] | dict[str, gym.Wrapper]):
+    def __init__(
+        self, envs: dict[str, gym.Env] | dict[str, gym.Wrapper], robot2world: dict[str, common.Pose] | None = None
+    ):
         self.envs = envs
         self.unwrapped_multi = cast(dict[str, RobotEnv], {key: env.unwrapped for key, env in envs.items()})
+        if robot2world is None:
+            self.robot2world = {}
+        else:
+            self.robot2world = robot2world
+
+    def _translate_pose(self, key, dic, to_world=True):
+        r2w = self.robot2world.get(key, common.Pose())
+        if not to_world:
+            r2w = r2w.inverse()
+        if "tquat" in dic:
+            p = r2w * common.Pose(translation=dic["tquat"][:3], quaternion=dic["tquat"][3:]) * r2w.inverse()
+            dic["tquat"] = np.concatenate([p.translation(), p.rotation_q()])
+        if "xyzrpy" in dic:
+            p = r2w * common.Pose(translation=dic["xyzrpy"][:3], rpy_vector=dic["xyzrpy"][3:]) * r2w.inverse()
+            dic["xyzrpy"] = p.xyzrpy()
+
+        return dic
 
     def step(self, action: dict[str, Any]) -> tuple[dict[str, Any], float, bool, bool, dict[str, Any]]:
         # follows gym env by combinding a dict of envs into a single env
@@ -322,7 +345,11 @@ class MultiRobotWrapper(gym.Env):
         truncated = False
         info = {}
         for key, env in self.envs.items():
-            obs[key], r, t, tr, info[key] = env.step(action[key])
+            act = self._translate_pose(key, action[key], to_world=False)
+            ob, r, t, tr, info[key] = env.step(act)
+            obs[key] = self._translate_pose(key, ob, to_world=True)
+            # old
+            # obs[key], r, t, tr, info[key] = env.step(action[key])
             reward += float(r)
             terminated = terminated or t
             truncated = truncated or tr
@@ -358,6 +385,7 @@ class MultiRobotWrapper(gym.Env):
 class RelativeTo(Enum):
     LAST_STEP = auto()
     CONFIGURED_ORIGIN = auto()
+    NONE = auto()
 
 
 class RelativeActionSpace(gym.ActionWrapper):
@@ -734,7 +762,7 @@ class GripperWrapper(ActObsInfoWrapper):
         if self.binary:
             self.gripper.grasp() if gripper_action == self.BINARY_GRIPPER_CLOSED else self.gripper.open()
         else:
-            self.gripper.set_normalized_width(next(gripper_action))
+            self.gripper.set_normalized_width(gripper_action[0])
         self._last_gripper_cmd = gripper_action
         del action[self.gripper_key]
         return action

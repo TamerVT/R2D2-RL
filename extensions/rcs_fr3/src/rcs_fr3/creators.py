@@ -121,7 +121,7 @@ class RCSFR3EnvCreator(RCSHardwareEnvCreator):
         #         sim_gui=True,
         #         truncate_on_collision=False,
         #     )
-        if max_relative_movement is not None:
+        if relative_to != RelativeTo.NONE:
             env = RelativeActionSpace(env, max_mov=max_relative_movement, relative_to=relative_to)
 
         return env
@@ -137,6 +137,7 @@ class RCSFR3MultiEnvCreator(RCSHardwareEnvCreator):
         camera_set: HardwareCameraSet | None = None,
         max_relative_movement: float | tuple[float, float] | None = None,
         relative_to: RelativeTo = RelativeTo.LAST_STEP,
+        robot2world: dict[str, rcs.common.Pose] | None = None,
     ) -> gym.Env:
 
         ik = rcs.common.Pin(
@@ -163,7 +164,7 @@ class RCSFR3MultiEnvCreator(RCSHardwareEnvCreator):
                 env = RelativeActionSpace(env, max_mov=max_relative_movement, relative_to=relative_to)
             envs[key] = env
 
-        env = MultiRobotWrapper(envs)
+        env = MultiRobotWrapper(envs, robot2world)
         if camera_set is not None:
             camera_set.start()
             camera_set.wait_for_frames()
