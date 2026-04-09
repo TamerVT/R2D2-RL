@@ -3,9 +3,8 @@ import threading
 from time import sleep
 
 import numpy as np
-import rcs
-from rcs._core.common import RPY, Pose, RobotPlatform
 from rcs._core import common
+from rcs._core.common import RPY, Pose, RobotPlatform
 from rcs._core.sim import SimConfig
 from rcs.camera.hw import HardwareCameraSet
 from rcs.envs.base import (
@@ -18,14 +17,16 @@ from rcs.envs.base import (
 from rcs.envs.creators import SimMultiEnvCreator
 from rcs.envs.storage_wrapper import StorageWrapper
 from rcs.envs.utils import default_digit, default_sim_gripper_cfg, default_sim_robot_cfg
+from rcs.operator.gello import GelloArmConfig, GelloConfig, GelloOperator
+from rcs.operator.interface import TeleopLoop
 from rcs.operator.quest import QuestConfig, QuestOperator
 from rcs.utils import SimpleFrameRate
 from rcs_fr3.creators import RCSFR3MultiEnvCreator
 from rcs_fr3.utils import default_fr3_hw_gripper_cfg, default_fr3_hw_robot_cfg
 from rcs_realsense.utils import default_realsense
-from rcs.operator.gello import GelloConfig, GelloOperator, GelloArmConfig
-from rcs.operator.interface import TeleopLoop
 from simpub.sim.mj_publisher import MujocoPublisher
+
+import rcs
 
 logger = logging.getLogger(__name__)
 
@@ -64,8 +65,10 @@ DIGIT_DICT = None
 DATASET_PATH = "test_data_iris_dual_arm14"
 INSTRUCTION = "build a tower with the blocks in front of you"
 
-robot2world={"right": rcs.common.Pose(translation=[0, 0, 0], rpy_vector=[0.89360858, -0.17453293, 0.46425758]),
-            "left": rcs.common.Pose(translation=[0, 0, 0], rpy_vector=[-0.89360858, -0.17453293, -0.46425758])}
+robot2world = {
+    "right": rcs.common.Pose(translation=[0, 0, 0], rpy_vector=[0.89360858, -0.17453293, 0.46425758]),
+    "left": rcs.common.Pose(translation=[0, 0, 0], rpy_vector=[-0.89360858, -0.17453293, -0.46425758]),
+}
 
 config = QuestConfig(mq3_addr=MQ3_ADDR, simulation=ROBOT_INSTANCE == RobotPlatform.SIMULATION)
 # config = GelloConfig(
@@ -94,7 +97,9 @@ def get_env():
             robot_cfg=default_fr3_hw_robot_cfg(async_control=True),
             control_mode=config.operator_class.control_mode[0],
             gripper_cfg=default_fr3_hw_gripper_cfg(async_control=True),
-            max_relative_movement = 0.5 if config.operator_class.control_mode[0] == ControlMode.JOINTS else (0.5, np.deg2rad(90)),
+            max_relative_movement=(
+                0.5 if config.operator_class.control_mode[0] == ControlMode.JOINTS else (0.5, np.deg2rad(90))
+            ),
             relative_to=config.operator_class.control_mode[1],
             robot2world=robot2world,
         )

@@ -60,16 +60,15 @@ class RobotSimWrapper(gym.Wrapper):
             self.sim.step_until_convergence()
         # state = self.sim_robot.get_state()
         # if "collision" not in info:
-            # info["collision"] = state.collision
+        # info["collision"] = state.collision
         # else:
-            # info["collision"] = info["collision"] or state.collision
+        # info["collision"] = info["collision"] or state.collision
         # info["ik_success"] = state.ik_success
         info["is_sim_converged"] = self.sim.is_converged()
         # truncate episode if collision
         # obs.update(self.unwrapped.get_obs())
         # return obs, 0, False, info["collision"] or not state.ik_success, info
         return obs, 0, False, False, info
-
 
     def reset(
         self, *, seed: int | None = None, options: dict[str, Any] | None = None

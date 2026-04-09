@@ -1,12 +1,12 @@
-from abc import ABC
 import copy
-from dataclasses import dataclass, field
 import logging
 import threading
 import time
+from abc import ABC
+from dataclasses import dataclass, field
 from time import sleep
-import gymnasium as gym
 
+import gymnasium as gym
 from rcs.envs.base import ArmWithGripper, ControlMode, RelativeTo
 from rcs.sim.sim import Sim
 from rcs.utils import SimpleFrameRate
@@ -52,11 +52,13 @@ class BaseOperator(ABC, threading.Thread):
     def close(self):
         pass
 
+
 @dataclass(kw_only=True)
 class BaseOperatorConfig:
     operator_class: BaseOperator
     read_frequency: int = 30
     simulation: bool = True
+
 
 class TeleopLoop:
     """Interface for an operator device"""
@@ -83,7 +85,7 @@ class TeleopLoop:
             self.key_translation = key_translation
 
         # Absolute operators (RelativeTo.NONE) need an initial sync
-        self._synced = (self.operator.control_mode[1] != RelativeTo.NONE)
+        self._synced = self.operator.control_mode[1] != RelativeTo.NONE
 
     def stop(self):
         self.operator.close()
@@ -108,13 +110,13 @@ class TeleopLoop:
                 if robot_name in self._last_obs:
                     translated[robot_name] = {
                         "joints": self._last_obs[robot_name]["joints"].copy(),
-                        "gripper": self._last_obs[robot_name].get("gripper", 1.0)
+                        "gripper": self._last_obs[robot_name].get("gripper", 1.0),
                     }
         return translated
 
     def environment_step_loop(self):
         rate_limiter = SimpleFrameRate(self.env_frequency, "env loop")
-        
+
         # 0. Initial Reset to get current positions for untracked robots
         self._last_obs, _ = self.env.reset()
 
@@ -135,7 +137,7 @@ class TeleopLoop:
                 sleep(1)  # sleep to let the robot reach the goal
                 self._last_obs, _ = self.env.reset()
                 self.operator.reset_operator_state()
-                self._synced = (self.operator.control_mode[1] != RelativeTo.NONE)
+                self._synced = self.operator.control_mode[1] != RelativeTo.NONE
                 # consume new commands because of potential origin reset
                 continue
 
@@ -143,7 +145,7 @@ class TeleopLoop:
                 print("Command: Failure! Resetting env...")
                 self._last_obs, _ = self.env.reset()
                 self.operator.reset_operator_state()
-                self._synced = (self.operator.control_mode[1] != RelativeTo.NONE)
+                self._synced = self.operator.control_mode[1] != RelativeTo.NONE
                 # consume new commands because of potential origin reset
                 continue
 
@@ -174,7 +176,8 @@ class TeleopLoop:
                     robot = self.key_translation[controller]
                     print(f"Command: Resetting origin for {robot}...")
                     assert (
-                        self.operator.control_mode[1] == RelativeTo.CONFIGURED_ORIGIN
+                        self.operator.control_mode[1]
+                        == RelativeTo.CONFIGURED_ORIGIN
                         # TODO the following is a dict and can thus not easily be used like this
                         # and self.env.get_wrapper_attr("relative_to") == RelativeTo.CONFIGURED_ORIGIN
                     ), "both robot env and operator must be configured to relative_to.CONFIGURED_ORIGIN"

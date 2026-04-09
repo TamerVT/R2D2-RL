@@ -3,7 +3,7 @@ import logging
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Sequence, Tuple, TypedDict, Iterator
+from typing import Any, Dict, Iterator, List, Optional, Sequence, Tuple, TypedDict
 
 import numpy as np
 
@@ -13,17 +13,25 @@ try:
     from dynamixel_sdk.packet_handler import PacketHandler
     from dynamixel_sdk.port_handler import PortHandler
     from dynamixel_sdk.robotis_def import COMM_SUCCESS
+
     HAS_DYNAMIXEL_SDK = True
 except ImportError:
     HAS_DYNAMIXEL_SDK = False
 
 try:
     from pynput import keyboard
+
     HAS_PYNPUT = True
 except ImportError:
     HAS_PYNPUT = False
 
-from rcs.envs.base import ArmWithGripper, ControlMode, RelativeTo, JointsDictType, GripperDictType
+from rcs.envs.base import (
+    ArmWithGripper,
+    ControlMode,
+    GripperDictType,
+    JointsDictType,
+    RelativeTo,
+)
 from rcs.operator.interface import BaseOperator, BaseOperatorConfig, TeleopCommands
 from rcs.sim.sim import Sim
 from rcs.utils import SimpleFrameRate
@@ -95,7 +103,7 @@ class DynamixelDriver:
     def write_value_by_name(self, name: str, values: Sequence[int | None]):
         if len(values) != len(self._ids):
             raise ValueError(f"The length of {name} must match the number of servos")
-        
+
         handler = self._groupSyncWriteHandlers[name]
         value_len = XL330_CONTROL_TABLE[name]["len"]
 
@@ -105,7 +113,7 @@ class DynamixelDriver:
                     continue
                 param = [(value >> (8 * i)) & 0xFF for i in range(value_len)]
                 handler.addParam(dxl_id, param)
-            
+
             comm_result = handler.txPacket()
             if comm_result != COMM_SUCCESS:
                 handler.clearParam()
@@ -121,7 +129,7 @@ class DynamixelDriver:
             comm_result = handler.txRxPacket()
             if comm_result != COMM_SUCCESS:
                 raise RuntimeError(f"Failed to sync read {name}: {self._packetHandler.getTxRxResult(comm_result)}")
-            
+
             values = []
             for dxl_id in self._ids:
                 if handler.isAvailable(dxl_id, addr, value_len):
@@ -177,6 +185,7 @@ class DynamixelDriver:
 
 # --- Gello Hardware Interface Logic ---
 
+
 @dataclass
 class GelloArmConfig:
     com_port: str = "/dev/ttyUSB0"
@@ -184,25 +193,14 @@ class GelloArmConfig:
     joint_signs: List[int] = field(default_factory=lambda: [1, -1, 1, -1, 1, 1, 1])
     gripper: bool = True
     gripper_range_rad: List[float] = field(default_factory=lambda: [2.23, 3.22])
-    assembly_offsets: List[float] = field(
-        default_factory=lambda: [0.000, 0.000, 3.142, 3.142, 3.142, 4.712, 0.000]
-    )
-    dynamixel_kp_p: List[int] = field(
-        default_factory=lambda: [30, 60, 0, 30, 0, 0, 0, 50]
-    )
-    dynamixel_kp_i: List[int] = field(
-        default_factory=lambda: [0, 0, 0, 0, 0, 0, 0, 0]
-    )
-    dynamixel_kp_d: List[int] = field(
-        default_factory=lambda: [250, 100, 80, 60, 30, 10, 5, 0]
-    )
-    dynamixel_torque_enable: List[int] = field(
-        default_factory=lambda: [0, 0, 0, 0, 0, 0, 0, 0]
-    )
+    assembly_offsets: List[float] = field(default_factory=lambda: [0.000, 0.000, 3.142, 3.142, 3.142, 4.712, 0.000])
+    dynamixel_kp_p: List[int] = field(default_factory=lambda: [30, 60, 0, 30, 0, 0, 0, 50])
+    dynamixel_kp_i: List[int] = field(default_factory=lambda: [0, 0, 0, 0, 0, 0, 0, 0])
+    dynamixel_kp_d: List[int] = field(default_factory=lambda: [250, 100, 80, 60, 30, 10, 5, 0])
+    dynamixel_torque_enable: List[int] = field(default_factory=lambda: [0, 0, 0, 0, 0, 0, 0, 0])
     dynamixel_goal_position: List[float] = field(
         default_factory=lambda: [0.0, 0.0, 0.0, -1.571, 0.0, 1.571, 0.0, 3.509]
     )
-
 
 
 @dataclass
@@ -289,8 +287,11 @@ class GelloHardware:
 
     @staticmethod
     def normalize_joint_positions(raw, offsets, signs):
-        return (np.mod((raw - offsets) * signs - GelloHardware.MID_JOINT_POSITIONS, 2 * np.pi) 
-                - np.pi + GelloHardware.MID_JOINT_POSITIONS)
+        return (
+            np.mod((raw - offsets) * signs - GelloHardware.MID_JOINT_POSITIONS, 2 * np.pi)
+            - np.pi
+            + GelloHardware.MID_JOINT_POSITIONS
+        )
 
     def _initialize_parameters(self):
         for name, value in self._dynamixel_control_config:
@@ -300,25 +301,29 @@ class GelloHardware:
     def get_joint_and_gripper_positions(self) -> Tuple[np.ndarray, float]:
         joints_raw = self._driver.get_joints()
         arm_joints_raw = joints_raw[: self._num_arm_joints]
-        
+
         arm_joints_delta = (arm_joints_raw - self._prev_arm_joints_raw) * self._joint_signs
         arm_joints = self._prev_arm_joints + arm_joints_delta
         self._prev_arm_joints = arm_joints.copy()
         self._prev_arm_joints_raw = arm_joints_raw.copy()
 
         arm_joints_clipped = np.clip(arm_joints, self.JOINT_POSITION_LIMITS[:, 0], self.JOINT_POSITION_LIMITS[:, 1])
-        
+
         gripper_pos = 0.0
         if self._gripper:
             raw_grp = joints_raw[-1]
-            gripper_pos = (raw_grp - self._gripper_range_rad[0]) / (self._gripper_range_rad[1] - self._gripper_range_rad[0])
+            gripper_pos = (raw_grp - self._gripper_range_rad[0]) / (
+                self._gripper_range_rad[1] - self._gripper_range_rad[0]
+            )
             gripper_pos = max(0.0, min(1.0, gripper_pos))
 
         return arm_joints_clipped, gripper_pos
 
     def _goal_position_to_pulses(self, goals):
         arm_goals = np.array(goals[: self._num_arm_joints])
-        initial_rotations = np.floor_divide(self._initial_arm_joints_raw - self._assembly_offsets - self.MID_JOINT_POSITIONS, 2 * np.pi)
+        initial_rotations = np.floor_divide(
+            self._initial_arm_joints_raw - self._assembly_offsets - self.MID_JOINT_POSITIONS, 2 * np.pi
+        )
         arm_goals_raw = (initial_rotations * 2 * np.pi + arm_goals + self._assembly_offsets) * self._joint_signs + np.pi
         goals_raw = np.append(arm_goals_raw, goals[-1]) if self._gripper else arm_goals_raw
         return [self._driver._rad_to_pulses(rad) for rad in goals_raw]
@@ -332,8 +337,6 @@ class GelloHardware:
 
 
 # --- RCS Operator Implementation ---
-
-
 
 
 class GelloOperator(BaseOperator):
@@ -353,7 +356,7 @@ class GelloOperator(BaseOperator):
         self._last_joints = {name: None for name in self.controller_names}
         self._last_gripper = {name: 1.0 for name in self.controller_names}
         self._hws: Dict[str, GelloHardware] = {}
-        
+
         if HAS_PYNPUT:
             self._listener = keyboard.Listener(on_press=self._on_press)
             self._listener.start()
@@ -427,6 +430,7 @@ class GelloOperator(BaseOperator):
             hw.close()
         if self.is_alive() and threading.current_thread() != self:
             self.join(timeout=1.0)
+
 
 @dataclass(kw_only=True)
 class GelloConfig(BaseOperatorConfig):

@@ -1,12 +1,19 @@
 import copy
-from dataclasses import dataclass
 import logging
 import threading
+from dataclasses import dataclass
 from time import sleep
 
 import numpy as np
-from rcs._core.common import Pose, RPY
-from rcs.envs.base import ArmWithGripper, ControlMode, GripperDictType, RelativeActionSpace, RelativeTo, TQuatDictType
+from rcs._core.common import RPY, Pose
+from rcs.envs.base import (
+    ArmWithGripper,
+    ControlMode,
+    GripperDictType,
+    RelativeActionSpace,
+    RelativeTo,
+    TQuatDictType,
+)
 from rcs.operator.interface import BaseOperator, BaseOperatorConfig, TeleopCommands
 from rcs.sim.sim import Sim
 from rcs.utils import SimpleFrameRate
@@ -16,6 +23,7 @@ try:
     from simpub.parser.simdata import SimObject, SimScene
     from simpub.sim.mj_publisher import MujocoPublisher
     from simpub.xr_device.meta_quest3 import MetaQuest3
+
     HAS_SIMPUB = True
 except ImportError:
     HAS_SIMPUB = False
@@ -29,6 +37,7 @@ logger = logging.getLogger(__name__)
 # adb install IRIS-Meta-Quest3.apk
 
 if HAS_SIMPUB:
+
     class FakeSimPublisher(SimPublisher):
         def get_update(self):
             return {}

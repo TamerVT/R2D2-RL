@@ -167,6 +167,7 @@ class ArmObsType(TQuatDictType, JointsDictType, TRPYDictType): ...
 CartOrJointContType: TypeAlias = TQuatDictType | JointsDictType | TRPYDictType
 LimitedCartOrJointContType: TypeAlias = LimitedTQuatRelDictType | LimitedJointsRelDictType | LimitedTRPYRelDictType
 
+
 class ArmWithGripper(TQuatDictType, GripperDictType): ...
 
 
@@ -312,7 +313,9 @@ class RobotEnv(gym.Env):
 class MultiRobotWrapper(gym.Env):
     """Wraps a dictionary of environments to allow for multi robot control."""
 
-    def __init__(self, envs: dict[str, gym.Env] | dict[str, gym.Wrapper], robot2world: dict[str, common.Pose] | None = None):
+    def __init__(
+        self, envs: dict[str, gym.Env] | dict[str, gym.Wrapper], robot2world: dict[str, common.Pose] | None = None
+    ):
         self.envs = envs
         self.unwrapped_multi = cast(dict[str, RobotEnv], {key: env.unwrapped for key, env in envs.items()})
         if robot2world is None:
