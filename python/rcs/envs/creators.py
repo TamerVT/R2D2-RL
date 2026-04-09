@@ -147,6 +147,7 @@ class SimMultiEnvCreator(RCSHardwareEnvCreator):
         max_relative_movement: float | tuple[float, float] | None = None,
         relative_to: RelativeTo = RelativeTo.LAST_STEP,
         sim_wrapper: Type[SimWrapper] | None = None,
+        robot2world: dict[str, rcs.common.Pose] | None = None,
     ) -> gym.Env:
 
         simulation = sim.Sim(robot_cfg.mjcf_scene_path, sim_cfg)
@@ -172,11 +173,11 @@ class SimMultiEnvCreator(RCSHardwareEnvCreator):
                 gripper = rcs.sim.SimGripper(simulation, cfg)
                 env = GripperWrapper(env, gripper, binary=True)
 
-            if max_relative_movement is not None:
+            if relative_to != RelativeTo.NONE:
                 env = RelativeActionSpace(env, max_mov=max_relative_movement, relative_to=relative_to)
             envs[key] = env
 
-        env = MultiRobotWrapper(envs)
+        env = MultiRobotWrapper(envs, robot2world)
         env = RobotSimWrapper(env, simulation, sim_wrapper)
         if cameras is not None:
             camera_set = typing.cast(

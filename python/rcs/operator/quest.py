@@ -39,12 +39,6 @@ if HAS_SIMPUB:
             self.root = SimObject(name="root")
 
 
-@dataclass(kw_only=True)
-class QuestConfig(BaseOperatorConfig):
-    include_rotation: bool = True
-    mq3_addr: str = "10.42.0.1"
-
-
 class QuestOperator(BaseOperator):
 
     control_mode = (ControlMode.CARTESIAN_TQuat, RelativeTo.CONFIGURED_ORIGIN)
@@ -77,9 +71,9 @@ class QuestOperator(BaseOperator):
 
         self._step_env = False
         self._set_frame = {key: Pose() for key in self.controller_names}
-        if self.config.simulation:
-            self._publisher = MujocoPublisher(self.sim.model, self.sim.data, self.config.mq3_addr, visible_geoms_groups=list(range(1, 3)))
-        else:
+        # if self.config.simulation:
+        #     self._publisher = MujocoPublisher(self.sim.model, self.sim.data, self.config.mq3_addr, visible_geoms_groups=list(range(1, 3)))
+        if not self.config.simulation:
             self._publisher = FakeSimPublisher(FakeSimScene(), self.config.mq3_addr)
             # robot_cfg = default_sim_robot_cfg("fr3_empty_world")
             # sim_cfg = SimConfig()
@@ -145,7 +139,7 @@ class QuestOperator(BaseOperator):
                 transforms[controller] = TQuatDictType(
                     tquat=np.concatenate([transform.translation(), transform.rotation_q()])
                 )
-                transforms[controller].update(GripperDictType(gripper=self._grp_pos[controller]))
+                transforms[controller].update(GripperDictType(gripper=np.array([self._grp_pos[controller]])))
         return transforms
 
     def close(self):
@@ -191,11 +185,11 @@ class QuestOperator(BaseOperator):
                     translation=np.array(input_data[controller]["pos"]),
                     quaternion=np.array(input_data[controller]["rot"]),
                 )
-                if controller == "left":
-                    last_controller_pose = (
-                        Pose(translation=np.array([0, 0, 0]), rpy=RPY(roll=0, pitch=0, yaw=np.deg2rad(180)))  # type: ignore
-                        * last_controller_pose
-                    )
+                # if controller == "left":
+                #     last_controller_pose = (
+                #         Pose(translation=np.array([0, 0, 0]), rpy=RPY(roll=0, pitch=0, yaw=np.deg2rad(180)))  # type: ignore
+                #         * last_controller_pose
+                #     )
 
                 if input_data[controller][self._trg_btn[controller]] and (
                     self._prev_data is None or not self._prev_data[controller][self._trg_btn[controller]]
@@ -232,3 +226,10 @@ class QuestOperator(BaseOperator):
 
             self._prev_data = input_data
             rate_limiter()
+
+
+@dataclass(kw_only=True)
+class QuestConfig(BaseOperatorConfig):
+    operator_class = QuestOperator
+    include_rotation: bool = True
+    mq3_addr: str = "10.42.0.1"

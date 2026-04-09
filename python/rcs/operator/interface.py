@@ -1,13 +1,17 @@
 from abc import ABC
 import copy
 from dataclasses import dataclass, field
+import logging
 import threading
+import time
 from time import sleep
 import gymnasium as gym
 
 from rcs.envs.base import ArmWithGripper, ControlMode, RelativeTo
 from rcs.sim.sim import Sim
 from rcs.utils import SimpleFrameRate
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -17,13 +21,8 @@ class TeleopCommands:
     record: bool = False
     success: bool = False
     failure: bool = False
+    sync_position: bool = False
     reset_origin_to_current: dict[str, bool] = field(default_factory=dict)
-
-
-@dataclass(kw_only=True)
-class BaseOperatorConfig:
-    read_frequency: int = 30
-    simulation: bool = True
 
 
 class BaseOperator(ABC, threading.Thread):
@@ -53,6 +52,11 @@ class BaseOperator(ABC, threading.Thread):
     def close(self):
         pass
 
+@dataclass(kw_only=True)
+class BaseOperatorConfig:
+    operator_class: BaseOperator
+    read_frequency: int = 30
+    simulation: bool = True
 
 class TeleopLoop:
     """Interface for an operator device"""
@@ -78,6 +82,9 @@ class TeleopLoop:
         else:
             self.key_translation = key_translation
 
+        # Absolute operators (RelativeTo.NONE) need an initial sync
+        self._synced = (self.operator.control_mode[1] != RelativeTo.NONE)
+
     def stop(self):
         self.operator.close()
         self._exit_requested = True
@@ -85,16 +92,32 @@ class TeleopLoop:
 
     def __enter__(self):
         self.operator.start()
+        # sleep(2)
         return self
 
     def __exit__(self, *_):
         self.stop()
 
     def _translate_keys(self, actions):
-        return {self.key_translation[key]: actions[key] for key in actions}
+        translated = {self.key_translation[key]: actions[key] for key in actions}
+        # Fill in missing robots with "hold" actions from last observation
+        # This is necessary because absolute environments (like MultiRobotWrapper)
+        # require actions for all configured robots in every step.
+        for robot_name in self.env.get_wrapper_attr("envs").keys():
+            if robot_name not in translated:
+                if robot_name in self._last_obs:
+                    translated[robot_name] = {
+                        "joints": self._last_obs[robot_name]["joints"].copy(),
+                        "gripper": self._last_obs[robot_name].get("gripper", 1.0)
+                    }
+        return translated
 
     def environment_step_loop(self):
         rate_limiter = SimpleFrameRate(self.env_frequency, "env loop")
+        
+        # 0. Initial Reset to get current positions for untracked robots
+        self._last_obs, _ = self.env.reset()
+
         while True:
             if self._exit_requested:
                 break
@@ -110,16 +133,40 @@ class TeleopLoop:
                 print("Command: Success! Resetting env...")
                 self.env.get_wrapper_attr("success")()
                 sleep(1)  # sleep to let the robot reach the goal
-                self.env.reset()
+                self._last_obs, _ = self.env.reset()
                 self.operator.reset_operator_state()
+                self._synced = (self.operator.control_mode[1] != RelativeTo.NONE)
                 # consume new commands because of potential origin reset
                 continue
 
             elif cmds.failure:
                 print("Command: Failure! Resetting env...")
-                self.env.reset()
+                self._last_obs, _ = self.env.reset()
                 self.operator.reset_operator_state()
+                self._synced = (self.operator.control_mode[1] != RelativeTo.NONE)
                 # consume new commands because of potential origin reset
+                continue
+
+            if cmds.sync_position:
+                self.sync_robot_to_operator()
+                self._synced = True
+                continue
+
+            if not self._synced:
+                # Still waiting for sync, step the env with "hold" actions
+                if int(time.time()) % 5 == 0 and int(time.time() * self.env_frequency) % self.env_frequency == 0:
+                    print("Waiting for sync... (Press 's' on GELLO/Keyboard to sync)")
+
+                hold_actions = {}
+                for robot_name in self.env.get_wrapper_attr("envs").keys():
+                    if robot_name in self._last_obs and "joints" in self._last_obs[robot_name]:
+                        hold_actions[robot_name] = {
+                            "joints": self._last_obs[robot_name]["joints"].copy(),
+                            "gripper": self._last_obs[robot_name].get("gripper", 1.0),
+                        }
+
+                self._last_obs, _, _, _, _ = self.env.step(hold_actions)
+                rate_limiter()
                 continue
 
             for controller in cmds.reset_origin_to_current:
@@ -136,6 +183,44 @@ class TeleopLoop:
             # 2. Step the Environment
             actions = self.operator.consume_action()
             actions = self._translate_keys(actions)
-            self.env.step(actions)
+            self._last_obs, _, _, _, _ = self.env.step(actions)
 
             rate_limiter()
+
+    def sync_robot_to_operator(self, duration: float = 3.0):
+        print(f"Command: Syncing robot to operator (duration: {duration}s)...")
+        rate_limiter = SimpleFrameRate(self.env_frequency, "sync loop")
+        num_steps = int(duration * self.env_frequency)
+
+        # 1. Capture the initial state for interpolation
+        start_obs = copy.deepcopy(self._last_obs)
+
+        # 2. Interpolation Loop
+        for i in range(num_steps):
+            alpha = (i + 1) / num_steps
+            # Re-consume operator action to follow moving target!
+            target_actions = self._translate_keys(self.operator.consume_action())
+
+            interp_actions = {}
+            for robot_name, target in target_actions.items():
+                try:
+                    # Interpolate from FIXED start towards MOVING target
+                    s_joints = start_obs[robot_name]["joints"]
+                    t_joints = target["joints"]
+                    interp_joints = s_joints + alpha * (t_joints - s_joints)
+
+                    s_gripper = start_obs[robot_name].get("gripper", 1.0)
+                    t_gripper = target.get("gripper", 1.0)
+                    interp_gripper = s_gripper + alpha * (t_gripper - s_gripper)
+
+                    interp_actions[robot_name] = {
+                        "joints": interp_joints,
+                        "gripper": interp_gripper,
+                    }
+                except (KeyError, TypeError):
+                    continue
+
+            self._last_obs, _, _, _, _ = self.env.step(interp_actions)
+            rate_limiter()
+
+        print("Sync Complete.")

@@ -17,6 +17,12 @@ try:
 except ImportError:
     HAS_DYNAMIXEL_SDK = False
 
+try:
+    from pynput import keyboard
+    HAS_PYNPUT = True
+except ImportError:
+    HAS_PYNPUT = False
+
 from rcs.envs.base import ArmWithGripper, ControlMode, RelativeTo, JointsDictType, GripperDictType
 from rcs.operator.interface import BaseOperator, BaseOperatorConfig, TeleopCommands
 from rcs.sim.sim import Sim
@@ -171,18 +177,32 @@ class DynamixelDriver:
 
 # --- Gello Hardware Interface Logic ---
 
-class GelloHardwareParams(TypedDict):
-    com_port: str
-    num_arm_joints: int
-    joint_signs: List[int]
-    gripper: bool
-    gripper_range_rad: List[float]
-    assembly_offsets: List[float]
-    dynamixel_kp_p: List[int]
-    dynamixel_kp_i: List[int]
-    dynamixel_kp_d: List[int]
-    dynamixel_torque_enable: List[int]
-    dynamixel_goal_position: List[float]
+@dataclass
+class GelloArmConfig:
+    com_port: str = "/dev/ttyUSB0"
+    num_arm_joints: int = 7
+    joint_signs: List[int] = field(default_factory=lambda: [1, -1, 1, -1, 1, 1, 1])
+    gripper: bool = True
+    gripper_range_rad: List[float] = field(default_factory=lambda: [2.23, 3.22])
+    assembly_offsets: List[float] = field(
+        default_factory=lambda: [0.000, 0.000, 3.142, 3.142, 3.142, 4.712, 0.000]
+    )
+    dynamixel_kp_p: List[int] = field(
+        default_factory=lambda: [30, 60, 0, 30, 0, 0, 0, 50]
+    )
+    dynamixel_kp_i: List[int] = field(
+        default_factory=lambda: [0, 0, 0, 0, 0, 0, 0, 0]
+    )
+    dynamixel_kp_d: List[int] = field(
+        default_factory=lambda: [250, 100, 80, 60, 30, 10, 5, 0]
+    )
+    dynamixel_torque_enable: List[int] = field(
+        default_factory=lambda: [0, 0, 0, 0, 0, 0, 0, 0]
+    )
+    dynamixel_goal_position: List[float] = field(
+        default_factory=lambda: [0.0, 0.0, 0.0, -1.571, 0.0, 1.571, 0.0, 3.509]
+    )
+
 
 
 @dataclass
@@ -233,14 +253,14 @@ class GelloHardware:
     OPERATING_MODE = 5
     CURRENT_LIMIT = 600
 
-    def __init__(self, config: GelloHardwareParams):
-        self._com_port = config["com_port"]
-        self._num_arm_joints = config["num_arm_joints"]
-        self._joint_signs = np.array(config["joint_signs"])
-        self._gripper = config["gripper"]
+    def __init__(self, config: GelloArmConfig):
+        self._com_port = config.com_port
+        self._num_arm_joints = config.num_arm_joints
+        self._joint_signs = np.array(config.joint_signs)
+        self._gripper = config.gripper
         self._num_total_joints = self._num_arm_joints + (1 if self._gripper else 0)
-        self._gripper_range_rad = config["gripper_range_rad"]
-        self._assembly_offsets = np.array(config["assembly_offsets"])
+        self._gripper_range_rad = config.gripper_range_rad
+        self._assembly_offsets = np.array(config.assembly_offsets)
 
         self._driver = DynamixelDriver(
             ids=list(range(1, self._num_total_joints + 1)),
@@ -255,11 +275,11 @@ class GelloHardware:
         self._prev_arm_joints = initial_arm_joints.copy()
 
         self._dynamixel_control_config = DynamixelControlConfig(
-            kp_p=config["dynamixel_kp_p"].copy(),
-            kp_i=config["dynamixel_kp_i"].copy(),
-            kp_d=config["dynamixel_kp_d"].copy(),
-            torque_enable=config["dynamixel_torque_enable"].copy(),
-            goal_position=self._goal_position_to_pulses(config["dynamixel_goal_position"]).copy(),
+            kp_p=config.dynamixel_kp_p.copy(),
+            kp_i=config.dynamixel_kp_i.copy(),
+            kp_d=config.dynamixel_kp_d.copy(),
+            torque_enable=config.dynamixel_torque_enable.copy(),
+            goal_position=self._goal_position_to_pulses(config.dynamixel_goal_position).copy(),
             goal_current=[self.CURRENT_LIMIT] * self._num_total_joints,
             operating_mode=[self.OPERATING_MODE] * self._num_total_joints,
         )
@@ -313,23 +333,7 @@ class GelloHardware:
 
 # --- RCS Operator Implementation ---
 
-@dataclass(kw_only=True)
-class GelloConfig(BaseOperatorConfig):
-    # Single arm defaults (used if 'arms' is empty)
-    com_port: str = "/dev/ttyUSB0"
-    num_arm_joints: int = 7
-    joint_signs: List[int] = field(default_factory=lambda: [1] * 7)
-    gripper: bool = True
-    gripper_range_rad: List[float] = field(default_factory=lambda: [0.0, 0.0]) # Needs calibration
-    assembly_offsets: List[float] = field(default_factory=lambda: [0.0] * 7)
-    dynamixel_kp_p: List[int] = field(default_factory=lambda: [800] * 8)
-    dynamixel_kp_i: List[int] = field(default_factory=lambda: [0] * 8)
-    dynamixel_kp_d: List[int] = field(default_factory=lambda: [0] * 8)
-    dynamixel_torque_enable: List[int] = field(default_factory=lambda: [0] * 8)
-    dynamixel_goal_position: List[float] = field(default_factory=lambda: [0.0] * 8)
 
-    # Dictionary for multi-arm setups: {"left": {"com_port": "/dev/..."}, "right": {...}}
-    arms: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
 
 class GelloOperator(BaseOperator):
@@ -340,18 +344,33 @@ class GelloOperator(BaseOperator):
         self.config: GelloConfig
         self._resource_lock = threading.Lock()
         self._cmd_lock = threading.Lock()
-        
+
         self._exit_requested = False
         self._commands = TeleopCommands()
-        
-        if self.config.arms:
-            self.controller_names = list(self.config.arms.keys())
-        else:
-            self.controller_names = ["right"]
+
+        self.controller_names = list(self.config.arms.keys())
 
         self._last_joints = {name: None for name in self.controller_names}
         self._last_gripper = {name: 1.0 for name in self.controller_names}
         self._hws: Dict[str, GelloHardware] = {}
+        
+        if HAS_PYNPUT:
+            self._listener = keyboard.Listener(on_press=self._on_press)
+            self._listener.start()
+        else:
+            logger.warning("pynput not found. Keyboard triggers disabled.")
+
+    def _on_press(self, key):
+        try:
+            if hasattr(key, "char"):
+                if key.char == "s":
+                    with self._cmd_lock:
+                        self._commands.sync_position = True
+                elif key.char == "r":
+                    with self._cmd_lock:
+                        self._commands.failure = True
+        except AttributeError:
+            pass
 
     def consume_commands(self) -> TeleopCommands:
         with self._cmd_lock:
@@ -370,35 +389,15 @@ class GelloOperator(BaseOperator):
                 if self._last_joints[name] is not None:
                     actions[name] = {
                         "joints": self._last_joints[name].copy(),
-                        "gripper": self._last_gripper[name]
+                        "gripper": np.array([self._last_gripper[name]]),
                     }
         return actions
 
     def run(self):
-        # Prepare hardware parameters for each arm
-        arms_to_init = self.config.arms if self.config.arms else {"right": {}}
-        
-        arm_configs = {}
-        for name, cfg in arms_to_init.items():
-            # Merge with top-level defaults for any missing keys
-            arm_configs[name] = {
-                "com_port": cfg.get("com_port", self.config.com_port),
-                "num_arm_joints": cfg.get("num_arm_joints", self.config.num_arm_joints),
-                "joint_signs": cfg.get("joint_signs", self.config.joint_signs),
-                "gripper": cfg.get("gripper", self.config.gripper),
-                "gripper_range_rad": cfg.get("gripper_range_rad", self.config.gripper_range_rad),
-                "assembly_offsets": cfg.get("assembly_offsets", self.config.assembly_offsets),
-                "dynamixel_kp_p": cfg.get("dynamixel_kp_p", self.config.dynamixel_kp_p),
-                "dynamixel_kp_i": cfg.get("dynamixel_kp_i", self.config.dynamixel_kp_i),
-                "dynamixel_kp_d": cfg.get("dynamixel_kp_d", self.config.dynamixel_kp_d),
-                "dynamixel_torque_enable": cfg.get("dynamixel_torque_enable", self.config.dynamixel_torque_enable),
-                "dynamixel_goal_position": cfg.get("dynamixel_goal_position", self.config.dynamixel_goal_position),
-            }
-
         # Initialize all hardware instances
-        for name, params in arm_configs.items():
+        for name, arm_cfg in self.config.arms.items():
             try:
-                self._hws[name] = GelloHardware(params)
+                self._hws[name] = GelloHardware(arm_cfg)
             except Exception as e:
                 logger.error(f"Failed to initialize GELLO hardware for {name}: {e}")
 
@@ -407,7 +406,7 @@ class GelloOperator(BaseOperator):
             return
 
         rate_limiter = SimpleFrameRate(self.config.read_frequency, "gello readout")
-        
+
         while not self._exit_requested:
             for name, hw in self._hws.items():
                 try:
@@ -417,11 +416,20 @@ class GelloOperator(BaseOperator):
                         self._last_gripper[name] = gripper
                 except Exception as e:
                     logger.warning(f"Error reading GELLO {name}: {e}")
-            
+
             rate_limiter()
 
     def close(self):
         self._exit_requested = True
+        if HAS_PYNPUT and hasattr(self, "_listener"):
+            self._listener.stop()
         for hw in self._hws.values():
             hw.close()
-        self.join()
+        if self.is_alive() and threading.current_thread() != self:
+            self.join(timeout=1.0)
+
+@dataclass(kw_only=True)
+class GelloConfig(BaseOperatorConfig):
+    operator_class = GelloOperator
+    # Dictionary for multi-arm setups: {"left": GelloArmConfig(...), "right": GelloArmConfig(...)}
+    arms: Dict[str, GelloArmConfig] = field(default_factory=lambda: {"right": GelloArmConfig()})
