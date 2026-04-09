@@ -241,7 +241,7 @@ class CollisionGuard(gym.Wrapper[dict[str, Any], dict[str, Any], dict[str, Any],
         env: gym.Env,
         mjmld: str,
         cg_kinematics_path: str,
-        id: str = "0",
+        id: str = "_0",
         gripper: bool = True,
         hand: bool = False,
         check_home_collision: bool = True,
@@ -273,13 +273,13 @@ class CollisionGuard(gym.Wrapper[dict[str, Any], dict[str, Any], dict[str, Any],
         c_env = RobotSimWrapper(c_env, simulation)
         if gripper:
             gripper_cfg = sim.SimGripperConfig()
-            gripper_cfg.add_id(id)
+            gripper_cfg.add_postfix(id)
             fh = sim.SimGripper(simulation, gripper_cfg)
             c_env = GripperWrapper(c_env, fh)
             c_env = GripperWrapperSim(c_env, fh)
         if hand:
             hand_cfg = default_sim_tilburg_hand_cfg()
-            # hand_cfg.add_id(id)
+            # hand_cfg.add_postfix(id)
             th = sim.SimTilburgHand(simulation, hand_cfg)
             c_env = HandWrapper(c_env, th)
             c_env = HandWrapperSim(c_env, th)

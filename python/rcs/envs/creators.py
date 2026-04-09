@@ -161,7 +161,7 @@ class SimMultiEnvCreator(RCSHardwareEnvCreator):
         robots: dict[str, rcs.sim.SimRobot] = {}
         for key, mid in name2id.items():
             cfg = copy.copy(robot_cfg)
-            cfg.add_id(mid)
+            cfg.add_postfix("_" + mid)
             robots[key] = rcs.sim.SimRobot(sim=simulation, ik=ik, cfg=cfg)
 
         envs = {}
@@ -169,7 +169,7 @@ class SimMultiEnvCreator(RCSHardwareEnvCreator):
             env: gym.Env = RobotEnv(robots[key], control_mode)
             if gripper_cfg is not None:
                 gripper_cfg_copy = copy.copy(gripper_cfg)
-                gripper_cfg_copy.add_id(mid)
+                gripper_cfg_copy.add_postfix("_" + mid)
                 gripper = rcs.sim.SimGripper(simulation, gripper_cfg_copy)
                 env = GripperWrapper(env, gripper, binary=True)
 
@@ -331,7 +331,7 @@ class FR3LabDigitGripperPickUpSimEnvCreator(EnvCreator):
             rotation=np.array([[0.707, 0.707, 0], [-0.707, 0.707, 0], [0, 0, 1]]),  # type: ignore
         )
         robot_cfg.robot_type = rcs.common.RobotType.FR3
-        robot_cfg.add_id("0")  # only required for fr3
+        robot_cfg.add_postfix("_0")  # only required for fr3
         robot_cfg.mjcf_scene_path = mjcf_path
         robot_cfg.kinematic_model_path = rcs.scenes["fr3_empty_world"].mjcf_robot  # .urdf (in case for urdf)
         print(
