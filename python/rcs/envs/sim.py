@@ -39,9 +39,9 @@ class RobotSimWrapper(gym.Wrapper):
         if sim_wrapper is not None:
             env = sim_wrapper(env, simulation)
         super().__init__(env)
-        # self.unwrapped: RobotEnv
-        # assert isinstance(self.unwrapped.robot, sim.SimRobot), "Robot must be a sim.SimRobot instance."
-        # self.sim_robot = cast(sim.SimRobot, self.unwrapped.robot)
+        self.unwrapped: RobotEnv
+        assert isinstance(self.unwrapped.robot, sim.SimRobot), "Robot must be a sim.SimRobot instance."
+        self.sim_robot = cast(sim.SimRobot, self.unwrapped.robot)
         self.sim = simulation
         cfg = self.sim.get_config()
         self.frame_rate = SimpleFrameRate(1 / cfg.frequency, "RobotSimWrapper")
@@ -56,19 +56,19 @@ class RobotSimWrapper(gym.Wrapper):
                 self.frame_rate()
 
         else:
-            # self.sim_robot.clear_collision_flag()
+            self.sim_robot.clear_collision_flag()
             self.sim.step_until_convergence()
-        # state = self.sim_robot.get_state()
-        # if "collision" not in info:
-        # info["collision"] = state.collision
-        # else:
-        # info["collision"] = info["collision"] or state.collision
-        # info["ik_success"] = state.ik_success
+        state = self.sim_robot.get_state()
+        if "collision" not in info:
+            info["collision"] = state.collision
+        else:
+            info["collision"] = info["collision"] or state.collision
+        info["ik_success"] = state.ik_success
         info["is_sim_converged"] = self.sim.is_converged()
         # truncate episode if collision
-        # obs.update(self.unwrapped.get_obs())
-        # return obs, 0, False, info["collision"] or not state.ik_success, info
-        return obs, 0, False, False, info
+        obs.update(self.unwrapped.get_obs())
+        return obs, 0, False, info["collision"] or not state.ik_success, info
+        # return obs, 0, False, False, info
 
     def reset(
         self, *, seed: int | None = None, options: dict[str, Any] | None = None
@@ -77,7 +77,7 @@ class RobotSimWrapper(gym.Wrapper):
         obs, info = super().reset(seed=seed, options=options)
         self.sim.step(1)
         # todo: an obs method that is recursive over wrappers would be needed
-        # obs.update(self.unwrapped.get_obs())
+        obs.update(self.unwrapped.get_obs())
         return obs, info
 
 

@@ -37,11 +37,9 @@ def default_tilburg_hw_hand_cfg(file: str | PathLike | None = None) -> THConfig:
     return hand_cfg
 
 
-def default_sim_gripper_cfg(_idx: str = "0") -> sim.SimGripperConfig:
+def default_sim_gripper_cfg(idx: str = "0") -> sim.SimGripperConfig:
     cfg = sim.SimGripperConfig()
-    cfg.collision_geoms = []
-    cfg.collision_geoms_fingers = []
-    # cfg.add_id(idx)
+    cfg.add_id(idx)
     return cfg
 
 
