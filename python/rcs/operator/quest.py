@@ -1,19 +1,12 @@
 import copy
 import logging
 import threading
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from time import sleep
 
 import numpy as np
-from rcs._core.common import RPY, Pose
-from rcs.envs.base import (
-    ArmWithGripper,
-    ControlMode,
-    GripperDictType,
-    RelativeActionSpace,
-    RelativeTo,
-    TQuatDictType,
-)
+from rcs._core.common import Pose
+from rcs.envs.base import ArmWithGripper, ControlMode, RelativeTo
 from rcs.operator.interface import BaseOperator, BaseOperatorConfig, TeleopCommands
 from rcs.sim.sim import Sim
 from rcs.utils import SimpleFrameRate
@@ -21,7 +14,6 @@ from rcs.utils import SimpleFrameRate
 try:
     from simpub.core.simpub_server import SimPublisher
     from simpub.parser.simdata import SimObject, SimScene
-    from simpub.sim.mj_publisher import MujocoPublisher
     from simpub.xr_device.meta_quest3 import MetaQuest3
 
     HAS_SIMPUB = True
@@ -51,12 +43,13 @@ if HAS_SIMPUB:
 class QuestOperator(BaseOperator):
 
     control_mode = (ControlMode.CARTESIAN_TQuat, RelativeTo.CONFIGURED_ORIGIN)
-    controller_names = ["left", "right"]
+    controller_names: list[str] = ["left", "right"]  # noqa: RUF012
 
-    def __init__(self, config: QuestConfig, sim: Sim | None = None):
+    def __init__(self, config: "QuestConfig", sim: Sim | None = None):
         super().__init__(config, sim)
         if not HAS_SIMPUB:
-            raise ImportError("simpub is not installed. Please install it to use QuestOperator.")
+            msg = "simpub is not installed. Please install it to use QuestOperator."
+            raise ImportError(msg)
 
         self.config: QuestConfig
 
@@ -145,10 +138,10 @@ class QuestOperator(BaseOperator):
                 transform = set_axes.inverse() * transform * set_axes
                 if not self.config.include_rotation:
                     transform = Pose(translation=transform.translation())  # identity rotation
-                transforms[controller] = TQuatDictType(
-                    tquat=np.concatenate([transform.translation(), transform.rotation_q()])
+                transforms[controller] = ArmWithGripper(
+                    tquat=np.concatenate([transform.translation(), transform.rotation_q()]),
+                    gripper=np.array([self._grp_pos[controller]]),
                 )
-                transforms[controller].update(GripperDictType(gripper=np.array([self._grp_pos[controller]])))
         return transforms
 
     def close(self):
@@ -239,6 +232,6 @@ class QuestOperator(BaseOperator):
 
 @dataclass(kw_only=True)
 class QuestConfig(BaseOperatorConfig):
-    operator_class = QuestOperator
+    operator_class: type[BaseOperator] = field(default=QuestOperator)
     include_rotation: bool = True
     mq3_addr: str = "10.42.0.1"

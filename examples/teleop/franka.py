@@ -1,26 +1,17 @@
 import logging
-import threading
-from time import sleep
+from typing import Any
 
 import numpy as np
 from rcs._core import common
-from rcs._core.common import RPY, Pose, RobotPlatform
+from rcs._core.common import RobotPlatform
 from rcs._core.sim import SimConfig
 from rcs.camera.hw import HardwareCameraSet
-from rcs.envs.base import (
-    ControlMode,
-    GripperDictType,
-    LimitedTQuatRelDictType,
-    RelativeActionSpace,
-    RelativeTo,
-)
+from rcs.envs.base import ControlMode
 from rcs.envs.creators import SimMultiEnvCreator
-from rcs.envs.storage_wrapper import StorageWrapper
 from rcs.envs.utils import default_digit, default_sim_gripper_cfg, default_sim_robot_cfg
-from rcs.operator.gello import GelloArmConfig, GelloConfig, GelloOperator
+from rcs.operator.gello import GelloConfig, GelloOperator
 from rcs.operator.interface import TeleopLoop
 from rcs.operator.quest import QuestConfig, QuestOperator
-from rcs.utils import SimpleFrameRate
 from rcs_fr3.creators import RCSFR3MultiEnvCreator
 from rcs_fr3.utils import default_fr3_hw_gripper_cfg, default_fr3_hw_robot_cfg
 from rcs_realsense.utils import default_realsense
@@ -66,10 +57,15 @@ DATASET_PATH = "test_data_iris_dual_arm14"
 INSTRUCTION = "build a tower with the blocks in front of you"
 
 robot2world = {
-    "right": rcs.common.Pose(translation=[0, 0, 0], rpy_vector=[0.89360858, -0.17453293, 0.46425758]),
-    "left": rcs.common.Pose(translation=[0, 0, 0], rpy_vector=[-0.89360858, -0.17453293, -0.46425758]),
+    "right": rcs.common.Pose(
+        translation=np.array([0, 0, 0]), rpy_vector=np.array([0.89360858, -0.17453293, 0.46425758])
+    ),
+    "left": rcs.common.Pose(
+        translation=np.array([0, 0, 0]), rpy_vector=np.array([-0.89360858, -0.17453293, -0.46425758])
+    ),
 }
 
+config: QuestConfig | GelloConfig
 config = QuestConfig(mq3_addr=MQ3_ADDR, simulation=ROBOT_INSTANCE == RobotPlatform.SIMULATION)
 # config = GelloConfig(
 #     arms={
@@ -83,7 +79,7 @@ config = QuestConfig(mq3_addr=MQ3_ADDR, simulation=ROBOT_INSTANCE == RobotPlatfo
 def get_env():
     if ROBOT_INSTANCE == RobotPlatform.HARDWARE:
 
-        cams = []
+        cams: list[Any] = []
         if CAMERA_DICT is not None:
             cams.append(default_realsense(CAMERA_DICT))
         if DIGIT_DICT is not None:

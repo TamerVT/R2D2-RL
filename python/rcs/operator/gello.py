@@ -1,9 +1,10 @@
+import contextlib
 import copy
 import logging
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterator, List, Optional, Sequence, Tuple, TypedDict
+from typing import Any, ClassVar, Dict, Iterator, List, Sequence, Tuple
 
 import numpy as np
 
@@ -25,13 +26,7 @@ try:
 except ImportError:
     HAS_PYNPUT = False
 
-from rcs.envs.base import (
-    ArmWithGripper,
-    ControlMode,
-    GripperDictType,
-    JointsDictType,
-    RelativeTo,
-)
+from rcs.envs.base import ControlMode, RelativeTo
 from rcs.operator.interface import BaseOperator, BaseOperatorConfig, TeleopCommands
 from rcs.sim.sim import Sim
 from rcs.utils import SimpleFrameRate
@@ -64,14 +59,15 @@ class DynamixelDriver:
         pulses_per_revolution: int = 4095,
     ):
         if not HAS_DYNAMIXEL_SDK:
-            raise ImportError("dynamixel_sdk is not installed. Please install it to use GelloOperator.")
+            msg = "dynamixel_sdk is not installed. Please install it to use GelloOperator."
+            raise ImportError(msg)
 
         self._ids = ids
         self._port = port
         self._baudrate = baudrate
         self._pulses_per_revolution = pulses_per_revolution
         self._lock = threading.Lock()
-        self._buffered_joint_positions = None
+        self._buffered_joint_positions: np.ndarray | None = None
 
         self._portHandler = PortHandler(self._port)
         self._packetHandler = PacketHandler(2.0)
@@ -86,29 +82,32 @@ class DynamixelDriver:
             for dxl_id in self._ids:
                 self._groupSyncReadHandlers[key].addParam(dxl_id)
 
-            if key != "model_number" and key != "present_position":
+            if key not in {"model_number", "present_position"}:
                 self._groupSyncWriteHandlers[key] = GroupSyncWrite(
                     self._portHandler, self._packetHandler, entry["addr"], entry["len"]
                 )
 
         if not self._portHandler.openPort():
-            raise ConnectionError(f"Failed to open port {self._port}")
+            msg = f"Failed to open port {self._port}"
+            raise ConnectionError(msg)
         if not self._portHandler.setBaudRate(self._baudrate):
-            raise ConnectionError(f"Failed to set baudrate {self._baudrate}")
+            msg = f"Failed to set baudrate {self._baudrate}"
+            raise ConnectionError(msg)
 
         self._stop_thread = threading.Event()
-        self._polling_thread = None
+        self._polling_thread: threading.Thread | None = None
         self._is_polling = False
 
     def write_value_by_name(self, name: str, values: Sequence[int | None]):
         if len(values) != len(self._ids):
-            raise ValueError(f"The length of {name} must match the number of servos")
+            msg = f"The length of {name} must match the number of servos"
+            raise ValueError(msg)
 
         handler = self._groupSyncWriteHandlers[name]
         value_len = XL330_CONTROL_TABLE[name]["len"]
 
         with self._lock:
-            for dxl_id, value in zip(self._ids, values):
+            for dxl_id, value in zip(self._ids, values, strict=False):
                 if value is None:
                     continue
                 param = [(value >> (8 * i)) & 0xFF for i in range(value_len)]
@@ -117,7 +116,8 @@ class DynamixelDriver:
             comm_result = handler.txPacket()
             if comm_result != COMM_SUCCESS:
                 handler.clearParam()
-                raise RuntimeError(f"Failed to syncwrite {name}: {self._packetHandler.getTxRxResult(comm_result)}")
+                msg = f"Failed to syncwrite {name}: {self._packetHandler.getTxRxResult(comm_result)}"
+                raise RuntimeError(msg)
             handler.clearParam()
 
     def read_value_by_name(self, name: str) -> List[int]:
@@ -128,7 +128,8 @@ class DynamixelDriver:
         with self._lock:
             comm_result = handler.txRxPacket()
             if comm_result != COMM_SUCCESS:
-                raise RuntimeError(f"Failed to sync read {name}: {self._packetHandler.getTxRxResult(comm_result)}")
+                msg = f"Failed to sync read {name}: {self._packetHandler.getTxRxResult(comm_result)}"
+                raise RuntimeError(msg)
 
             values = []
             for dxl_id in self._ids:
@@ -137,7 +138,8 @@ class DynamixelDriver:
                     value = int(np.int32(np.uint32(value)))
                     values.append(value)
                 else:
-                    raise RuntimeError(f"Failed to get {name} for ID {dxl_id}")
+                    msg = f"Failed to get {name} for ID {dxl_id}"
+                    raise RuntimeError(msg)
             return values
 
     def start_joint_polling(self):
@@ -213,7 +215,7 @@ class DynamixelControlConfig:
     goal_current: List[int] = field(default_factory=list)
     operating_mode: List[int] = field(default_factory=list)
 
-    _UPDATE_ORDER = [
+    _UPDATE_ORDER: ClassVar[list[str]] = [
         "operating_mode",
         "goal_current",
         "kp_p",
@@ -329,10 +331,8 @@ class GelloHardware:
         return [self._driver._rad_to_pulses(rad) for rad in goals_raw]
 
     def close(self):
-        try:
+        with contextlib.suppress(Exception):
             self._driver.write_value_by_name("torque_enable", [0] * self._num_total_joints)
-        except:
-            pass
         self._driver.close()
 
 
@@ -342,7 +342,7 @@ class GelloHardware:
 class GelloOperator(BaseOperator):
     control_mode = (ControlMode.JOINTS, RelativeTo.NONE)
 
-    def __init__(self, config: GelloConfig, sim: Sim | None = None):
+    def __init__(self, config: "GelloConfig", sim: Sim | None = None):
         super().__init__(config, sim)
         self.config: GelloConfig
         self._resource_lock = threading.Lock()
@@ -353,7 +353,7 @@ class GelloOperator(BaseOperator):
 
         self.controller_names = list(self.config.arms.keys())
 
-        self._last_joints = {name: None for name in self.controller_names}
+        self._last_joints: Dict[str, np.ndarray | None] = {name: None for name in self.controller_names}
         self._last_gripper = {name: 1.0 for name in self.controller_names}
         self._hws: Dict[str, GelloHardware] = {}
 
@@ -386,12 +386,13 @@ class GelloOperator(BaseOperator):
         pass
 
     def consume_action(self) -> Dict[str, Any]:
-        actions = {}
+        actions: Dict[str, Any] = {}
         with self._resource_lock:
             for name in self.controller_names:
-                if self._last_joints[name] is not None:
+                joints = self._last_joints[name]
+                if joints is not None:
                     actions[name] = {
-                        "joints": self._last_joints[name].copy(),
+                        "joints": joints.copy(),
                         "gripper": np.array([self._last_gripper[name]]),
                     }
         return actions
@@ -434,6 +435,6 @@ class GelloOperator(BaseOperator):
 
 @dataclass(kw_only=True)
 class GelloConfig(BaseOperatorConfig):
-    operator_class = GelloOperator
+    operator_class: type[BaseOperator] = field(default=GelloOperator)
     # Dictionary for multi-arm setups: {"left": GelloArmConfig(...), "right": GelloArmConfig(...)}
     arms: Dict[str, GelloArmConfig] = field(default_factory=lambda: {"right": GelloArmConfig()})

@@ -12,6 +12,7 @@ from rcs.camera.interface import BaseCameraSet
 from rcs.envs.space_utils import (
     ActObsInfoWrapper,
     RCSpaceType,
+    Vec1Type,
     Vec6Type,
     Vec7Type,
     Vec18Type,
@@ -99,12 +100,12 @@ class LimitedJointsRelDictType(RCSpaceType):
 
 class GripperDictType(RCSpaceType):
     # 0 for closed, 1 for open (>=0.5 for open)
-    gripper: Annotated[float, gym.spaces.Box(low=0, high=1, dtype=np.float32)]
+    gripper: Annotated[Vec1Type, gym.spaces.Box(low=0, high=1, shape=(1,), dtype=np.float32)]
 
 
 class HandBinDictType(RCSpaceType):
     # 0 for closed, 1 for open (>=0.5 for open)
-    gripper: Annotated[float, gym.spaces.Box(low=0, high=1, dtype=np.float32)]
+    gripper: Annotated[Vec1Type, gym.spaces.Box(low=0, high=1, shape=(1,), dtype=np.float32)]
 
 
 class HandVecDictType(RCSpaceType):

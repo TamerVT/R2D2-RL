@@ -11,7 +11,8 @@ class FootPedal:
         self.device_path = self._find_device(device_name_substring)
 
         if not self.device_path:
-            raise FileNotFoundError(f"Could not find a device matching '{device_name_substring}'")
+            msg = f"Could not find a device matching '{device_name_substring}'"
+            raise FileNotFoundError(msg)
 
         self.device = evdev.InputDevice(self.device_path)
         self.device.grab()  # Prevent events from leaking into the OS/terminal
@@ -45,17 +46,18 @@ class FootPedal:
                 if event.type == ecodes.EV_KEY:
                     key_event = evdev.categorize(event)
 
-                    with self._lock:
-                        # keystate: 1 is DOWN, 2 is HOLD, 0 is UP
-                        is_pressed = key_event.keystate in [1, 2]
+                    if isinstance(key_event, evdev.KeyEvent):
+                        with self._lock:
+                            # keystate: 1 is DOWN, 2 is HOLD, 0 is UP
+                            is_pressed = key_event.keystate in [1, 2]
 
-                        # Store state using the string name of the key (e.g., 'KEY_A')
-                        # If a key resolves to a list (rare, but happens in evdev), take the first one
-                        key_name = key_event.keycode
-                        if isinstance(key_name, list):
-                            key_name = key_name[0]
+                            # Store state using the string name of the key (e.g., 'KEY_A')
+                            # If a key resolves to a list (rare, but happens in evdev), take the first one
+                            key_name = key_event.keycode
+                            if isinstance(key_name, list):
+                                key_name = key_name[0]
 
-                        self._key_states[key_name] = is_pressed
+                            self._key_states[key_name] = is_pressed
 
         except OSError:
             pass  # Device disconnected or closed

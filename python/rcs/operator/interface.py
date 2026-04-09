@@ -27,9 +27,9 @@ class TeleopCommands:
 
 class BaseOperator(ABC, threading.Thread):
     control_mode: tuple[ControlMode, RelativeTo]
-    controller_names: list[str] = field(default=["left", "right"])
+    controller_names: list[str]
 
-    def __init__(self, config: BaseOperatorConfig, sim: Sim | None = None):
+    def __init__(self, config: "BaseOperatorConfig", sim: Sim | None = None):
         threading.Thread.__init__(self)
         self.config = config
         self.sim = sim
@@ -55,7 +55,7 @@ class BaseOperator(ABC, threading.Thread):
 
 @dataclass(kw_only=True)
 class BaseOperatorConfig:
-    operator_class: BaseOperator
+    operator_class: type[BaseOperator]
     read_frequency: int = 30
     simulation: bool = True
 
@@ -105,13 +105,12 @@ class TeleopLoop:
         # Fill in missing robots with "hold" actions from last observation
         # This is necessary because absolute environments (like MultiRobotWrapper)
         # require actions for all configured robots in every step.
-        for robot_name in self.env.get_wrapper_attr("envs").keys():
-            if robot_name not in translated:
-                if robot_name in self._last_obs:
-                    translated[robot_name] = {
-                        "joints": self._last_obs[robot_name]["joints"].copy(),
-                        "gripper": self._last_obs[robot_name].get("gripper", 1.0),
-                    }
+        for robot_name in self.env.get_wrapper_attr("envs"):
+            if robot_name not in translated and robot_name in self._last_obs:
+                translated[robot_name] = {
+                    "joints": self._last_obs[robot_name]["joints"].copy(),
+                    "gripper": self._last_obs[robot_name].get("gripper", 1.0),
+                }
         return translated
 
     def environment_step_loop(self):
@@ -141,7 +140,7 @@ class TeleopLoop:
                 # consume new commands because of potential origin reset
                 continue
 
-            elif cmds.failure:
+            if cmds.failure:
                 print("Command: Failure! Resetting env...")
                 self._last_obs, _ = self.env.reset()
                 self.operator.reset_operator_state()
@@ -160,7 +159,7 @@ class TeleopLoop:
                     print("Waiting for sync... (Press 's' on GELLO/Keyboard to sync)")
 
                 hold_actions = {}
-                for robot_name in self.env.get_wrapper_attr("envs").keys():
+                for robot_name in self.env.get_wrapper_attr("envs"):
                     if robot_name in self._last_obs and "joints" in self._last_obs[robot_name]:
                         hold_actions[robot_name] = {
                             "joints": self._last_obs[robot_name]["joints"].copy(),

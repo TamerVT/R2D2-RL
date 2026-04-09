@@ -168,9 +168,9 @@ class SimMultiEnvCreator(RCSHardwareEnvCreator):
         for key, mid in name2id.items():
             env: gym.Env = RobotEnv(robots[key], control_mode)
             if gripper_cfg is not None:
-                cfg = copy.copy(gripper_cfg)
-                cfg.add_id(mid)
-                gripper = rcs.sim.SimGripper(simulation, cfg)
+                gripper_cfg_copy = copy.copy(gripper_cfg)
+                gripper_cfg_copy.add_id(mid)
+                gripper = rcs.sim.SimGripper(simulation, gripper_cfg_copy)
                 env = GripperWrapper(env, gripper, binary=True)
 
             if relative_to != RelativeTo.NONE:

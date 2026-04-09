@@ -20,9 +20,9 @@ def default_sim_robot_cfg(scene: str = "fr3_empty_world", idx: str = "0") -> sim
     scene_cfg = rcs.scenes[scene]
     robot_cfg.robot_type = scene_cfg.robot_type
     robot_cfg.tcp_offset = common.Pose(common.FrankaHandTCPOffset())
-    # robot_cfg.add_id(idx)
-    if rcs.scenes[scene].mjb is not None:
-        robot_cfg.mjcf_scene_path = rcs.scenes[scene].mjb
+    robot_cfg.add_id(idx)
+    if (mjb := rcs.scenes[scene].mjb) is not None:
+        robot_cfg.mjcf_scene_path = mjb
     else:
         robot_cfg.mjcf_scene_path = scene_cfg.mjcf_scene
     robot_cfg.kinematic_model_path = scene_cfg.mjcf_robot
@@ -37,7 +37,7 @@ def default_tilburg_hw_hand_cfg(file: str | PathLike | None = None) -> THConfig:
     return hand_cfg
 
 
-def default_sim_gripper_cfg(idx: str = "0") -> sim.SimGripperConfig:
+def default_sim_gripper_cfg(_idx: str = "0") -> sim.SimGripperConfig:
     cfg = sim.SimGripperConfig()
     cfg.collision_geoms = []
     cfg.collision_geoms_fingers = []
