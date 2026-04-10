@@ -5,9 +5,11 @@ import logging
 from enum import Enum, auto
 from typing import Annotated, Any, ClassVar, Literal, TypeAlias, cast
 
+from greenlet import getcurrent, greenlet
 import gymnasium as gym
 import numpy as np
-from rcs._core.common import Hand
+from rcs._core.common import Hand, RobotPlatform
+from rcs._core.sim import SimRobot
 from rcs.camera.interface import BaseCameraSet
 from rcs.envs.space_utils import (
     ActObsInfoWrapper,
@@ -22,6 +24,8 @@ from rcs.envs.space_utils import (
 )
 
 from rcs import common
+from rcs import sim as simulation
+from rcs.utils import SimpleFrameRate
 
 _logger = logging.getLogger(__name__)
 
@@ -196,9 +200,69 @@ def get_home_position(robot: common.Robot) -> np.ndarray:
     """Returns the home position of the robot."""
     return common.robots_meta_config(robot.get_config().robot_type).q_home
 
+class BaseEnv(gym.Env):
+    PLATFORM: RobotPlatform
 
-class RobotEnv(gym.Env):
-    """Joint Gym Environment for a single robot arm.
+    def step(self, action: dict[str, Any]) -> tuple[dict[str, Any], float, bool, bool, dict]:
+        return {}, 0, False, False, {}
+
+    def reset(
+        self, *, seed: int | None = None, options: dict[str, Any] | None = None
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        super().reset(seed=seed, options=options)
+        return {}, {}
+
+
+
+class HardwareEnv(BaseEnv):
+    PLATFORM = RobotPlatform.HARDWARE
+
+
+class SimEnv(BaseEnv):
+    PLATFORM = RobotPlatform.SIMULATION
+
+    def __init__(self, sim: simulation.Sim) -> None:
+        self.sim = sim
+        cfg = self.sim.get_config()
+        self.frame_rate = SimpleFrameRate(1 / cfg.frequency, "MoJoCo Simulation Loop")
+        self.main_greenlet: greenlet | None = None
+
+    def step(self, action: dict[str, Any]) -> tuple[dict[str, Any], float, bool, bool, dict]:
+        if self.main_greenlet is not None:
+            self.main_greenlet.switch()
+        else:
+            self.step_sim()
+        return super().step(action)
+
+    def step_sim(self):
+        cfg = self.sim.get_config()
+        if cfg.async_control:
+            self.sim.step(round(1 / cfg.frequency / self.sim.model.opt.timestep))
+            if cfg.realtime:
+                self.frame_rate.frame_rate = 1 / cfg.frequency
+                self.frame_rate()
+        else:
+            self.sim.step_until_convergence()
+
+    def reset_sim(self):
+        self.sim.reset()
+        self.sim.step(1)
+
+
+    def reset(
+        self, *, seed: int | None = None, options: dict[str, Any] | None = None
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        if self.main_greenlet is not None:
+            self.main_greenlet.switch()
+        else:
+            self.reset_sim()
+        return super().reset(seed=seed, options=options)
+
+
+
+
+class RobotWrapper(ActObsInfoWrapper):
+    """Gym Wrapper for a single robot arm.
 
     Top view of on the robot. Robot faces into x direction.
     z direction faces upwards. (Right handed coordinate axis)
@@ -208,7 +272,8 @@ class RobotEnv(gym.Env):
     y
     """
 
-    def __init__(self, robot: common.Robot, control_mode: ControlMode, home_on_reset: bool = False):
+    def __init__(self, env, robot: common.Robot, control_mode: ControlMode, home_on_reset: bool = False):
+        super().__init__(env)
         self.robot = robot
         self._control_mode_overrides = [control_mode]
         self.action_space: gym.spaces.Dict
@@ -247,7 +312,7 @@ class RobotEnv(gym.Env):
         Use this in a wrapper that wants to modify the control mode"""
         self._control_mode_overrides.append(control_mode)
 
-    def get_obs(self) -> ArmObsType:
+    def get_robot_obs(self) -> ArmObsType:
         return ArmObsType(
             tquat=np.concatenate(
                 [self.robot.get_cartesian_position().translation(), self.robot.get_cartesian_position().rotation_q()]  # type: ignore
@@ -256,73 +321,107 @@ class RobotEnv(gym.Env):
             xyzrpy=self.robot.get_cartesian_position().xyzrpy(),
         )
 
-    def step(self, action: CartOrJointContType) -> tuple[ArmObsType, float, bool, bool, dict]:
-        action_dict = cast(dict, action)
+
+    def action(self, action: dict[str, Any]) -> dict[str, Any]:
         if (
             self.get_base_control_mode() == ControlMode.CARTESIAN_TQuat
-            and self.tquat_key not in action_dict
+            and self.tquat_key not in action
             or self.get_base_control_mode() == ControlMode.CARTESIAN_TRPY
-            and self.trpy_key not in action_dict
+            and self.trpy_key not in action
             or self.get_base_control_mode() == ControlMode.JOINTS
-            and self.joints_key not in action_dict
+            and self.joints_key not in action
         ):
             msg = "Given type is not matching control mode!"
             raise RuntimeError(msg)
+        self.prev_action = copy.deepcopy(action)
 
         if self.get_base_control_mode() == ControlMode.JOINTS and (
             self.prev_action is None
-            or not np.allclose(action_dict[self.joints_key], self.prev_action[self.joints_key], atol=1e-03, rtol=0)
+            or not np.allclose(action[self.joints_key], self.prev_action[self.joints_key], atol=1e-03, rtol=0)
         ):
-            self.robot.set_joint_position(action_dict[self.joints_key])
+            self.robot.set_joint_position(action[self.joints_key])
+            action.pop(self.joints_key)
         elif self.get_base_control_mode() == ControlMode.CARTESIAN_TRPY and (
             self.prev_action is None
-            or not np.allclose(action_dict[self.trpy_key], self.prev_action[self.trpy_key], atol=1e-03, rtol=0)
+            or not np.allclose(action[self.trpy_key], self.prev_action[self.trpy_key], atol=1e-03, rtol=0)
         ):
             self.robot.set_cartesian_position(
-                common.Pose(translation=action_dict[self.trpy_key][:3], rpy_vector=action_dict[self.trpy_key][3:])
+                common.Pose(translation=action[self.trpy_key][:3], rpy_vector=action[self.trpy_key][3:])
             )
+            action.pop(self.trpy_key)
         elif self.get_base_control_mode() == ControlMode.CARTESIAN_TQuat and (
             self.prev_action is None
-            or not np.allclose(action_dict[self.tquat_key], self.prev_action[self.tquat_key], atol=1e-03, rtol=0)
+            or not np.allclose(action[self.tquat_key], self.prev_action[self.tquat_key], atol=1e-03, rtol=0)
         ):
             self.robot.set_cartesian_position(
-                common.Pose(translation=action_dict[self.tquat_key][:3], quaternion=action_dict[self.tquat_key][3:])
+                common.Pose(translation=action[self.tquat_key][:3], quaternion=action[self.tquat_key][3:])
             )
-        self.prev_action = copy.deepcopy(action_dict)
-        return self.get_obs(), 0, False, False, {}
+            action.pop(self.tquat_key)
+        return action
+
+    def observation(self, observation: dict, info: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+        observation.update(self.get_robot_obs())
+        # if self.env.get_wrapper_attr("PLATFORM") == RobotPlatform.SIMULATION:
+        #     sim_robot = cast(SimRobot, self.robot)
+        #     state = sim_robot.get_state()
+        #     info["collision"] = state.collision
+        #     info["ik_success"] = state.ik_success
+        #     info["is_sim_converged"] = self.env.get_wrapper_attr("sim").is_converged()
+        return observation, info
+
 
     def reset(
-        self, seed: int | None = None, options: dict[str, Any] | None = None
-    ) -> tuple[ArmObsType, dict[str, Any]]:
-        if seed is not None:
-            msg = "seeding not implemented yet. Ignoring seed."
-            # raise NotImplementedError(msg)
-            _logger.error(msg)
-        if options is not None:
-            msg = "options not implemented yet. Ignoring options."
-            # raise NotImplementedError(msg)
-            _logger.error(msg)
+        self, *, seed: int | None = None, options: dict[str, Any] | None = None
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
         self.robot.reset()
         if self.home_on_reset:
             self.robot.move_home()
-        return self.get_obs(), {}
+        return super().reset(seed=seed, options=options)
 
     def close(self):
         self.robot.close()
+        super().close()
 
 
 class MultiRobotWrapper(gym.Env):
-    """Wraps a dictionary of environments to allow for multi robot control."""
+    """Wraps a dictionary of single robot environments to allow for multi robot control.
+
+    Env1  Env2  Env3 
+      |     |     |
+    ----------------
+    MultiRobotWrapper
+
+    All envs are stepped sequentially. Supports offset of robot bases by the `robot2world` parameter.
+    """
+
+    PLATFORM: RobotPlatform | None = None
 
     def __init__(
         self, envs: dict[str, gym.Env] | dict[str, gym.Wrapper], robot2world: dict[str, common.Pose] | None = None
     ):
         self.envs = envs
-        self.unwrapped_multi = cast(dict[str, RobotEnv], {key: env.unwrapped for key, env in envs.items()})
         if robot2world is None:
             self.robot2world = {}
         else:
             self.robot2world = robot2world
+        self.lead_env: gym.Env | None = None
+
+        # make sure all envs are the same type (sim/real)
+        for env in self.envs:
+            if self.PLATFORM is None:
+                self.PLATFORM = self.envs[env].get_wrapper_attr("PLATFORM")
+                self.lead_env = self.envs[env].unwrapped
+            else:
+                assert self.envs[env].get_wrapper_attr("PLATFORM") == self.PLATFORM, "all envs must have the same platform!"
+        self._runs_in_sim = self.PLATFORM == RobotPlatform.SIMULATION
+        if self._runs_in_sim:
+            self._inject_main_greenlet()
+
+    def _inject_main_greenlet(self):
+        main_gr = getcurrent()
+        for env_item in self.envs.values():
+            assert isinstance(env_item.unwrapped, SimEnv), "something is wrong with the env, the base should be type SimEnv"
+            env_item.unwrapped.main_greenlet = main_gr
 
     def _translate_pose(self, key, dic, to_world=True):
         r2w = self.robot2world.get(key, common.Pose())
@@ -338,6 +437,28 @@ class MultiRobotWrapper(gym.Env):
         return dic
 
     def step(self, action: dict[str, Any]) -> tuple[dict[str, Any], float, bool, bool, dict[str, Any]]:
+        step_greenlets = {}
+        if self._runs_in_sim:
+            # SIM path: 1. DOWN: Set actions for all robots
+            for key, env in self.envs.items():
+
+                def make_step_gr(env_to_step):
+                    return greenlet(env_to_step.step)
+
+                gr = make_step_gr(env)
+                step_greenlets[key] = gr
+
+                # Translate action
+                act = self._translate_pose(key, action[key], to_world=False)
+
+                # Switch to robot greenlet. It will run until RobotSimWrapper.step switches back.
+                gr.switch(act)
+
+            # SIM path: 2. SIM: Step physics once
+            assert isinstance(self.lead_env, SimEnv)
+            self.lead_env.step_sim()
+
+
         # follows gym env by combinding a dict of envs into a single env
         obs = {}
         reward = 0.0
@@ -345,11 +466,22 @@ class MultiRobotWrapper(gym.Env):
         truncated = False
         info = {}
         for key, env in self.envs.items():
-            act = self._translate_pose(key, action[key], to_world=False)
-            ob, r, t, tr, info[key] = env.step(act)
+
+
+            if self._runs_in_sim:
+                # SIM path: 3. UP: Gather observations
+                # Resume robot greenlet. It returns the step results.
+                res = step_greenlets[key].switch()
+                ob, r, t, tr, i = res
+            
+            else:
+                # HARDWARE path
+                act = self._translate_pose(key, action[key], to_world=False)
+                ob, r, t, tr, info[key] = env.step(act)
+
+
+
             obs[key] = self._translate_pose(key, ob, to_world=True)
-            # old
-            # obs[key], r, t, tr, info[key] = env.step(action[key])
             reward += float(r)
             terminated = terminated or t
             truncated = truncated or tr
@@ -358,15 +490,43 @@ class MultiRobotWrapper(gym.Env):
         return obs, reward, terminated, truncated, info
 
     def reset(
-        self, seed: dict[str, int] | None = None, options: dict[str, dict[str, Any]] | None = None  # type: ignore
+        self, *, seed: int | None = None, options: dict[str, Any] | None = None
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         obs = {}
         info = {}
 
-        seed_ = seed if seed is not None else {key: None for key in self.envs}  # type: ignore
-        options_ = options if options is not None else {key: None for key in self.envs}  # type: ignore
+        seed_ = {key: seed for key in self.envs} if seed is not None else {key: None for key in self.envs}
+        options_ = options if options is not None else {key: None for key in self.envs}
+
+
+        reset_greenlets = {}
+        if self._runs_in_sim:
+            # SIM path: 1. DOWN: Reset each robot
+            for key, env in self.envs.items():
+                def make_reset_gr(env_to_reset, s, o):
+                    return greenlet(lambda: env_to_reset.reset(seed=s, options=o))
+
+                gr = make_reset_gr(env, seed_[key], options_[key])
+                reset_greenlets[key] = gr
+                gr.switch()
+
+            # SIM path: 2. SIM: reset
+            assert isinstance(self.lead_env, SimEnv)
+            self.lead_env.reset_sim()
+
+
         for key, env in self.envs.items():
-            obs[key], info[key] = env.reset(seed=seed_[key], options=options_[key])
+            if self._runs_in_sim:
+                # SIM path: 3. UP: Gather initial obs
+                ob, i = reset_greenlets[key].switch()
+            else:
+                # HARDWARE path
+                ob, i = env.reset(seed=seed_[key], options=options_[key])
+
+            obs[key] = self._translate_pose(key, ob, to_world=True)
+            info[key] = i
+
+
         return obs, info
 
     def get_wrapper_attr(self, name: str) -> Any:
@@ -400,12 +560,12 @@ class RelativeActionSpace(gym.ActionWrapper):
         max_mov: float | tuple[float, float] | None = None,
     ):
         super().__init__(env)
-        self.unwrapped: RobotEnv
         self.action_space: gym.spaces.Dict
         self.relative_to = relative_to
+        self._robot = cast(common.Robot, self.get_wrapper_attr("robot"))
         if (
-            self.unwrapped.get_control_mode() == ControlMode.CARTESIAN_TRPY
-            or self.unwrapped.get_control_mode() == ControlMode.CARTESIAN_TQuat
+            self.get_wrapper_attr("get_control_mode")() == ControlMode.CARTESIAN_TRPY
+            or self.get_wrapper_attr("get_control_mode")() == ControlMode.CARTESIAN_TQuat
         ):
             if max_mov is None:
                 max_mov = (self.DEFAULT_MAX_CART_MOV, self.DEFAULT_MAX_CART_ROT)
@@ -436,7 +596,7 @@ class RelativeActionSpace(gym.ActionWrapper):
                 )
         self.max_mov: float | tuple[float, float] = max_mov
 
-        if self.unwrapped.get_control_mode() == ControlMode.CARTESIAN_TRPY:
+        if self.get_wrapper_attr("get_control_mode")() == ControlMode.CARTESIAN_TRPY:
             assert isinstance(self.max_mov, tuple)
             self.action_space.spaces.update(
                 get_space(
@@ -444,14 +604,14 @@ class RelativeActionSpace(gym.ActionWrapper):
                     params={"cart_limits": {"max_cart_mov": self.max_mov[0], "max_angle_mov": self.max_mov[1]}},
                 ).spaces
             )
-        elif self.unwrapped.get_control_mode() == ControlMode.JOINTS:
+        elif self.get_wrapper_attr("get_control_mode")() == ControlMode.JOINTS:
             self.action_space.spaces.update(
                 get_space(
                     LimitedJointsRelDictType,
-                    params={"joint_limits": {"max_joint_mov": self.max_mov, "dof": get_dof(self.unwrapped.robot)}},
+                    params={"joint_limits": {"max_joint_mov": self.max_mov, "dof": get_dof(self._robot)}},
                 ).spaces
             )
-        elif self.unwrapped.get_control_mode() == ControlMode.CARTESIAN_TQuat:
+        elif self.get_wrapper_attr("get_control_mode")() == ControlMode.CARTESIAN_TQuat:
             assert isinstance(self.max_mov, tuple)
             self.action_space.spaces.update(
                 get_space(
@@ -470,7 +630,7 @@ class RelativeActionSpace(gym.ActionWrapper):
         self._last_action: common.Pose | VecType | None = None
 
     def set_origin(self, origin: common.Pose | VecType):
-        if self.unwrapped.get_control_mode() == ControlMode.JOINTS:
+        if self.get_wrapper_attr("get_control_mode")() == ControlMode.JOINTS:
             assert isinstance(
                 origin, np.ndarray
             ), "Invalid origin type. If control mode is joints, origin must be VecType."
@@ -482,10 +642,10 @@ class RelativeActionSpace(gym.ActionWrapper):
             self._origin = copy.deepcopy(origin)
 
     def set_origin_to_current(self):
-        if self.unwrapped.get_control_mode() == ControlMode.JOINTS:
-            self._origin = self.unwrapped.robot.get_joint_position()
+        if self.get_wrapper_attr("get_control_mode")() == ControlMode.JOINTS:
+            self._origin = self._robot.get_joint_position()
         else:
-            self._origin = self.unwrapped.robot.get_cartesian_position()
+            self._origin = self._robot.get_cartesian_position()
 
     def reset(self, **kwargs) -> tuple[dict, dict[str, Any]]:
         obs, info = super().reset(**kwargs)
@@ -500,10 +660,10 @@ class RelativeActionSpace(gym.ActionWrapper):
             # -> could be done after the step to the state that is returned by the observation
             self.set_origin_to_current()
         action = copy.deepcopy(action)
-        if self.unwrapped.get_control_mode() == ControlMode.JOINTS and self.joints_key in action:
+        if self.get_wrapper_attr("get_control_mode")() == ControlMode.JOINTS and self.joints_key in action:
             assert isinstance(self._origin, np.ndarray), "Invalid origin type give the control mode."
             assert isinstance(self.max_mov, float)
-            low, high = get_joint_limits(self.unwrapped.robot)
+            low, high = get_joint_limits(self._robot)
             # TODO: should we also clip euqally for all joints?
             if self.relative_to == RelativeTo.LAST_STEP or self._last_action is None:
                 limited_joints = np.clip(action[self.joints_key], -self.max_mov, self.max_mov)
@@ -515,7 +675,7 @@ class RelativeActionSpace(gym.ActionWrapper):
                 self._last_action = limited_joints
             action.update(JointsDictType(joints=np.clip(self._origin + limited_joints, low, high)))
 
-        elif self.unwrapped.get_control_mode() == ControlMode.CARTESIAN_TRPY and self.trpy_key in action:
+        elif self.get_wrapper_attr("get_control_mode")() == ControlMode.CARTESIAN_TRPY and self.trpy_key in action:
             assert isinstance(self._origin, common.Pose), "Invalid origin type given the control mode."
             assert isinstance(self.max_mov, tuple)
             pose_space = cast(gym.spaces.Box, get_space(TRPYDictType).spaces[self.trpy_key])
@@ -559,7 +719,7 @@ class RelativeActionSpace(gym.ActionWrapper):
                     )
                 )
             )
-        elif self.unwrapped.get_control_mode() == ControlMode.CARTESIAN_TQuat and self.tquat_key in action:
+        elif self.get_wrapper_attr("get_control_mode")() == ControlMode.CARTESIAN_TQuat and self.tquat_key in action:
             assert isinstance(self._origin, common.Pose), "Invalid origin type given the control mode."
             assert isinstance(self.max_mov, tuple)
             pose_space = cast(gym.spaces.Box, get_space(TQuatDictType).spaces[self.tquat_key])
@@ -616,7 +776,6 @@ class CameraSetWrapper(ActObsInfoWrapper):
 
     def __init__(self, env, camera_set: BaseCameraSet, include_depth: bool = False):
         super().__init__(env)
-        self.unwrapped: RobotEnv
         self.camera_set = camera_set
         self.include_depth = include_depth
 
@@ -657,7 +816,7 @@ class CameraSetWrapper(ActObsInfoWrapper):
         )
         self.camera_key = get_space_keys(CameraDictType)[0]
 
-    def reset(self, seed: int | None = None, options: dict[str, Any] | None = None) -> tuple[dict, dict[str, Any]]:
+    def reset(self, *, seed: int | None = None, options: dict[str, Any] | None = None) -> tuple[dict, dict[str, Any]]:
         self.camera_set.clear_buffer()
         return super().reset(seed=seed, options=options)
 
@@ -717,7 +876,6 @@ class GripperWrapper(ActObsInfoWrapper):
 
     def __init__(self, env, gripper: common.Gripper, binary: bool = True):
         super().__init__(env)
-        self.unwrapped: RobotEnv
         self.observation_space: gym.spaces.Dict
         self.observation_space.spaces.update(get_space(GripperDictType).spaces)
         self.action_space: gym.spaces.Dict
@@ -786,7 +944,6 @@ class HandWrapper(ActObsInfoWrapper):
 
     def __init__(self, env, hand: Hand, binary: bool = True):
         super().__init__(env)
-        self.unwrapped: RobotEnv
         self.observation_space: gym.spaces.Dict
         self.action_space: gym.spaces.Dict
         self.binary = binary
@@ -798,11 +955,11 @@ class HandWrapper(ActObsInfoWrapper):
             self.observation_space.spaces.update(get_space(HandVecDictType).spaces)
             self.action_space.spaces.update(get_space(HandVecDictType).spaces)
             self.hand_key = get_space_keys(HandVecDictType)[0]
-        self._hand = hand
+        self.hand = hand
         self._last_hand_cmd = None
 
     def reset(self, **kwargs) -> tuple[dict[str, Any], dict[str, Any]]:
-        self._hand.reset()
+        self.hand.reset()
         self._last_hand_cmd = None
         return super().reset(**kwargs)
 
@@ -813,7 +970,7 @@ class HandWrapper(ActObsInfoWrapper):
                 self._last_hand_cmd if self._last_hand_cmd is not None else self.BINARY_HAND_OPEN
             )
         else:
-            observation[self.hand_key] = self._hand.get_normalized_joint_poses()
+            observation[self.hand_key] = self.hand.get_normalized_joint_poses()
 
         info = {}
         return observation, info
@@ -829,14 +986,14 @@ class HandWrapper(ActObsInfoWrapper):
         if self.binary:
             if self._last_hand_cmd is None or self._last_hand_cmd != hand_action:
                 if hand_action == self.BINARY_HAND_CLOSED:
-                    self._hand.grasp()
+                    self.hand.grasp()
                 else:
-                    self._hand.open()
+                    self.hand.open()
         else:
-            self._hand.set_normalized_joint_poses(hand_action)
+            self.hand.set_normalized_joint_poses(hand_action)
         self._last_hand_cmd = hand_action
         del action[self.hand_key]
         return action
 
     def close(self):
-        self._hand.close()
+        self.hand.close()

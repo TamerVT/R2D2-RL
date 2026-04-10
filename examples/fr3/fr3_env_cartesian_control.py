@@ -56,7 +56,7 @@ def main():
     env_rel.reset()
 
     # access low level robot api to get current cartesian position
-    print(env_rel.unwrapped.robot.get_cartesian_position())  # type: ignore
+    print(env_rel.get_wrapper_attr("robot").get_cartesian_position())  # type: ignore
 
     for _ in range(100):
         for _ in range(10):

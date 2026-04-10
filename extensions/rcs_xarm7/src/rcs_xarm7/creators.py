@@ -8,9 +8,10 @@ from rcs.envs.base import (
     CameraSetWrapper,
     ControlMode,
     HandWrapper,
+    HardwareEnv,
     RelativeActionSpace,
     RelativeTo,
-    RobotEnv,
+    RobotWrapper,
 )
 from rcs.envs.creators import RCSHardwareEnvCreator
 from rcs.hand.tilburg_hand import THConfig, TilburgHand
@@ -34,7 +35,8 @@ class RCSXArm7EnvCreator(RCSHardwareEnvCreator):
         if isinstance(calibration_dir, str):
             calibration_dir = Path(calibration_dir)
         robot = XArm7(ip=ip)
-        env: gym.Env = RobotEnv(robot, control_mode, home_on_reset=True)
+        env = HardwareEnv()
+        env = RobotWrapper(env, robot, control_mode, home_on_reset=True)
 
         if camera_set is not None:
             camera_set.start()

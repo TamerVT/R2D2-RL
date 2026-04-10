@@ -41,7 +41,6 @@ Flexibly compose your Gymnasium environment to fit your exact training needs. *F
 ```python
 from time import sleep
 
-import gymnasium as gym
 import numpy as np
 from rcs._core.sim import SimConfig
 from rcs.camera.sim import SimCameraSet
@@ -51,7 +50,8 @@ from rcs.envs.base import (
     GripperWrapper,
     RelativeActionSpace,
     RelativeTo,
-    RobotEnv,
+    RobotWrapper,
+    SimEnv,
 )
 from rcs.envs.sim import GripperWrapperSim, RobotSimWrapper
 from rcs.envs.utils import (
@@ -82,18 +82,19 @@ if __name__ == "__main__":
 
     # base env
     robot = rcs.sim.SimRobot(simulation, ik, robot_cfg)
-    env: gym.Env = RobotEnv(robot, ControlMode.CARTESIAN_TQuat)
+    env = SimEnv(simulation)
+    env = RobotWrapper(env, robot, ControlMode.CARTESIAN_TQuat)
 
     # gripper
     gripper = sim.SimGripper(simulation, gripper_cfg)
     env = GripperWrapper(env, gripper, binary=True)
 
-    env = RobotSimWrapper(env, simulation)
-    env = GripperWrapperSim(env, gripper)
+    env = RobotSimWrapper(env)
+    env = GripperWrapperSim(env)
 
     # camera
     camera_set = SimCameraSet(simulation, cameras, physical_units=True, render_on_demand=True)
-    env = CameraSetWrapper(env, camera_set, include_depth=True)
+    env = CameraSetWrapper(env, camera_set, include_depth=True)  # type: ignore
 
     # relative actions bounded by 10cm translation and 10 degree rotation
     env = RelativeActionSpace(env, max_mov=(0.1, np.deg2rad(10)), relative_to=RelativeTo.LAST_STEP)
@@ -104,14 +105,13 @@ if __name__ == "__main__":
     env.reset()
 
     # access low level robot api to get current cartesian position
-    print(env.unwrapped.robot.get_cartesian_position())
+    print(env.get_wrapper_attr("robot").get_cartesian_position())
 
     for _ in range(10):
         # move 1cm in x direction (forward) and close gripper
         act = {"tquat": [0.01, 0, 0, 0, 0, 0, 1], "gripper": [0]}
         obs, reward, terminated, truncated, info = env.step(act)
         print(obs)
-
 ```
 
 > **Note:** This and other examples can be found in the [`examples/`]() folder.

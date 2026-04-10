@@ -180,7 +180,7 @@ class TeleopLoop:
                         # TODO the following is a dict and can thus not easily be used like this
                         # and self.env.get_wrapper_attr("relative_to") == RelativeTo.CONFIGURED_ORIGIN
                     ), "both robot env and operator must be configured to relative_to.CONFIGURED_ORIGIN"
-                    self.env.get_wrapper_attr("envs")[robot].set_origin_to_current()
+                    self.env.get_wrapper_attr("envs")[robot].get_wrapper_attr("set_origin_to_current")()
 
             # 2. Step the Environment
             actions = self.operator.consume_action()

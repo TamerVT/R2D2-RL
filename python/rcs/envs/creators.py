@@ -18,7 +18,8 @@ from rcs.envs.base import (
     MultiRobotWrapper,
     RelativeActionSpace,
     RelativeTo,
-    RobotEnv,
+    RobotWrapper,
+    SimEnv,
 )
 from rcs.envs.sim import (
     GripperWrapperSim,
@@ -27,7 +28,6 @@ from rcs.envs.sim import (
     RandomCubePos,
     RandomObjectPos,
     RobotSimWrapper,
-    SimWrapper,
 )
 from rcs.envs.utils import default_sim_gripper_cfg, default_sim_robot_cfg
 
@@ -54,7 +54,6 @@ class SimEnvCreator(EnvCreator):
         cameras: dict[str, SimCameraConfig] | None = None,
         max_relative_movement: float | tuple[float, float] | None = None,
         relative_to: RelativeTo = RelativeTo.LAST_STEP,
-        sim_wrapper: Type[SimWrapper] | None = None,
     ) -> gym.Env:
         """
         Creates a simulation environment for the FR3 robot.
@@ -72,8 +71,6 @@ class SimEnvCreator(EnvCreator):
                 translational movement in meters. If tuple, it restricts both translational (in meters) and rotational
                 (in radians) movements. If None, no restriction is applied.
             relative_to (RelativeTo): Specifies whether the movement is relative to a configured origin or the last step.
-            sim_wrapper (Type[SimWrapper] | None): Wrapper to be applied before the simulation wrapper. This is useful
-                for reset management e.g. resetting objects in the scene with correct observations. Defaults to None.
 
         Returns:
             gym.Env: The configured simulation environment for the FR3 robot.
@@ -88,7 +85,8 @@ class SimEnvCreator(EnvCreator):
         # ik = rcs_robotics_library._core.rl.RoboticsLibraryIK(robot_cfg.kinematic_model_path)
 
         robot = rcs.sim.SimRobot(simulation, ik, robot_cfg)
-        env: gym.Env = RobotEnv(robot, control_mode)
+        env = SimEnv(simulation)
+        env = RobotWrapper(env, robot, control_mode)
         assert not (
             hand_cfg is not None and gripper_cfg is not None
         ), "Hand and gripper configurations cannot be used together."
@@ -96,7 +94,7 @@ class SimEnvCreator(EnvCreator):
         if hand_cfg is not None and isinstance(hand_cfg, rcs.sim.SimTilburgHandConfig):
             hand = sim.SimTilburgHand(simulation, hand_cfg)
             env = HandWrapper(env, hand, binary=True)
-            env = HandWrapperSim(env, hand)
+            env = HandWrapperSim(env)
 
         if gripper_cfg is not None and isinstance(gripper_cfg, rcs.sim.SimGripperConfig):
             gripper = sim.SimGripper(simulation, gripper_cfg)
@@ -104,10 +102,10 @@ class SimEnvCreator(EnvCreator):
         else:
             gripper = None
 
-        env = RobotSimWrapper(env, simulation, sim_wrapper)
+        env = RobotSimWrapper(env)
 
         if gripper is not None:
-            env = GripperWrapperSim(env, gripper)
+            env = GripperWrapperSim(env)
 
         if cameras is not None:
             camera_set = typing.cast(
@@ -146,7 +144,6 @@ class SimMultiEnvCreator(RCSHardwareEnvCreator):
         cameras: dict[str, SimCameraConfig] | None = None,
         max_relative_movement: float | tuple[float, float] | None = None,
         relative_to: RelativeTo = RelativeTo.LAST_STEP,
-        sim_wrapper: Type[SimWrapper] | None = None,
         robot2world: dict[str, rcs.common.Pose] | None = None,
     ) -> gym.Env:
 
@@ -166,19 +163,24 @@ class SimMultiEnvCreator(RCSHardwareEnvCreator):
 
         envs = {}
         for key, mid in name2id.items():
-            env: gym.Env = RobotEnv(robots[key], control_mode)
+            env = SimEnv(simulation)
+            env = RobotWrapper(env, robots[key], control_mode)
             if gripper_cfg is not None:
                 gripper_cfg_copy = copy.copy(gripper_cfg)
                 gripper_cfg_copy.add_postfix("_" + mid)
                 gripper = rcs.sim.SimGripper(simulation, gripper_cfg_copy)
                 env = GripperWrapper(env, gripper, binary=True)
 
+            env = RobotSimWrapper(env)
+
+            if gripper_cfg is not None:
+                env = GripperWrapperSim(env)  # type: ignore[possibly-undefined]
+
             if relative_to != RelativeTo.NONE:
                 env = RelativeActionSpace(env, max_mov=max_relative_movement, relative_to=relative_to)
             envs[key] = env
 
         env = MultiRobotWrapper(envs, robot2world)
-        env = RobotSimWrapper(env, simulation, sim_wrapper)
         if cameras is not None:
             camera_set = typing.cast(
                 BaseCameraSet, SimCameraSet(simulation, cameras, physical_units=True, render_on_demand=True)
@@ -249,8 +251,8 @@ class SimTaskEnvCreator(EnvCreator):
             cameras=cameras,
             max_relative_movement=(0.2, np.deg2rad(45)) if delta_actions else None,
             relative_to=RelativeTo.LAST_STEP,
-            sim_wrapper=random_env,  # type: ignore
         )
+        env_rel = random_env(env_rel)
         if mode == "gripper":
             env_rel = PickCubeSuccessWrapper(env_rel, cube_joint_name=obj_joint_name)
 

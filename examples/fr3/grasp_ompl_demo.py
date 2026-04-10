@@ -6,7 +6,8 @@ import gymnasium as gym
 import mujoco
 import numpy as np
 from rcs._core.common import Pose
-from rcs.envs.base import ControlMode, GripperWrapper, RobotEnv
+from rcs._core.sim import SimRobot
+from rcs.envs.base import ControlMode, GripperWrapper
 from rcs.envs.creators import FR3SimplePickUpSimEnvCreator
 from rcs.ompl.mj_ompl import MjOMPL
 
@@ -38,9 +39,9 @@ CAMERAS = [
 class OmplTrajectoryDemo:
     def __init__(self, env: gym.Env, planner: MjOMPL):
         self.env = env
-        self.unwrapped: RobotEnv = cast(RobotEnv, self.env.unwrapped)
-        self.home_pose: Pose = self.unwrapped.robot.get_cartesian_position()
-        self.home_qpos: np.ndarray = self.unwrapped.robot.get_joint_position()
+        self._robot = cast(SimRobot, self.env.get_wrapper_attr("robot"))
+        self.home_pose: Pose = self._robot.get_cartesian_position()
+        self.home_qpos: np.ndarray = self._robot.get_joint_position()
         self.sol_path = None
         self.planner = planner
 
@@ -60,7 +61,7 @@ class OmplTrajectoryDemo:
         ) * Pose(
             rpy_vector=np.array([0, 0, np.pi]), translation=[0, 0, 0]  # type: ignore
         )
-        return self.unwrapped.robot.to_pose_in_robot_coordinates(obj_pose_world_coordinates)
+        return self._robot.to_pose_in_robot_coordinates(obj_pose_world_coordinates)
 
     def plan_path_to_object(self, obj_name: str, delta_up):
         self.move_home()
@@ -83,7 +84,7 @@ class OmplTrajectoryDemo:
 
         obj_pose_grasp = obj_pose_og * Pose(translation=np.array([0, 0, delta_up]), quaternion=np.array([1, 0, 0, 0]))  # type: ignore
         waypoints = self.generate_waypoints(
-            start_pose=self.unwrapped.robot.get_cartesian_position(), end_pose=obj_pose_grasp, num_waypoints=5
+            start_pose=self._robot.get_cartesian_position(), end_pose=obj_pose_grasp, num_waypoints=5
         )
         for waypoint in waypoints:
             self.step(self._jaction(waypoint, GripperWrapper.BINARY_GRIPPER_OPEN))  # type: ignore
@@ -108,7 +109,7 @@ class OmplTrajectoryDemo:
         return obs
 
     def move_home(self):
-        end_eff_pose = self.unwrapped.robot.get_cartesian_position()
+        end_eff_pose = self._robot.get_cartesian_position()
         waypoints = self.generate_waypoints(end_eff_pose, self.home_pose, num_waypoints=15)
         self.execute_motion(waypoints=waypoints, gripper=GripperWrapper.BINARY_GRIPPER_CLOSED)
 

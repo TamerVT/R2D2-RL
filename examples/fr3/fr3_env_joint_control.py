@@ -56,7 +56,7 @@ def main():
         input("the robot is going to move, press enter whenever you are ready")
 
     # access low level robot api to get current cartesian position
-    print(env_rel.unwrapped.robot.get_joint_position())  # type: ignore
+    print(env_rel.get_wrapper_attr("robot").get_joint_position())  # type: ignore
 
     for _ in range(100):
         obs, info = env_rel.reset()

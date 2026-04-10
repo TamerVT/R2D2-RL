@@ -13,10 +13,11 @@ from rcs.envs.base import (
     ControlMode,
     GripperWrapper,
     HandWrapper,
+    HardwareEnv,
     MultiRobotWrapper,
     RelativeActionSpace,
     RelativeTo,
-    RobotEnv,
+    RobotWrapper,
 )
 from rcs.envs.creators import RCSHardwareEnvCreator
 from rcs.hand.tilburg_hand import TilburgHand
@@ -91,7 +92,8 @@ class RCSFR3EnvCreator(RCSHardwareEnvCreator):
         robot = hw.Franka(ip, ik)
         robot.set_config(robot_cfg)
 
-        env: gym.Env = RobotEnv(robot, ControlMode.JOINTS if collision_guard is not None else control_mode)
+        env = HardwareEnv()
+        env = RobotWrapper(env, robot, ControlMode.JOINTS if collision_guard is not None else control_mode)
 
         env = FR3HW(env)
         if isinstance(gripper_cfg, hw.FHConfig):
@@ -154,7 +156,8 @@ class RCSFR3MultiEnvCreator(RCSHardwareEnvCreator):
 
         envs = {}
         for key, ip in name2ip.items():
-            env: gym.Env = RobotEnv(robots[key], control_mode)
+            env = HardwareEnv()
+            env = RobotWrapper(env, robots[key], control_mode)
             env = FR3HW(env)
             if gripper_cfg is not None:
                 gripper = hw.FrankaHand(ip, gripper_cfg)

@@ -6,9 +6,10 @@ from rcs.envs.base import (
     CameraSetWrapper,
     ControlMode,
     GripperWrapper,
+    HardwareEnv,
     RelativeActionSpace,
     RelativeTo,
-    RobotEnv,
+    RobotWrapper,
 )
 from rcs.envs.creators import RCSHardwareEnvCreator
 from rcs_ur5e.hw import RobotiQGripper, UR5e, UR5eConfig
@@ -36,7 +37,8 @@ class RCSUR5eEnvCreator(RCSHardwareEnvCreator):
         )
         robot = UR5e(ip, ik)
         robot.set_config(robot_cfg)
-        env: gym.Env = RobotEnv(robot, control_mode, home_on_reset=True)
+        env = HardwareEnv()
+        env = RobotWrapper(env, robot, control_mode, home_on_reset=True)
 
         gripper = RobotiQGripper(ip)
         env = GripperWrapper(env, gripper, binary=True)

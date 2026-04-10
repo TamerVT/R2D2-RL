@@ -6,9 +6,10 @@ from rcs.envs.base import (
     CameraSetWrapper,
     ControlMode,
     GripperWrapper,
+    HardwareEnv,
     RelativeActionSpace,
     RelativeTo,
-    RobotEnv,
+    RobotWrapper,
 )
 from rcs.envs.creators import RCSHardwareEnvCreator
 from rcs_so101 import SO101IK
@@ -33,7 +34,8 @@ class RCSSO101EnvCreator(RCSHardwareEnvCreator):
             urdf=robot_cfg.kinematic_model_path.endswith(".urdf"),
         )
         robot = SO101(robot_cfg=robot_cfg, ik=ik)
-        env: gym.Env = RobotEnv(robot, control_mode, home_on_reset=True)
+        env = HardwareEnv()
+        env = RobotWrapper(env, robot, control_mode, home_on_reset=True)
 
         gripper = SO101Gripper(robot._hf_robot, robot)
         env = GripperWrapper(env, gripper, binary=False)

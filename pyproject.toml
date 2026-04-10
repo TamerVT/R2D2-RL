@@ -39,6 +39,7 @@ dependencies = [
   "simplejpeg",
   "mujoco==3.2.6",
   "pin==3.7.0",
+  "greenlet",
 ]
 readme = "README.md"
 maintainers = [{ name = "Tobias Jülg", email = "tobias.juelg@utn.de" }]
