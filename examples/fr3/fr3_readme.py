@@ -7,10 +7,12 @@ from rcs.camera.sim import SimCameraSet
 from rcs.envs.base import (
     CameraSetWrapper,
     ControlMode,
+    CoverWrapper,
     GripperWrapper,
     RelativeActionSpace,
     RelativeTo,
-    RobotEnv,
+    RobotWrapper,
+    SimEnv,
 )
 from rcs.envs.sim import GripperWrapperSim, RobotSimWrapper
 from rcs.envs.utils import (
@@ -41,14 +43,15 @@ if __name__ == "__main__":
 
     # base env
     robot = rcs.sim.SimRobot(simulation, ik, robot_cfg)
-    env: gym.Env = RobotEnv(robot, ControlMode.CARTESIAN_TQuat)
+    env: gym.Env = SimEnv(simulation)
+    env = RobotWrapper(env, robot, ControlMode.CARTESIAN_TQuat)
 
     # gripper
     gripper = sim.SimGripper(simulation, gripper_cfg)
     env = GripperWrapper(env, gripper, binary=True)
 
-    env = RobotSimWrapper(env, simulation)
-    env = GripperWrapperSim(env, gripper)
+    env = RobotSimWrapper(env)
+    env = GripperWrapperSim(env)
 
     # camera
     camera_set = SimCameraSet(simulation, cameras, physical_units=True, render_on_demand=True)
@@ -56,6 +59,7 @@ if __name__ == "__main__":
 
     # relative actions bounded by 10cm translation and 10 degree rotation
     env = RelativeActionSpace(env, max_mov=(0.1, np.deg2rad(10)), relative_to=RelativeTo.LAST_STEP)
+    env = CoverWrapper(env)
 
     env.get_wrapper_attr("sim").open_gui()
     # wait for gui to open
@@ -63,7 +67,7 @@ if __name__ == "__main__":
     env.reset()
 
     # access low level robot api to get current cartesian position
-    print(env.unwrapped.robot.get_cartesian_position())
+    print(env.get_wrapper_attr("robot").get_cartesian_position())
 
     for _ in range(10):
         # move 1cm in x direction (forward) and close gripper

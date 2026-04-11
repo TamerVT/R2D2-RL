@@ -11,12 +11,14 @@ from rcs.camera.hw import HardwareCameraSet
 from rcs.envs.base import (
     CameraSetWrapper,
     ControlMode,
+    CoverWrapper,
     GripperWrapper,
     HandWrapper,
+    HardwareEnv,
     MultiRobotWrapper,
     RelativeActionSpace,
     RelativeTo,
-    RobotEnv,
+    RobotWrapper,
 )
 from rcs.envs.creators import RCSHardwareEnvCreator
 from rcs.hand.tilburg_hand import TilburgHand
@@ -91,7 +93,8 @@ class RCSFR3EnvCreator(RCSHardwareEnvCreator):
         robot = hw.Franka(ip, ik)
         robot.set_config(robot_cfg)
 
-        env: gym.Env = RobotEnv(robot, ControlMode.JOINTS if collision_guard is not None else control_mode)
+        env: gym.Env = HardwareEnv()
+        env = RobotWrapper(env, robot, ControlMode.JOINTS if collision_guard is not None else control_mode)
 
         env = FR3HW(env)
         if isinstance(gripper_cfg, hw.FHConfig):
@@ -123,8 +126,7 @@ class RCSFR3EnvCreator(RCSHardwareEnvCreator):
         #     )
         if relative_to != RelativeTo.NONE:
             env = RelativeActionSpace(env, max_mov=max_relative_movement, relative_to=relative_to)
-
-        return env
+        return CoverWrapper(env)
 
 
 class RCSFR3MultiEnvCreator(RCSHardwareEnvCreator):
@@ -152,9 +154,11 @@ class RCSFR3MultiEnvCreator(RCSHardwareEnvCreator):
             robots[key] = hw.Franka(ip, ik)
             robots[key].set_config(robot_cfg)
 
-        envs = {}
+        envs: dict[str, gym.Env] = {}
+        env: gym.Env
         for key, ip in name2ip.items():
-            env: gym.Env = RobotEnv(robots[key], control_mode)
+            env = HardwareEnv()
+            env = RobotWrapper(env, robots[key], control_mode)
             env = FR3HW(env)
             if gripper_cfg is not None:
                 gripper = hw.FrankaHand(ip, gripper_cfg)
@@ -170,7 +174,7 @@ class RCSFR3MultiEnvCreator(RCSHardwareEnvCreator):
             camera_set.wait_for_frames()
             logger.info("CameraSet started")
             env = CameraSetWrapper(env, camera_set)
-        return env
+        return CoverWrapper(env)
 
 
 class RCSFR3DefaultEnvCreator(RCSHardwareEnvCreator):

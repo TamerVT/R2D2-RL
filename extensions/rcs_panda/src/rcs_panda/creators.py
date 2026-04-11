@@ -7,12 +7,14 @@ from rcs.camera.hw import HardwareCameraSet
 from rcs.envs.base import (
     CameraSetWrapper,
     ControlMode,
+    CoverWrapper,
     GripperWrapper,
     HandWrapper,
+    HardwareEnv,
     MultiRobotWrapper,
     RelativeActionSpace,
     RelativeTo,
-    RobotEnv,
+    RobotWrapper,
 )
 from rcs.envs.creators import RCSHardwareEnvCreator
 from rcs.hand.tilburg_hand import TilburgHand
@@ -68,7 +70,9 @@ class RCSPandaEnvCreator(RCSHardwareEnvCreator):
         robot = hw.Franka(ip, ik)
         robot.set_config(robot_cfg)
 
-        env: gym.Env = RobotEnv(
+        env: gym.Env = HardwareEnv()
+        env = RobotWrapper(
+            env,
             robot,
             ControlMode.JOINTS if collision_guard is not None else control_mode,
             home_on_reset=True,
@@ -103,12 +107,12 @@ class RCSPandaEnvCreator(RCSHardwareEnvCreator):
         #     )
         if max_relative_movement is not None:
             env = RelativeActionSpace(env, max_mov=max_relative_movement, relative_to=relative_to)
-
-        return env
+        return CoverWrapper(env)
 
 
 class RCSPandaMultiEnvCreator(RCSHardwareEnvCreator):
     def __call__(  # type: ignore
+        self,
         ips: list[str],
         control_mode: ControlMode,
         robot_cfg: hw.PandaConfig,
@@ -130,9 +134,11 @@ class RCSPandaMultiEnvCreator(RCSHardwareEnvCreator):
             robots[ip] = hw.Franka(ip, ik)
             robots[ip].set_config(robot_cfg)
 
-        envs = {}
+        envs: dict[str, gym.Env] = {}
+        env: gym.Env
         for ip in ips:
-            env: gym.Env = RobotEnv(robots[ip], control_mode)
+            env = HardwareEnv()
+            env = RobotWrapper(env, robots[ip], control_mode)
             env = PandaHW(env)
             if gripper_cfg is not None:
                 gripper = hw.FrankaHand(ip, gripper_cfg)
@@ -148,4 +154,4 @@ class RCSPandaMultiEnvCreator(RCSHardwareEnvCreator):
             camera_set.wait_for_frames()
             logger.info("CameraSet started")
             env = CameraSetWrapper(env, camera_set)
-        return env
+        return CoverWrapper(env)

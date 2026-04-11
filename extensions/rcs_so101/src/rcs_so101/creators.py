@@ -5,10 +5,12 @@ from rcs.camera.hw import HardwareCameraSet
 from rcs.envs.base import (
     CameraSetWrapper,
     ControlMode,
+    CoverWrapper,
     GripperWrapper,
+    HardwareEnv,
     RelativeActionSpace,
     RelativeTo,
-    RobotEnv,
+    RobotWrapper,
 )
 from rcs.envs.creators import RCSHardwareEnvCreator
 from rcs_so101 import SO101IK
@@ -33,7 +35,8 @@ class RCSSO101EnvCreator(RCSHardwareEnvCreator):
             urdf=robot_cfg.kinematic_model_path.endswith(".urdf"),
         )
         robot = SO101(robot_cfg=robot_cfg, ik=ik)
-        env: gym.Env = RobotEnv(robot, control_mode, home_on_reset=True)
+        env: gym.Env = HardwareEnv()
+        env = RobotWrapper(env, robot, control_mode, home_on_reset=True)
 
         gripper = SO101Gripper(robot._hf_robot, robot)
         env = GripperWrapper(env, gripper, binary=False)
@@ -46,8 +49,7 @@ class RCSSO101EnvCreator(RCSHardwareEnvCreator):
 
         if max_relative_movement is not None:
             env = RelativeActionSpace(env, max_mov=max_relative_movement, relative_to=relative_to)
-
-        return env
+        return CoverWrapper(env)
 
     # For now, the leader-follower teleop script uses the leader object directly
     # and doesn't depend on an RCS-provided class.

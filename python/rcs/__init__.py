@@ -46,6 +46,13 @@ scenes: dict[str, Scene] = {
         urdf=get_scene_urdf("fr3_empty_world"),
         robot_type=common.RobotType.FR3,
     ),
+    "fr3_dual_arm": Scene(
+        mjb=os.path.join(site.getsitepackages()[0], "rcs", "scenes", "fr3_dual_arm", "scene.mjb"),
+        mjcf_scene=os.path.join(site.getsitepackages()[0], "rcs", "scenes", "fr3_dual_arm", "scene.xml"),
+        mjcf_robot=os.path.join(site.getsitepackages()[0], "rcs", "scenes", "fr3_empty_world", "robot.xml"),
+        urdf=get_scene_urdf("fr3_empty_world"),
+        robot_type=common.RobotType.FR3,
+    ),
     "fr3_simple_pick_up": Scene(
         mjb=os.path.join(site.getsitepackages()[0], "rcs", "scenes", "fr3_simple_pick_up", "scene.mjb"),
         mjcf_scene=os.path.join(site.getsitepackages()[0], "rcs", "scenes", "fr3_simple_pick_up", "scene.xml"),

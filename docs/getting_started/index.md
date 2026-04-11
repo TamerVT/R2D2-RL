@@ -59,13 +59,13 @@ ik = rcs.common.RL(str(urdf_path))
 
 # Configure robot
 cfg = sim.SimRobotConfig()
-cfg.add_id("0")
+cfg.add_postfix("_0")
 cfg.tcp_offset = rcs.common.Pose(rcs.common.FrankaHandTCPOffset())
 robot = rcs.sim.SimRobot(simulation, ik, cfg)
 
 # Configure gripper
 gripper_cfg_sim = sim.SimGripperConfig()
-gripper_cfg_sim.add_id("0")
+gripper_cfg_sim.add_postfix("_0")
 gripper = sim.SimGripper(simulation, gripper_cfg_sim)
 
 # Configure cameras

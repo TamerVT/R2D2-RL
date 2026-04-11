@@ -188,7 +188,7 @@ class TestRcsClientServer:
 
     def test_get_obs(self):
         self.client.reset()
-        obs2 = self.client.get_obs()
+        obs2 = self.client.get_robot_obs()
         assert obs2 is not None, "get_obs did not return an observation"
 
     def test_unwrapped(self):

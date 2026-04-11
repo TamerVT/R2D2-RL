@@ -83,7 +83,7 @@ class FR3TactoSimplePickUpSimEnvCreator(EnvCreator):
         ]
 
         # Append the id to keep it consistent with the model
-        gripper_cfg.add_id("0")
+        gripper_cfg.add_postfix("_0")
         random_pos_args = {"joint_name": "yellow-box-joint"}
 
         env = SimTaskEnvCreator()(

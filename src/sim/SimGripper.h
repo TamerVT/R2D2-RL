@@ -29,20 +29,20 @@ struct SimGripperConfig : common::GripperConfig {
   std::vector<std::string> joints = {"finger_joint1", "finger_joint2"};
   std::string actuator = "actuator8";
 
-  void add_id(const std::string& id) {
+  void add_postfix(const std::string& id) {
     for (auto& s : this->collision_geoms) {
-      s = s + "_" + id;
+      s += id;
     }
     for (auto& s : this->collision_geoms_fingers) {
-      s = s + "_" + id;
+      s += id;
     }
     for (auto& s : this->ignored_collision_geoms) {
-      s = s + "_" + id;
+      s += id;
     }
     for (auto& s : this->joints) {
-      s = s + "_" + id;
+      s += id;
     }
-    this->actuator = this->actuator + "_" + id;
+    this->actuator += id;
   }
 };
 
