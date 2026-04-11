@@ -7,12 +7,12 @@ from rcs.camera.hw import HardwareCameraSet
 from rcs.envs.base import (
     CameraSetWrapper,
     ControlMode,
+    CoverWrapper,
     HandWrapper,
     HardwareEnv,
     RelativeActionSpace,
     RelativeTo,
     RobotWrapper,
-    CoverWrapper,
 )
 from rcs.envs.creators import RCSHardwareEnvCreator
 from rcs.hand.tilburg_hand import THConfig, TilburgHand

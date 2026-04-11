@@ -151,8 +151,6 @@ class TestSimEnvsTRPY(TestSimEnvs):
         self.assert_collision(info)
 
 
-
-
 class TestSimEnvsTquat(TestSimEnvs):
     """This class is for testing Tquat sim env functionalities"""
 
@@ -246,8 +244,6 @@ class TestSimEnvsTquat(TestSimEnvs):
         self.assert_collision(info)
 
 
-
-
 class TestSimEnvsJoints(TestSimEnvs):
     """This class is for testing Joints sim env functionalities"""
 
@@ -308,8 +304,6 @@ class TestSimEnvsJoints(TestSimEnvs):
         collision_act.update(GripperDictType(gripper=np.array([1.0])))
         _, _, _, _, info = env.step(collision_act)
         self.assert_collision(info)
-
-
 
     def test_relative_zero_action_joints(self, cfg, gripper_cfg):
         """

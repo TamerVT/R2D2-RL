@@ -7,6 +7,7 @@ from rcs.camera.hw import HardwareCameraSet
 from rcs.envs.base import (
     CameraSetWrapper,
     ControlMode,
+    CoverWrapper,
     GripperWrapper,
     HandWrapper,
     HardwareEnv,
@@ -14,7 +15,6 @@ from rcs.envs.base import (
     RelativeActionSpace,
     RelativeTo,
     RobotWrapper,
-    CoverWrapper,
 )
 from rcs.envs.creators import RCSHardwareEnvCreator
 from rcs.hand.tilburg_hand import TilburgHand

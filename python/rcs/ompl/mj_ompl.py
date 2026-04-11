@@ -2,12 +2,12 @@ import os
 import xml.etree.ElementTree as ET
 from copy import deepcopy
 
+import gymnasium as gym
 import mujoco as mj
 import numpy as np
 from ompl import base as ob
 from ompl import geometric as og
 from rcs._core.common import Pose
-import gymnasium as gym
 
 DEFAULT_PLANNING_TIME = 5.0  # Default time allowed for planning in seconds
 INTERPOLATE_NUM = 500  # Number of points to interpolate between start and goal states

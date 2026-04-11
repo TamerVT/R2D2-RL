@@ -5,9 +5,9 @@ import logging
 from enum import Enum, auto
 from typing import Annotated, Any, ClassVar, Literal, TypeAlias, cast
 
-from greenlet import getcurrent, greenlet
 import gymnasium as gym
 import numpy as np
+from greenlet import getcurrent, greenlet
 from rcs._core.common import Hand, RobotPlatform
 from rcs._core.sim import SimRobot
 from rcs.camera.interface import BaseCameraSet
@@ -22,10 +22,10 @@ from rcs.envs.space_utils import (
     get_space,
     get_space_keys,
 )
+from rcs.utils import SimpleFrameRate
 
 from rcs import common
 from rcs import sim as simulation
-from rcs.utils import SimpleFrameRate
 
 _logger = logging.getLogger(__name__)
 
@@ -200,6 +200,7 @@ def get_home_position(robot: common.Robot) -> np.ndarray:
     """Returns the home position of the robot."""
     return common.robots_meta_config(robot.get_config().robot_type).q_home
 
+
 class BaseEnv(gym.Env):
     PLATFORM: RobotPlatform
 
@@ -211,7 +212,6 @@ class BaseEnv(gym.Env):
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         super().reset(seed=seed, options=options)
         return {}, {}
-
 
 
 class HardwareEnv(BaseEnv):
@@ -247,7 +247,6 @@ class SimEnv(BaseEnv):
     def apply_sim_state(self):
         self.sim.step(1)
 
-
     def reset(
         self, *, seed: int | None = None, options: dict[str, Any] | None = None
     ) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -257,20 +256,22 @@ class SimEnv(BaseEnv):
             self.apply_sim_state()
         return super().reset(seed=seed, options=options)
 
+
 class CoverWrapper(gym.Wrapper):
     """The CoverWrapper must be the last wrapper on the stack
-    
+
     Only strictly necessary for simulator environments, but also works for hardware environments.
     It takes care of resetting the simulator before any other wrapper resets its state, already assuming
     a fresh simulator state.
     """
-    def reset(self, *, seed: int | None = None, options: dict[str, Any] | None = None) -> tuple[dict[str, Any], dict[str, Any]]:
+
+    def reset(
+        self, *, seed: int | None = None, options: dict[str, Any] | None = None
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
         if self.env.get_wrapper_attr("PLATFORM") == RobotPlatform.SIMULATION:
             sim = cast(simulation.Sim, self.get_wrapper_attr("sim"))
             sim.reset()
         return super().reset(seed=seed, options=options)
-
-
 
 
 class RobotWrapper(ActObsInfoWrapper):
@@ -333,7 +334,6 @@ class RobotWrapper(ActObsInfoWrapper):
             xyzrpy=self.robot.get_cartesian_position().xyzrpy(),
         )
 
-
     def action(self, action: dict[str, Any]) -> dict[str, Any]:
         if (
             self.get_base_control_mode() == ControlMode.CARTESIAN_TQuat
@@ -378,7 +378,6 @@ class RobotWrapper(ActObsInfoWrapper):
         observation.update(self.get_robot_obs())
         return observation, info
 
-
     def reset(
         self, *, seed: int | None = None, options: dict[str, Any] | None = None
     ) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -396,7 +395,7 @@ class RobotWrapper(ActObsInfoWrapper):
 class MultiRobotWrapper(gym.Env):
     """Wraps a dictionary of single robot environments to allow for multi robot control.
 
-    Env1  Env2  Env3 
+    Env1  Env2  Env3
       |     |     |
     ----------------
     MultiRobotWrapper
@@ -423,18 +422,21 @@ class MultiRobotWrapper(gym.Env):
                 self.PLATFORM = self.envs[env].get_wrapper_attr("PLATFORM")
                 self.lead_env = self.envs[env].unwrapped
             else:
-                assert self.envs[env].get_wrapper_attr("PLATFORM") == self.PLATFORM, "all envs must have the same platform!"
+                assert (
+                    self.envs[env].get_wrapper_attr("PLATFORM") == self.PLATFORM
+                ), "all envs must have the same platform!"
         self._runs_in_sim = self.PLATFORM == RobotPlatform.SIMULATION
         if self._runs_in_sim:
             self._inject_main_greenlet()
             assert isinstance(self.lead_env, SimEnv), "something is wrong with the env, the base should be type SimEnv"
             self.sim = self.lead_env.get_wrapper_attr("sim")
 
-
     def _inject_main_greenlet(self):
         main_gr = getcurrent()
         for env_item in self.envs.values():
-            assert isinstance(env_item.unwrapped, SimEnv), "something is wrong with the env, the base should be type SimEnv"
+            assert isinstance(
+                env_item.unwrapped, SimEnv
+            ), "something is wrong with the env, the base should be type SimEnv"
             env_item.unwrapped.main_greenlet = main_gr
 
     def _translate_pose(self, key, dic, to_world=True):
@@ -472,7 +474,6 @@ class MultiRobotWrapper(gym.Env):
             assert isinstance(self.lead_env, SimEnv)
             self.lead_env.step_sim()
 
-
         # follows gym env by combinding a dict of envs into a single env
         obs = {}
         reward = 0.0
@@ -480,7 +481,6 @@ class MultiRobotWrapper(gym.Env):
         truncated = False
         info = {}
         for key, env in self.envs.items():
-
 
             if self._runs_in_sim:
                 # SIM path: 3. UP: Gather observations
@@ -490,8 +490,6 @@ class MultiRobotWrapper(gym.Env):
                 # HARDWARE path
                 act = self._translate_pose(key, action[key], to_world=False)
                 ob, r, t, tr, info[key] = env.step(act)
-
-
 
             obs[key] = self._translate_pose(key, ob, to_world=True)
             reward += float(r)
@@ -510,11 +508,11 @@ class MultiRobotWrapper(gym.Env):
         seed_ = {key: seed for key in self.envs} if seed is not None else {key: None for key in self.envs}
         options_ = options if options is not None else {key: None for key in self.envs}
 
-
         reset_greenlets = {}
         if self._runs_in_sim:
             # SIM path: 1. DOWN: Reset each robot
             for key, env in self.envs.items():
+
                 def make_reset_gr(env_to_reset, s, o):
                     return greenlet(lambda: env_to_reset.reset(seed=s, options=o))
 
@@ -526,7 +524,6 @@ class MultiRobotWrapper(gym.Env):
             assert isinstance(self.lead_env, SimEnv)
             self.lead_env.apply_sim_state()
 
-
         for key, env in self.envs.items():
             if self._runs_in_sim:
                 # SIM path: 3. UP: Gather initial obs
@@ -537,7 +534,6 @@ class MultiRobotWrapper(gym.Env):
 
             obs[key] = self._translate_pose(key, ob, to_world=True)
             info[key] = i
-
 
         return obs, info
 

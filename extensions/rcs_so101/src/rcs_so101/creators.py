@@ -5,12 +5,12 @@ from rcs.camera.hw import HardwareCameraSet
 from rcs.envs.base import (
     CameraSetWrapper,
     ControlMode,
+    CoverWrapper,
     GripperWrapper,
     HardwareEnv,
     RelativeActionSpace,
     RelativeTo,
     RobotWrapper,
-    CoverWrapper,
 )
 from rcs.envs.creators import RCSHardwareEnvCreator
 from rcs_so101 import SO101IK

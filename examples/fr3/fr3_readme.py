@@ -6,12 +6,12 @@ from rcs.camera.sim import SimCameraSet
 from rcs.envs.base import (
     CameraSetWrapper,
     ControlMode,
+    CoverWrapper,
     GripperWrapper,
     RelativeActionSpace,
     RelativeTo,
     RobotWrapper,
     SimEnv,
-    CoverWrapper,
 )
 from rcs.envs.sim import GripperWrapperSim, RobotSimWrapper
 from rcs.envs.utils import (

@@ -482,7 +482,8 @@ PYBIND11_MODULE(_core, m) {
            [](const rcs::sim::SimRobotConfig& self, py::dict) {
              return rcs::sim::SimRobotConfig(self);
            })
-      .def("add_postfix", &rcs::sim::SimRobotConfig::add_postfix, py::arg("id"));
+      .def("add_postfix", &rcs::sim::SimRobotConfig::add_postfix,
+           py::arg("id"));
   py::class_<rcs::sim::SimRobotState, rcs::common::RobotState>(sim,
                                                                "SimRobotState")
       .def(py::init<>())
@@ -528,7 +529,8 @@ PYBIND11_MODULE(_core, m) {
            [](const rcs::sim::SimGripperConfig& self, py::dict) {
              return rcs::sim::SimGripperConfig(self);
            })
-      .def("add_postfix", &rcs::sim::SimGripperConfig::add_postfix, py::arg("id"));
+      .def("add_postfix", &rcs::sim::SimGripperConfig::add_postfix,
+           py::arg("id"));
   py::class_<rcs::sim::SimGripperState, rcs::common::GripperState>(
       sim, "SimGripperState")
       .def(py::init<>())
@@ -612,7 +614,8 @@ PYBIND11_MODULE(_core, m) {
       .def_readwrite("grasp_type", &rcs::sim::SimTilburgHandConfig::grasp_type)
       .def_readwrite("seconds_between_callbacks",
                      &rcs::sim::SimTilburgHandConfig::seconds_between_callbacks)
-      .def("add_postfix", &rcs::sim::SimTilburgHandConfig::add_postfix, py::arg("id"));
+      .def("add_postfix", &rcs::sim::SimTilburgHandConfig::add_postfix,
+           py::arg("id"));
   // SimTilburgHand
   py::class_<rcs::sim::SimTilburgHand, rcs::common::Hand,
              std::shared_ptr<rcs::sim::SimTilburgHand>>(sim, "SimTilburgHand")
