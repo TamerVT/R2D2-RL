@@ -38,7 +38,7 @@ class RCSUR5eEnvCreator(RCSHardwareEnvCreator):
         )
         robot = UR5e(ip, ik)
         robot.set_config(robot_cfg)
-        env = HardwareEnv()
+        env: gym.Env = HardwareEnv()
         env = RobotWrapper(env, robot, control_mode, home_on_reset=True)
 
         gripper = RobotiQGripper(ip)
@@ -52,6 +52,4 @@ class RCSUR5eEnvCreator(RCSHardwareEnvCreator):
 
         if max_relative_movement is not None:
             env = RelativeActionSpace(env, max_mov=max_relative_movement, relative_to=relative_to)
-        env = CoverWrapper(env)
-
-        return env
+        return CoverWrapper(env)

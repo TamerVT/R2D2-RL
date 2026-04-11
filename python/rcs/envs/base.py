@@ -9,7 +9,6 @@ import gymnasium as gym
 import numpy as np
 from greenlet import getcurrent, greenlet
 from rcs._core.common import Hand, RobotPlatform
-from rcs._core.sim import SimRobot
 from rcs.camera.interface import BaseCameraSet
 from rcs.envs.space_utils import (
     ActObsInfoWrapper,
@@ -505,7 +504,9 @@ class MultiRobotWrapper(gym.Env):
         obs = {}
         info = {}
 
-        seed_ = {key: seed for key in self.envs} if seed is not None else {key: None for key in self.envs}
+        seed_: dict[str, int | None] = (
+            {key: seed for key in self.envs} if seed is not None else {key: None for key in self.envs}
+        )
         options_ = options if options is not None else {key: None for key in self.envs}
 
         reset_greenlets = {}

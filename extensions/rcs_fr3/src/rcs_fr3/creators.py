@@ -93,7 +93,7 @@ class RCSFR3EnvCreator(RCSHardwareEnvCreator):
         robot = hw.Franka(ip, ik)
         robot.set_config(robot_cfg)
 
-        env = HardwareEnv()
+        env: gym.Env = HardwareEnv()
         env = RobotWrapper(env, robot, ControlMode.JOINTS if collision_guard is not None else control_mode)
 
         env = FR3HW(env)
@@ -126,9 +126,7 @@ class RCSFR3EnvCreator(RCSHardwareEnvCreator):
         #     )
         if relative_to != RelativeTo.NONE:
             env = RelativeActionSpace(env, max_mov=max_relative_movement, relative_to=relative_to)
-        env = CoverWrapper(env)
-
-        return env
+        return CoverWrapper(env)
 
 
 class RCSFR3MultiEnvCreator(RCSHardwareEnvCreator):
@@ -156,7 +154,8 @@ class RCSFR3MultiEnvCreator(RCSHardwareEnvCreator):
             robots[key] = hw.Franka(ip, ik)
             robots[key].set_config(robot_cfg)
 
-        envs = {}
+        envs: dict[str, gym.Env] = {}
+        env: gym.Env
         for key, ip in name2ip.items():
             env = HardwareEnv()
             env = RobotWrapper(env, robots[key], control_mode)
@@ -175,8 +174,7 @@ class RCSFR3MultiEnvCreator(RCSHardwareEnvCreator):
             camera_set.wait_for_frames()
             logger.info("CameraSet started")
             env = CameraSetWrapper(env, camera_set)
-        env = CoverWrapper(env)
-        return env
+        return CoverWrapper(env)
 
 
 class RCSFR3DefaultEnvCreator(RCSHardwareEnvCreator):

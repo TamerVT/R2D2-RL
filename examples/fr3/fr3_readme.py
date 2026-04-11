@@ -1,5 +1,6 @@
 from time import sleep
 
+import gymnasium as gym
 import numpy as np
 from rcs._core.sim import SimConfig
 from rcs.camera.sim import SimCameraSet
@@ -42,7 +43,7 @@ if __name__ == "__main__":
 
     # base env
     robot = rcs.sim.SimRobot(simulation, ik, robot_cfg)
-    env = SimEnv(simulation)
+    env: gym.Env = SimEnv(simulation)
     env = RobotWrapper(env, robot, ControlMode.CARTESIAN_TQuat)
 
     # gripper

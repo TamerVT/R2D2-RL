@@ -78,16 +78,16 @@ class TestMultiSimRobotWrapper:
         # First step from home — physics moves the robot some amount
         actions = {key: JointsDictType(joints=home[key]) for key in ROBOT2ID}
         obs1, _, _, _, _ = multi_env.step(actions)
-        delta1 = max(np.linalg.norm(obs1[k]["joints"] - home[k]) for k in ROBOT2ID)
+        delta1 = max(float(np.linalg.norm(obs1[k]["joints"] - home[k])) for k in ROBOT2ID)
 
         # Second step with same target — robot is now closer to or past target.
         # If the sim were stepped twice per call, delta2 would be >> delta1.
         obs2, _, _, _, info = multi_env.step(actions)
-        delta2 = max(np.linalg.norm(obs2[k]["joints"] - home[k]) for k in ROBOT2ID)
+        delta2 = max(float(np.linalg.norm(obs2[k]["joints"] - home[k])) for k in ROBOT2ID)
 
         for key in ROBOT2ID:
             assert info[key]["ik_success"], f"IK failed for {key!r}"
-        # delta2 should not be dramatically larger than delta1 (at most 3×)
+        # delta2 should not be dramatically larger than delta1 (at most 3x)
         assert (
             delta2 < delta1 * 3
         ), f"Second step drifted {delta2:.3f} vs first {delta1:.3f} — sim may be double-stepped"

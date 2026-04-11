@@ -18,14 +18,13 @@ name = ctypes.util.find_library("EGL")
 if name is not None:
     try:
         import mujoco.egl
-        import rcs._core as _cxx
         from mujoco.egl import GLContext
 
         _egl = ctypes.CDLL(name, mode=os.RTLD_LOCAL | os.RTLD_NOW)
         _addr_make_current = ctypes.cast(_egl.eglMakeCurrent, ctypes.c_void_p).value
         _ctx = GLContext(max_width=3840, max_height=2160)
-        _egl_display = mujoco.egl.EGL_DISPLAY.address
-        _egl_context = _ctx._context.address
+        _egl_display = int(mujoco.egl.EGL_DISPLAY.address)
+        _egl_context = int(_ctx._context.address)
         _egl_available = True
     except Exception:
         pass
@@ -37,4 +36,6 @@ def bootstrap():
     import rcs._core as _cxx
 
     assert _addr_make_current is not None
+    assert _egl_display is not None
+    assert _egl_context is not None
     _cxx.common._bootstrap_egl(_addr_make_current, _egl_display, _egl_context)

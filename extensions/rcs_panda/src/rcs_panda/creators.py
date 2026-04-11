@@ -70,7 +70,7 @@ class RCSPandaEnvCreator(RCSHardwareEnvCreator):
         robot = hw.Franka(ip, ik)
         robot.set_config(robot_cfg)
 
-        env = HardwareEnv()
+        env: gym.Env = HardwareEnv()
         env = RobotWrapper(
             env,
             robot,
@@ -107,9 +107,7 @@ class RCSPandaEnvCreator(RCSHardwareEnvCreator):
         #     )
         if max_relative_movement is not None:
             env = RelativeActionSpace(env, max_mov=max_relative_movement, relative_to=relative_to)
-        env = CoverWrapper(env)
-
-        return env
+        return CoverWrapper(env)
 
 
 class RCSPandaMultiEnvCreator(RCSHardwareEnvCreator):
@@ -136,7 +134,8 @@ class RCSPandaMultiEnvCreator(RCSHardwareEnvCreator):
             robots[ip] = hw.Franka(ip, ik)
             robots[ip].set_config(robot_cfg)
 
-        envs = {}
+        envs: dict[str, gym.Env] = {}
+        env: gym.Env
         for ip in ips:
             env = HardwareEnv()
             env = RobotWrapper(env, robots[ip], control_mode)
@@ -155,5 +154,4 @@ class RCSPandaMultiEnvCreator(RCSHardwareEnvCreator):
             camera_set.wait_for_frames()
             logger.info("CameraSet started")
             env = CameraSetWrapper(env, camera_set)
-        env = CoverWrapper(env)
-        return env
+        return CoverWrapper(env)

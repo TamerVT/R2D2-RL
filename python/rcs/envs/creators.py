@@ -2,7 +2,6 @@ import copy
 import logging
 import typing
 from functools import partial
-from typing import Type
 
 import gymnasium as gym
 import numpy as np
@@ -86,7 +85,7 @@ class SimEnvCreator(EnvCreator):
         # ik = rcs_robotics_library._core.rl.RoboticsLibraryIK(robot_cfg.kinematic_model_path)
 
         robot = rcs.sim.SimRobot(simulation, ik, robot_cfg)
-        env = SimEnv(simulation)
+        env: gym.Env = SimEnv(simulation)
         env = RobotWrapper(env, robot, control_mode)
         assert not (
             hand_cfg is not None and gripper_cfg is not None
@@ -129,9 +128,7 @@ class SimEnvCreator(EnvCreator):
         #     )
         if max_relative_movement is not None:
             env = RelativeActionSpace(env, max_mov=max_relative_movement, relative_to=relative_to)
-        env = CoverWrapper(env)
-
-        return env
+        return CoverWrapper(env)
 
 
 class SimMultiEnvCreator(RCSHardwareEnvCreator):
@@ -163,7 +160,8 @@ class SimMultiEnvCreator(RCSHardwareEnvCreator):
             cfg.add_postfix("_" + mid)
             robots[key] = rcs.sim.SimRobot(sim=simulation, ik=ik, cfg=cfg)
 
-        envs = {}
+        envs: dict[str, gym.Env] = {}
+        env: gym.Env
         for key, mid in name2id.items():
             env = SimEnv(simulation)
             env = RobotWrapper(env, robots[key], control_mode)
@@ -188,8 +186,7 @@ class SimMultiEnvCreator(RCSHardwareEnvCreator):
                 BaseCameraSet, SimCameraSet(simulation, cameras, physical_units=True, render_on_demand=True)
             )
             env = CameraSetWrapper(env, camera_set, include_depth=True)
-        env = CoverWrapper(env)
-        return env
+        return CoverWrapper(env)
 
 
 class SimTaskEnvCreator(EnvCreator):
@@ -257,7 +254,7 @@ class SimTaskEnvCreator(EnvCreator):
         )
         env_rel = random_env(env_rel)
         if mode == "gripper":
-            env_rel = PickCubeSuccessWrapper(env_rel, cube_joint_name=obj_joint_name)
+            env_rel = PickCubeSuccessWrapper(env_rel, cube_geom_name=obj_joint_name)
 
         if render_mode == "human":
             env_rel.get_wrapper_attr("sim").open_gui()
