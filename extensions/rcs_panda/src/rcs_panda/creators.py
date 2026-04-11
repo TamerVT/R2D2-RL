@@ -14,6 +14,7 @@ from rcs.envs.base import (
     RelativeActionSpace,
     RelativeTo,
     RobotWrapper,
+    CoverWrapper,
 )
 from rcs.envs.creators import RCSHardwareEnvCreator
 from rcs.hand.tilburg_hand import TilburgHand
@@ -106,6 +107,7 @@ class RCSPandaEnvCreator(RCSHardwareEnvCreator):
         #     )
         if max_relative_movement is not None:
             env = RelativeActionSpace(env, max_mov=max_relative_movement, relative_to=relative_to)
+        env = CoverWrapper(env)
 
         return env
 
@@ -153,4 +155,5 @@ class RCSPandaMultiEnvCreator(RCSHardwareEnvCreator):
             camera_set.wait_for_frames()
             logger.info("CameraSet started")
             env = CameraSetWrapper(env, camera_set)
+        env = CoverWrapper(env)
         return env

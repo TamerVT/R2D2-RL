@@ -12,6 +12,7 @@ from rcs.envs.base import (
     RelativeActionSpace,
     RelativeTo,
     RobotWrapper,
+    CoverWrapper,
 )
 from rcs.envs.creators import RCSHardwareEnvCreator
 from rcs.hand.tilburg_hand import THConfig, TilburgHand
@@ -49,5 +50,6 @@ class RCSXArm7EnvCreator(RCSHardwareEnvCreator):
 
         if max_relative_movement is not None:
             env = RelativeActionSpace(env, max_mov=max_relative_movement, relative_to=relative_to)
+        env = CoverWrapper(env)
 
         return env

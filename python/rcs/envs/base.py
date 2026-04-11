@@ -244,8 +244,7 @@ class SimEnv(BaseEnv):
         else:
             self.sim.step_until_convergence()
 
-    def reset_sim(self):
-        self.sim.reset()
+    def apply_sim_state(self):
         self.sim.step(1)
 
 
@@ -255,7 +254,20 @@ class SimEnv(BaseEnv):
         if self.main_greenlet is not None:
             self.main_greenlet.switch()
         else:
-            self.reset_sim()
+            self.apply_sim_state()
+        return super().reset(seed=seed, options=options)
+
+class CoverWrapper(gym.Wrapper):
+    """The CoverWrapper must be the last wrapper on the stack
+    
+    Only strictly necessary for simulator environments, but also works for hardware environments.
+    It takes care of resetting the simulator before any other wrapper resets its state, already assuming
+    a fresh simulator state.
+    """
+    def reset(self, *, seed: int | None = None, options: dict[str, Any] | None = None) -> tuple[dict[str, Any], dict[str, Any]]:
+        if self.env.get_wrapper_attr("PLATFORM") == RobotPlatform.SIMULATION:
+            sim = cast(simulation.Sim, self.get_wrapper_attr("sim"))
+            sim.reset()
         return super().reset(seed=seed, options=options)
 
 
@@ -333,25 +345,28 @@ class RobotWrapper(ActObsInfoWrapper):
         ):
             msg = "Given type is not matching control mode!"
             raise RuntimeError(msg)
+        last_action = self.prev_action
         self.prev_action = copy.deepcopy(action)
 
+        # shallow copy
+        action = dict(action)
         if self.get_base_control_mode() == ControlMode.JOINTS and (
-            self.prev_action is None
-            or not np.allclose(action[self.joints_key], self.prev_action[self.joints_key], atol=1e-03, rtol=0)
+            last_action is None
+            or not np.allclose(action[self.joints_key], last_action[self.joints_key], atol=1e-03, rtol=0)
         ):
             self.robot.set_joint_position(action[self.joints_key])
             action.pop(self.joints_key)
         elif self.get_base_control_mode() == ControlMode.CARTESIAN_TRPY and (
-            self.prev_action is None
-            or not np.allclose(action[self.trpy_key], self.prev_action[self.trpy_key], atol=1e-03, rtol=0)
+            last_action is None
+            or not np.allclose(action[self.trpy_key], last_action[self.trpy_key], atol=1e-03, rtol=0)
         ):
             self.robot.set_cartesian_position(
                 common.Pose(translation=action[self.trpy_key][:3], rpy_vector=action[self.trpy_key][3:])
             )
             action.pop(self.trpy_key)
         elif self.get_base_control_mode() == ControlMode.CARTESIAN_TQuat and (
-            self.prev_action is None
-            or not np.allclose(action[self.tquat_key], self.prev_action[self.tquat_key], atol=1e-03, rtol=0)
+            last_action is None
+            or not np.allclose(action[self.tquat_key], last_action[self.tquat_key], atol=1e-03, rtol=0)
         ):
             self.robot.set_cartesian_position(
                 common.Pose(translation=action[self.tquat_key][:3], quaternion=action[self.tquat_key][3:])
@@ -361,18 +376,13 @@ class RobotWrapper(ActObsInfoWrapper):
 
     def observation(self, observation: dict, info: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
         observation.update(self.get_robot_obs())
-        # if self.env.get_wrapper_attr("PLATFORM") == RobotPlatform.SIMULATION:
-        #     sim_robot = cast(SimRobot, self.robot)
-        #     state = sim_robot.get_state()
-        #     info["collision"] = state.collision
-        #     info["ik_success"] = state.ik_success
-        #     info["is_sim_converged"] = self.env.get_wrapper_attr("sim").is_converged()
         return observation, info
 
 
     def reset(
         self, *, seed: int | None = None, options: dict[str, Any] | None = None
     ) -> tuple[dict[str, Any], dict[str, Any]]:
+        self.prev_action = None
         self.robot.reset()
         if self.home_on_reset:
             self.robot.move_home()
@@ -405,6 +415,7 @@ class MultiRobotWrapper(gym.Env):
         else:
             self.robot2world = robot2world
         self.lead_env: gym.Env | None = None
+        self.sim: simulation.Sim | None = None
 
         # make sure all envs are the same type (sim/real)
         for env in self.envs:
@@ -416,6 +427,9 @@ class MultiRobotWrapper(gym.Env):
         self._runs_in_sim = self.PLATFORM == RobotPlatform.SIMULATION
         if self._runs_in_sim:
             self._inject_main_greenlet()
+            assert isinstance(self.lead_env, SimEnv), "something is wrong with the env, the base should be type SimEnv"
+            self.sim = self.lead_env.get_wrapper_attr("sim")
+
 
     def _inject_main_greenlet(self):
         main_gr = getcurrent()
@@ -471,9 +485,7 @@ class MultiRobotWrapper(gym.Env):
             if self._runs_in_sim:
                 # SIM path: 3. UP: Gather observations
                 # Resume robot greenlet. It returns the step results.
-                res = step_greenlets[key].switch()
-                ob, r, t, tr, i = res
-            
+                ob, r, t, tr, info[key] = step_greenlets[key].switch()
             else:
                 # HARDWARE path
                 act = self._translate_pose(key, action[key], to_world=False)
@@ -510,9 +522,9 @@ class MultiRobotWrapper(gym.Env):
                 reset_greenlets[key] = gr
                 gr.switch()
 
-            # SIM path: 2. SIM: reset
+            # SIM path: 2. SIM: apply state from rested wrappers
             assert isinstance(self.lead_env, SimEnv)
-            self.lead_env.reset_sim()
+            self.lead_env.apply_sim_state()
 
 
         for key, env in self.envs.items():

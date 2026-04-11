@@ -10,6 +10,7 @@ from rcs.envs.base import (
     RelativeActionSpace,
     RelativeTo,
     RobotWrapper,
+    CoverWrapper,
 )
 from rcs.envs.creators import RCSHardwareEnvCreator
 from rcs_so101 import SO101IK
@@ -48,6 +49,7 @@ class RCSSO101EnvCreator(RCSHardwareEnvCreator):
 
         if max_relative_movement is not None:
             env = RelativeActionSpace(env, max_mov=max_relative_movement, relative_to=relative_to)
+        env = CoverWrapper(env)
 
         return env
 

@@ -20,6 +20,7 @@ from rcs.envs.base import (
     RelativeTo,
     RobotWrapper,
     SimEnv,
+    CoverWrapper,
 )
 from rcs.envs.sim import (
     GripperWrapperSim,
@@ -128,6 +129,7 @@ class SimEnvCreator(EnvCreator):
         #     )
         if max_relative_movement is not None:
             env = RelativeActionSpace(env, max_mov=max_relative_movement, relative_to=relative_to)
+        env = CoverWrapper(env)
 
         return env
 
@@ -186,6 +188,7 @@ class SimMultiEnvCreator(RCSHardwareEnvCreator):
                 BaseCameraSet, SimCameraSet(simulation, cameras, physical_units=True, render_on_demand=True)
             )
             env = CameraSetWrapper(env, camera_set, include_depth=True)
+        env = CoverWrapper(env)
         return env
 
 

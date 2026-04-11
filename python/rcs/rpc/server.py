@@ -26,7 +26,7 @@ class RcsServer(Wrapper, rpyc.Service):
     @rpyc.exposed
     def get_robot_obs(self):
         """Get the current observation using the Wrapper base class if available."""
-        return self.get_wrapper_attr("get_robot_obs")()
+        return self.env.get_wrapper_attr("get_robot_obs")()
 
     @rpyc.exposed
     def unwrapped(self):

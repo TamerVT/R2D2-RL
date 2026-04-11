@@ -11,6 +11,7 @@ from rcs.envs.base import (
     RelativeTo,
     RobotWrapper,
     SimEnv,
+    CoverWrapper,
 )
 from rcs.envs.sim import GripperWrapperSim, RobotSimWrapper
 from rcs.envs.utils import (
@@ -57,6 +58,7 @@ if __name__ == "__main__":
 
     # relative actions bounded by 10cm translation and 10 degree rotation
     env = RelativeActionSpace(env, max_mov=(0.1, np.deg2rad(10)), relative_to=RelativeTo.LAST_STEP)
+    env = CoverWrapper(env)
 
     env.get_wrapper_attr("sim").open_gui()
     # wait for gui to open
