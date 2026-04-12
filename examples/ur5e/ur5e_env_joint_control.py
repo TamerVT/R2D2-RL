@@ -62,7 +62,6 @@ def main():
 
         env_rel = SimEnvCreator()(
             control_mode=ControlMode.JOINTS,
-            collision_guard=False,
             robot_cfg=robot_sim_cfg,
             gripper_cfg=gripper_config,
             max_relative_movement=np.deg2rad(5),

@@ -33,7 +33,6 @@ class RCSPandaEnvCreator(RCSHardwareEnvCreator):
         ip: str,
         control_mode: ControlMode,
         robot_cfg: hw.PandaConfig,
-        collision_guard: str | PathLike | None = None,
         gripper_cfg: hw.FHConfig | rcs.hand.tilburg_hand.THConfig | None = None,
         camera_set: HardwareCameraSet | None = None,
         max_relative_movement: float | tuple[float, float] | None = None,
@@ -46,10 +45,6 @@ class RCSPandaEnvCreator(RCSHardwareEnvCreator):
             ip (str): IP address of the robot.
             control_mode (ControlMode): Control mode for the robot.
             robot_cfg (hw.PandaConfig): Configuration for the Panda robot.
-            collision_guard (str | PathLike | None): Key to a built-in scene
-            robot_cfg (hw.PandaConfig): Configuration for the Panda robot.
-            collision_guard (str | PathLike | None): Key to a scene (requires UTN compatible scene package to be present)
-                or the path to a mujoco scene for collision guarding. If None, collision guarding is not used.
             gripper_cfg (hw.FHConfig | None): Configuration for the gripper. If None, no gripper is used.
             camera_set (BaseHardwareCameraSet | None): Camera set to be used. If None, no cameras are used.
             max_relative_movement (float | tuple[float, float] | None): Maximum allowed movement. If float, it restricts
@@ -74,7 +69,7 @@ class RCSPandaEnvCreator(RCSHardwareEnvCreator):
         env = RobotWrapper(
             env,
             robot,
-            ControlMode.JOINTS if collision_guard is not None else control_mode,
+            control_mode,
             home_on_reset=True,
         )
 
@@ -92,19 +87,6 @@ class RCSPandaEnvCreator(RCSHardwareEnvCreator):
             logger.info("CameraSet started")
             env = CameraSetWrapper(env, camera_set)
 
-        # if collision_guard is not None:
-        #     assert urdf_path is not None
-        #     env = CollisionGuard.env_from_xml_paths(
-        #         env,
-        #         str(rcs.scenes.get(str(collision_guard), collision_guard)),
-        #         str(urdf_path),
-        #         gripper=True,
-        #         check_home_collision=False,
-        #         control_mode=control_mode,
-        #         tcp_offset=rcs.common.Pose(rcs.common.FrankaHandTCPOffset()),
-        #         sim_gui=True,
-        #         truncate_on_collision=False,
-        #     )
         if max_relative_movement is not None:
             env = RelativeActionSpace(env, max_mov=max_relative_movement, relative_to=relative_to)
         return CoverWrapper(env)

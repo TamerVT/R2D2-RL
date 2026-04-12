@@ -42,7 +42,6 @@ def main():
     env_rel = SimEnvCreator()(
         robot_cfg=robot_cfg,
         control_mode=ControlMode.CARTESIAN_TQuat,
-        collision_guard=False,
         gripper_cfg=gripper_cfg,
         max_relative_movement=0.5,
         relative_to=RelativeTo.LAST_STEP,

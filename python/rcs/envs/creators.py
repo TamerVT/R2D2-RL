@@ -47,7 +47,6 @@ class SimEnvCreator(EnvCreator):
         self,
         control_mode: ControlMode,
         robot_cfg: rcs.sim.SimRobotConfig,
-        collision_guard: bool = False,
         gripper_cfg: rcs.sim.SimGripperConfig | None = None,
         sim_cfg: rcs.sim.SimConfig | None = None,
         hand_cfg: rcs.sim.SimTilburgHandConfig | None = None,
@@ -61,7 +60,6 @@ class SimEnvCreator(EnvCreator):
         Args:
             control_mode (ControlMode): Control mode for the robot.
             robot_cfg (rcs.sim.SimRobotConfig): Configuration for the FR3 robot.
-            collision_guard (bool): Whether to use collision guarding. If True, the same mjcf scene is used for collision guarding.
             gripper_cfg (rcs.sim.SimGripperConfig | None): Configuration for the gripper. If None, no gripper is used.
                                                            Cannot be used together with hand_cfg.
             hand_cfg (rcs.sim.SimHandConfig | None): Configuration for the hand. If None, no hand is used.
@@ -113,19 +111,6 @@ class SimEnvCreator(EnvCreator):
             )
             env = CameraSetWrapper(env, camera_set, include_depth=True)
 
-        # TODO: collision guard not working atm
-        # if collision_guard:
-        #     env = CollisionGuard.env_from_xml_paths(
-        #         env,
-        #         mjcf,
-        #         robot_kinematics,
-        #         gripper=gripper_cfg is not None,
-        #         check_home_collision=False,
-        #         control_mode=control_mode,
-        #         tcp_offset=rcs.common.Pose(rcs.common.FrankaHandTCPOffset()),
-        #         sim_gui=True,
-        #         truncate_on_collision=True,
-        #     )
         if max_relative_movement is not None:
             env = RelativeActionSpace(env, max_mov=max_relative_movement, relative_to=relative_to)
         return CoverWrapper(env)
@@ -244,7 +229,6 @@ class SimTaskEnvCreator(EnvCreator):
         env_rel = SimEnvCreator()(
             control_mode=control_mode,
             robot_cfg=robot_cfg,
-            collision_guard=False,
             gripper_cfg=_gripper_cfg,
             hand_cfg=_hand_cfg,
             sim_cfg=sim_cfg,

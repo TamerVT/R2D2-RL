@@ -15,7 +15,6 @@ def main():
         ip="192.168.4.100",
         control_mode=ControlMode.CARTESIAN_TQuat,
         robot_cfg=default_panda_hw_robot_cfg(),
-        collision_guard=None,
         gripper_cfg=default_panda_hw_gripper_cfg(),
         camera_set=None,
         max_relative_movement=0.2,
