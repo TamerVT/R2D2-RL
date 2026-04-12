@@ -63,7 +63,6 @@ def main():
             scene = rcs.scenes["fr3_empty_world"]
             simulation = sim.Sim(scene.mjb or scene.mjcf_scene)
             robot_cfg = sim.SimRobotConfig()
-            robot_cfg.add_postfix("_0")
             robot_cfg.tcp_offset = rcs.common.Pose(rcs.common.FrankaHandTCPOffset())
             ik = rcs.common.Pin(
                 robot_cfg.kinematic_model_path,
@@ -73,7 +72,6 @@ def main():
             robot = rcs.sim.SimRobot(simulation, ik, robot_cfg)
 
             gripper_cfg_sim = sim.SimGripperConfig()
-            gripper_cfg_sim.add_postfix("_0")
             gripper = sim.SimGripper(simulation, gripper_cfg_sim)
 
             # add camera to have a rendering gui

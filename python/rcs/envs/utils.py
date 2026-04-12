@@ -15,12 +15,12 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
-def default_sim_robot_cfg(scene: str = "fr3_empty_world", idx: str = "_0") -> sim.SimRobotConfig:
+def default_sim_robot_cfg(scene: str = "fr3_empty_world", idx: str = "") -> sim.SimRobotConfig:
     robot_cfg = rcs.sim.SimRobotConfig()
     scene_cfg = rcs.scenes[scene]
     robot_cfg.robot_type = scene_cfg.robot_type
     robot_cfg.tcp_offset = common.Pose(common.FrankaHandTCPOffset())
-    robot_cfg.add_postfix(idx)
+    robot_cfg.add_prefix(idx)
     if (mjb := rcs.scenes[scene].mjb) is not None:
         robot_cfg.mjcf_scene_path = mjb
     else:
@@ -37,9 +37,9 @@ def default_tilburg_hw_hand_cfg(file: str | PathLike | None = None) -> THConfig:
     return hand_cfg
 
 
-def default_sim_gripper_cfg(idx: str = "_0") -> sim.SimGripperConfig:
+def default_sim_gripper_cfg(idx: str = "") -> sim.SimGripperConfig:
     cfg = sim.SimGripperConfig()
-    cfg.add_postfix(idx)
+    cfg.add_prefix(idx)
     return cfg
 
 

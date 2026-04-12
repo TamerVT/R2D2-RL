@@ -31,18 +31,18 @@ struct SimRobotConfig : common::RobotConfig {
   std::string base = "base";
   std::string mjcf_scene_path = "assets/scenes/fr3_empty_world/scene.xml";
 
-  void add_postfix(const std::string& id) {
+  void add_prefix(const std::string& id) {
     for (auto& s : this->arm_collision_geoms) {
-      s += id;
+      s = id + s;
     }
     for (auto& s : this->joints) {
-      s += id;
+      s = id + s;
     }
     for (auto& s : this->actuators) {
-      s += id;
+      s = id + s;
     }
     this->attachment_site += id;
-    this->base += id;
+    this->base = id + this->base;
   }
 };
 
