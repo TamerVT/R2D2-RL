@@ -16,7 +16,9 @@ from rcs.envs.base import (
 )
 from rcs.envs.creators import RCSHardwareEnvCreator
 from rcs.hand.tilburg_hand import THConfig, TilburgHand
-from rcs_xarm7.hw import XArm7
+from rcs_xarm7.hw import XArm7, XArm7Config
+
+import rcs
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -25,8 +27,8 @@ logger.setLevel(logging.INFO)
 class RCSXArm7EnvCreator(RCSHardwareEnvCreator):
     def __call__(  # type: ignore
         self,
+        robot_cfg: XArm7Config,
         control_mode: ControlMode,
-        ip: str,
         calibration_dir: PathLike | str | None = None,
         camera_set: HardwareCameraSet | None = None,
         hand_cfg: THConfig | None = None,
@@ -35,7 +37,12 @@ class RCSXArm7EnvCreator(RCSHardwareEnvCreator):
     ) -> gym.Env:
         if isinstance(calibration_dir, str):
             calibration_dir = Path(calibration_dir)
-        robot = XArm7(ip=ip)
+        ik = rcs.common.Pin(
+            robot_cfg.kinematic_model_path,
+            robot_cfg.attachment_site,
+            urdf=robot_cfg.kinematic_model_path.endswith(".urdf"),
+        )
+        robot = XArm7(cfg=robot_cfg, ik=ik)
         env: gym.Env = HardwareEnv()
         env = RobotWrapper(env, robot, control_mode, home_on_reset=True)
 

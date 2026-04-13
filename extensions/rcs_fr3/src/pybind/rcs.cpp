@@ -135,7 +135,9 @@ PYBIND11_MODULE(_core, m) {
       .def_readwrite("world_to_robot", &rcs::hw::FrankaConfig::world_to_robot)
       .def_readwrite("tcp_offset_configured_in_desk",
                      &rcs::hw::FrankaConfig::tcp_offset_configured_in_desk)
-      .def_readwrite("async_control", &rcs::hw::FrankaConfig::async_control);
+      .def_readwrite("async_control", &rcs::hw::FrankaConfig::async_control)
+      .def_readwrite("ignore_realtime", &rcs::hw::FrankaConfig::ignore_realtime)
+      .def_readwrite("ip", &rcs::hw::FrankaConfig::ip);
 
   py::class_<rcs::hw::FR3Config, rcs::hw::FrankaConfig>(hw, "FR3Config")
       .def(py::init<>());
@@ -147,6 +149,7 @@ PYBIND11_MODULE(_core, m) {
           "GripperConfig");
   py::class_<rcs::hw::FHConfig>(hw, "FHConfig", gripper_config)
       .def(py::init<>())
+      .def_readwrite("ip", &rcs::hw::FHConfig::ip)
       .def_readwrite("grasping_width", &rcs::hw::FHConfig::grasping_width)
       .def_readwrite("speed", &rcs::hw::FHConfig::speed)
       .def_readwrite("force", &rcs::hw::FHConfig::force)
@@ -173,11 +176,9 @@ PYBIND11_MODULE(_core, m) {
       (py::object)py::module_::import("rcs").attr("common").attr("Robot");
   py::class_<rcs::hw::Franka, std::shared_ptr<rcs::hw::Franka>>(hw, "Franka",
                                                                 robot)
-      .def(py::init<const std::string&,
-                    std::optional<std::shared_ptr<rcs::common::Kinematics>>,
-                    const std::optional<rcs::hw::FrankaConfig>&>(),
-           py::arg("ip"), py::arg("ik") = std::nullopt,
-           py::arg("cfg") = std::nullopt)
+      .def(py::init<const rcs::hw::FrankaConfig&,
+                    std::optional<std::shared_ptr<rcs::common::Kinematics>>>(),
+           py::arg("cfg"), py::arg("ik") = std::nullopt)
       .def("set_config", &rcs::hw::Franka::set_config, py::arg("cfg"))
       .def("get_config", &rcs::hw::Franka::get_config)
       .def("get_state", &rcs::hw::Franka::get_state)
@@ -209,8 +210,7 @@ PYBIND11_MODULE(_core, m) {
       (py::object)py::module_::import("rcs").attr("common").attr("Gripper");
   py::class_<rcs::hw::FrankaHand, std::shared_ptr<rcs::hw::FrankaHand>>(
       hw, "FrankaHand", gripper)
-      .def(py::init<const std::string&, const rcs::hw::FHConfig&>(),
-           py::arg("ip"), py::arg("cfg"))
+      .def(py::init<const rcs::hw::FHConfig&>(), py::arg("cfg"))
       .def("get_config", &rcs::hw::FrankaHand::get_config)
       .def("get_state", &rcs::hw::FrankaHand::get_state)
       .def("set_config", &rcs::hw::FrankaHand::set_config, py::arg("cfg"))

@@ -8,6 +8,7 @@ from rcs.envs.creators import SimEnvCreator
 from rcs.envs.utils import default_sim_tilburg_hand_cfg
 from rcs.hand.tilburg_hand import THConfig
 from rcs_xarm7.creators import RCSXArm7EnvCreator
+from rcs_xarm7.hw import XArm7Config
 
 import rcs
 from rcs import sim
@@ -63,9 +64,10 @@ def main():
         hand_cfg = THConfig(
             calibration_file="/home/ken/tilburg_hand/calibration.json", grasp_percentage=1, hand_orientation="right"
         )
+        robot_cfg = XArm7Config(ip=ROBOT_IP)
         env_rel = RCSXArm7EnvCreator()(
+            robot_cfg=robot_cfg,
             control_mode=ControlMode.JOINTS,
-            ip=ROBOT_IP,
             hand_cfg=hand_cfg,
             relative_to=RelativeTo.LAST_STEP,
             max_relative_movement=None,

@@ -1,5 +1,6 @@
 import threading
 import typing
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -11,6 +12,7 @@ from rcs.utils import SimpleFrameRate
 from rcs import common
 
 
+@dataclass(kw_only=True)
 class SO101Config(common.RobotConfig):
     id: str = "follower"
     port: str = "/dev/ttyACM0"
@@ -18,13 +20,17 @@ class SO101Config(common.RobotConfig):
 
 
 class SO101(common.Robot):
-    def __init__(self, robot_cfg: SO101Config, ik: common.Kinematics):
+    def __init__(self, cfg: SO101Config, ik: common.Kinematics):
         super().__init__()
         self.ik = ik
-        cfg = SO101FollowerConfig(id=robot_cfg.id, calibration_dir=Path(robot_cfg.calibration_dir), port=robot_cfg.port)
+        self._robot_config = cfg
+        cfg = SO101FollowerConfig(
+            id=self._robot_config.id,
+            calibration_dir=Path(self._robot_config.calibration_dir),
+            port=self._robot_config.port,
+        )
         self._hf_robot = make_robot_from_config(cfg)
         self._hf_robot.connect()
-        self._robot_config = robot_cfg
         self._thread: threading.Thread | None = None
         self._running = False
         self._goal = None

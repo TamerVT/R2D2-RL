@@ -90,15 +90,16 @@ class RCSFR3EnvCreator(RCSHardwareEnvCreator):
         )
         # ik = FastIK
         # ik = rcs_robotics_library._core.rl.RoboticsLibraryIK(robot_cfg.kinematic_model_path)
-        robot = hw.Franka(ip, ik)
-        robot.set_config(robot_cfg)
+        robot_cfg.ip = ip
+        robot = hw.Franka(robot_cfg, ik)
 
         env: gym.Env = HardwareEnv()
         env = RobotWrapper(env, robot, ControlMode.JOINTS if collision_guard is not None else control_mode)
 
         env = FR3HW(env)
         if isinstance(gripper_cfg, hw.FHConfig):
-            gripper = hw.FrankaHand(ip, gripper_cfg)
+            gripper_cfg.ip = ip
+            gripper = hw.FrankaHand(gripper_cfg)
             env = GripperWrapper(env, gripper, binary=True)
         elif isinstance(gripper_cfg, rcs.hand.tilburg_hand.THConfig):
             hand = TilburgHand(gripper_cfg)
@@ -151,8 +152,8 @@ class RCSFR3MultiEnvCreator(RCSHardwareEnvCreator):
 
         robots: dict[str, hw.Franka] = {}
         for key, ip in name2ip.items():
-            robots[key] = hw.Franka(ip, ik)
-            robots[key].set_config(robot_cfg)
+            robot_cfg.ip = ip
+            robots[key] = hw.Franka(robot_cfg, ik)
 
         envs: dict[str, gym.Env] = {}
         env: gym.Env
@@ -161,7 +162,8 @@ class RCSFR3MultiEnvCreator(RCSHardwareEnvCreator):
             env = RobotWrapper(env, robots[key], control_mode)
             env = FR3HW(env)
             if gripper_cfg is not None:
-                gripper = hw.FrankaHand(ip, gripper_cfg)
+                gripper_cfg.ip = ip
+                gripper = hw.FrankaHand(gripper_cfg)
                 env = GripperWrapper(env, gripper, binary=True)
 
             if max_relative_movement is not None:

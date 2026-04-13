@@ -20,6 +20,8 @@ from rcs import common
 
 @dataclass(kw_only=True)
 class UR5eConfig(common.RobotConfig):
+    ip: str
+
     # Kinematics Setup
     robot_type: common.RobotType = common.RobotType.UR5e
     kinematic_model_path = rcs.scenes["ur5e_empty_world"].mjcf_robot
@@ -57,6 +59,11 @@ class UR5eConfig(common.RobotConfig):
         super().__init__()
 
 
+@dataclass(kw_only=True)
+class RobotiQGripperConfig(common.GripperConfig):
+    ip: str
+
+
 # Define the shared memory
 SHM_SIZE = 4 + 1 + 48 + 48 + 48 + 48
 SHM_NAME = "ur5e_control_shm"
@@ -72,7 +79,7 @@ def _control_robot(shm_name: str, ip: str, stop_queue: mp.Queue, config_queue: m
     """
     Control loop for the robot, running in a separate process.
     """
-    robot_config = UR5eConfig()
+    robot_config = UR5eConfig(ip=ip)
     try:
         # Initialize robot interfaces
         ur_control = rtde_control.RTDEControlInterface(ip)
@@ -178,12 +185,12 @@ def _control_robot(shm_name: str, ip: str, stop_queue: mp.Queue, config_queue: m
 
 class UR5e(common.Robot):
 
-    def __init__(self, ip: str, ik: common.Kinematics):
+    def __init__(self, cfg: UR5eConfig, ik: common.Kinematics):
         super().__init__()
         self.ik = ik
-        self._config = UR5eConfig()
+        self._config = cfg
         self._config.robot_type = common.RobotType.UR5e
-        self._ip = ip
+        self._ip = cfg.ip
 
         # Delete shared memory if it exists
         try:
@@ -312,13 +319,13 @@ class UR5e(common.Robot):
 
 
 class RobotiQGripper(common.Gripper):
-    def __init__(self, ip):
+    def __init__(self, cfg: RobotiQGripperConfig):
         super().__init__()
         self.gripper = robotiq_gripper.RobotiqGripper()
         try:
-            self.gripper.connect(ip, 63352, socket_timeout=3.0)  # default port for Robotiq gripper
+            self.gripper.connect(cfg.ip, 63352, socket_timeout=3.0)  # default port for Robotiq gripper
         except Exception as e:
-            msg = f"Failed to connect to RobotiQ gripper at {ip}"
+            msg = f"Failed to connect to RobotiQ gripper at {cfg.ip}"
             raise RuntimeError(msg) from e
         if not self.gripper.is_active():
             self.gripper.activate()
@@ -343,7 +350,7 @@ class RobotiQGripper(common.Gripper):
     def reset(self) -> None:
         self.open()
 
-    def set_normalized_width(self, width: float, _: float = 0) -> None:
+    def set_normalized_width(self, width: float, force: float = 0) -> None:
         """
         Set the gripper width to a normalized value between 0 and 1.
         """

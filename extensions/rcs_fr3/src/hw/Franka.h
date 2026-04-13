@@ -44,6 +44,8 @@ struct FrankaConfig : common::RobotConfig {
   std::optional<common::Pose> world_to_robot = std::nullopt;
   bool async_control = false;
   bool tcp_offset_configured_in_desk = true;
+  bool ignore_realtime = false;
+  std::string ip;
 };
 
 struct FR3Config : FrankaConfig {};
@@ -58,7 +60,7 @@ struct FrankaState : common::RobotState {
 class Franka : public common::Robot {
  private:
   franka::Robot robot;
-  FrankaConfig cfg;
+  FrankaConfig m_cfg;
   std::optional<std::shared_ptr<common::Kinematics>> m_ik;
   std::optional<std::thread> control_thread = std::nullopt;
   common::LinearPoseTrajInterpolator traj_interpolator;
@@ -75,9 +77,8 @@ class Franka : public common::Robot {
   void check_for_background_errors();
 
  public:
-  Franka(const std::string& ip,
-         std::optional<std::shared_ptr<common::Kinematics>> ik = std::nullopt,
-         const std::optional<FrankaConfig>& cfg = std::nullopt);
+  Franka(const FrankaConfig& cfg,
+         std::optional<std::shared_ptr<common::Kinematics>> ik = std::nullopt);
   ~Franka() override;
 
   bool set_config(const FrankaConfig& cfg);

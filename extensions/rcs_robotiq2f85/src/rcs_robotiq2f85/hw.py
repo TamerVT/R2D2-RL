@@ -4,8 +4,10 @@ from rcs._core.common import Gripper, GripperConfig, GripperState
 from Robotiq2F85Driver.Robotiq2F85Driver import GripperStatus, Robotiq2F85Driver
 
 
-@dataclass
+@dataclass(kw_only=True)
 class RobotiQ2F85GripperConfig(GripperConfig):
+    serial_number: str
+    """Get the serial number with `udevadm info -a -n /dev/ttyUSB0 | grep serial`, make sure you have read/write permissions to the port."""
     speed: float = 100
     """Speed in mm/s. Must be between 20 and 150 mm/s."""
     force: float = 50
@@ -24,14 +26,10 @@ class RobotiQ2F85GripperState(GripperState):
 
 
 class RobotiQ2F85Gripper(Gripper):
-    def __init__(self, serial_number: str, cfg: RobotiQ2F85GripperConfig):
-        """
-        serial_number:
-            Get the serial number with `udevadm info -a -n /dev/ttyUSB0 | grep serial`, make sure you have read/write permissions to the port.
-        """
+    def __init__(self, cfg: RobotiQ2F85GripperConfig):
         super().__init__()
         self._cfg: RobotiQ2F85GripperConfig = cfg
-        self.gripper = Robotiq2F85Driver(serial_number=serial_number)
+        self.gripper = Robotiq2F85Driver(serial_number=cfg.serial_number)
 
     def get_normalized_width(self) -> float:
         # value between 0 and 1 (0 is closed)

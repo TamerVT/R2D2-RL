@@ -13,7 +13,7 @@ from rcs.envs.base import (
     RobotWrapper,
 )
 from rcs.envs.creators import RCSHardwareEnvCreator
-from rcs_ur5e.hw import RobotiQGripper, UR5e, UR5eConfig
+from rcs_ur5e.hw import RobotiQGripper, RobotiQGripperConfig, UR5e, UR5eConfig
 
 import rcs
 
@@ -24,8 +24,8 @@ logger.setLevel(logging.INFO)
 class RCSUR5eEnvCreator(RCSHardwareEnvCreator):
     def __call__(  # type: ignore
         self,
-        ip: str,
         robot_cfg: UR5eConfig,
+        gripper_cfg: RobotiQGripperConfig | None = None,
         camera_set: HardwareCameraSet | None = None,
         control_mode: ControlMode = ControlMode.CARTESIAN_TRPY,
         max_relative_movement: float | tuple[float, float] | None = None,
@@ -36,13 +36,14 @@ class RCSUR5eEnvCreator(RCSHardwareEnvCreator):
             robot_cfg.attachment_site,
             urdf=robot_cfg.kinematic_model_path.endswith(".urdf"),
         )
-        robot = UR5e(ip, ik)
-        robot.set_config(robot_cfg)
+        robot = UR5e(robot_cfg, ik)
         env: gym.Env = HardwareEnv()
         env = RobotWrapper(env, robot, control_mode, home_on_reset=True)
 
-        gripper = RobotiQGripper(ip)
-        env = GripperWrapper(env, gripper, binary=True)
+        if gripper_cfg is not None:
+            gripper = RobotiQGripper(cfg=gripper_cfg)
+            # TODO: binary and other things of the wrappers should also be in the config
+            env = GripperWrapper(env, gripper, binary=True)
 
         if camera_set is not None:
             camera_set.start()

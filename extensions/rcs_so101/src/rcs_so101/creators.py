@@ -34,7 +34,7 @@ class RCSSO101EnvCreator(RCSHardwareEnvCreator):
             robot_cfg.attachment_site,
             urdf=robot_cfg.kinematic_model_path.endswith(".urdf"),
         )
-        robot = SO101(robot_cfg=robot_cfg, ik=ik)
+        robot = SO101(cfg=robot_cfg, ik=ik)
         env: gym.Env = HardwareEnv()
         env = RobotWrapper(env, robot, control_mode, home_on_reset=True)
 

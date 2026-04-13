@@ -6,6 +6,7 @@ from rcs._core.common import RobotPlatform
 from rcs.envs.base import ControlMode, RelativeTo
 from rcs.envs.creators import SimEnvCreator
 from rcs_xarm7.creators import RCSXArm7EnvCreator
+from rcs_xarm7.hw import XArm7Config
 
 import rcs
 from rcs import sim
@@ -30,15 +31,16 @@ ROBOT_INSTANCE = RobotPlatform.SIMULATION
 
 def main():
     if ROBOT_INSTANCE == RobotPlatform.HARDWARE:
+        robot_cfg = XArm7Config(ip=ROBOT_IP)
         env_rel = RCSXArm7EnvCreator()(
+            robot_cfg=robot_cfg,
             control_mode=ControlMode.JOINTS,
-            ip=ROBOT_IP,
             relative_to=RelativeTo.LAST_STEP,
             max_relative_movement=np.deg2rad(5),
         )
     else:
-        robot_cfg = sim.SimRobotConfig()
-        robot_cfg.actuators = [
+        robot_sim_cfg = sim.SimRobotConfig()
+        robot_sim_cfg.actuators = [
             "act1",
             "act2",
             "act3",
@@ -47,7 +49,7 @@ def main():
             "act6",
             "act7",
         ]
-        robot_cfg.joints = [
+        robot_sim_cfg.joints = [
             "joint1",
             "joint2",
             "joint3",
@@ -56,15 +58,15 @@ def main():
             "joint6",
             "joint7",
         ]
-        robot_cfg.base = "base"
-        robot_cfg.robot_type = rcs.common.RobotType.XArm7
-        robot_cfg.attachment_site = "attachment_site"
-        robot_cfg.arm_collision_geoms = []
+        robot_sim_cfg.base = "base"
+        robot_sim_cfg.robot_type = rcs.common.RobotType.XArm7
+        robot_sim_cfg.attachment_site = "attachment_site"
+        robot_sim_cfg.arm_collision_geoms = []
         scene = rcs.scenes["xarm7_empty_world"]
-        robot_cfg.mjcf_scene_path = scene.mjb or scene.mjcf_scene
-        robot_cfg.kinematic_model_path = rcs.scenes["xarm7_empty_world"].mjcf_robot
+        robot_sim_cfg.mjcf_scene_path = scene.mjb or scene.mjcf_scene
+        robot_sim_cfg.kinematic_model_path = rcs.scenes["xarm7_empty_world"].mjcf_robot
         env_rel = SimEnvCreator()(
-            robot_cfg=robot_cfg,
+            robot_cfg=robot_sim_cfg,
             control_mode=ControlMode.JOINTS,
             gripper_cfg=None,
             # cameras=default_mujoco_cameraset_cfg(),

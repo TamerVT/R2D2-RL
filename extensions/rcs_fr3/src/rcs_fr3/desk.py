@@ -47,12 +47,13 @@ def load_creds_franka_desk(postfix: str = "") -> tuple[str, str]:
 
 def home(ip: str, username: str, password: str, shut: bool, unlock: bool = False):
     with Desk.fci(ip, username, password, unlock=unlock):
-        f = rcs_fr3.hw.Franka(ip)
         robot_cfg = default_fr3_hw_robot_cfg()
         robot_cfg.speed_factor = 0.2
-        f.set_config(robot_cfg)
+        robot_cfg.ip = ip
+        f = rcs_fr3.hw.Franka(robot_cfg)
         config_hand = rcs_fr3.hw.FHConfig()
-        g = rcs_fr3.hw.FrankaHand(ip, config_hand)
+        config_hand.ip = ip
+        g = rcs_fr3.hw.FrankaHand(config_hand)
         if shut:
             g.shut()
         else:
@@ -64,8 +65,8 @@ def info(ip: str, username: str, password: str, include_hand: bool = False):
     with Desk.fci(ip, username, password):
         robot_cfg = rcs_fr3.hw.FR3Config()
         robot_cfg.speed_factor = 0.2
-        f = rcs_fr3.hw.Franka(ip)
-        f.set_config(robot_cfg)
+        robot_cfg.ip = ip
+        f = rcs_fr3.hw.Franka(robot_cfg)
         print("Robot info:")
         print("Current cartesian position:")
         print(f.get_cartesian_position())
@@ -73,7 +74,8 @@ def info(ip: str, username: str, password: str, include_hand: bool = False):
         print(f.get_joint_position())
         if include_hand:
             config_hand = default_fr3_hw_gripper_cfg()
-            g = rcs_fr3.hw.FrankaHand(ip, config_hand)
+            config_hand.ip = ip
+            g = rcs_fr3.hw.FrankaHand(config_hand)
             print("Gripper info:")
             print("Current normalized width:")
             print(g.get_normalized_width())

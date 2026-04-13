@@ -43,6 +43,7 @@ class FHConfig(rcs._core.common.GripperConfig):
     epsilon_outer: float
     force: float
     grasping_width: float
+    ip: str
     speed: float
     def __init__(self) -> None: ...
 
@@ -64,9 +65,7 @@ class FHState(rcs._core.common.GripperState):
     def width(self) -> float: ...
 
 class Franka(rcs._core.common.Robot):
-    def __init__(
-        self, ip: str, ik: rcs._core.common.Kinematics | None = None, cfg: FrankaConfig | None = None
-    ) -> None: ...
+    def __init__(self, cfg: FrankaConfig, ik: rcs._core.common.Kinematics | None = None) -> None: ...
     def automatic_error_recovery(self) -> None: ...
     def controller_set_joint_position(
         self, desired_q: numpy.ndarray[tuple[typing.Literal[7]], numpy.dtype[numpy.float64]]
@@ -96,7 +95,9 @@ class Franka(rcs._core.common.Robot):
 
 class FrankaConfig(rcs._core.common.RobotConfig):
     async_control: bool
+    ignore_realtime: bool
     ik_solver: IKSolver
+    ip: str
     load_parameters: FrankaLoad | None
     nominal_end_effector_frame: rcs._core.common.Pose | None
     speed_factor: float
@@ -105,7 +106,7 @@ class FrankaConfig(rcs._core.common.RobotConfig):
     def __init__(self) -> None: ...
 
 class FrankaHand(rcs._core.common.Gripper):
-    def __init__(self, ip: str, cfg: FHConfig) -> None: ...
+    def __init__(self, cfg: FHConfig) -> None: ...
     def close(self) -> None: ...
     def get_config(self) -> FHConfig: ...
     def get_state(self) -> FHState: ...
