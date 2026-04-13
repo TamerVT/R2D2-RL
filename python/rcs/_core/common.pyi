@@ -107,7 +107,8 @@ class Gripper:
     def shut(self) -> None: ...
 
 class GripperConfig:
-    def __init__(self) -> None: ...
+    binary: bool
+    def __init__(self, binary: bool = True) -> None: ...
 
 class GripperState:
     def __init__(self) -> None: ...
@@ -234,7 +235,9 @@ class Robot:
 
 class RobotConfig:
     attachment_site: str
+    home_on_reset: bool
     kinematic_model_path: str
+    q_home: numpy.ndarray | None
     robot_platform: RobotPlatform
     robot_type: RobotType
     tcp_offset: Pose
@@ -245,6 +248,8 @@ class RobotConfig:
         tcp_offset: Pose = ...,
         attachment_site: str = "attachment_site",
         kinematic_model_path: str = "assets/scenes/fr3_empty_world/robot.xml",
+        home_on_reset: bool = True,
+        q_home: numpy.ndarray[tuple[M], numpy.dtype[numpy.float64]] | None = None,
     ) -> None: ...
 
 class RobotMetaConfig:

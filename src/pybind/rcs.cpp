@@ -383,13 +383,17 @@ PYBIND11_MODULE(_core, m) {
                        rcs::common::RobotPlatform robot_platform,
                        const rcs::common::Pose& tcp_offset,
                        const std::string& attachment_site,
-                       const std::string& kinematic_model_path) {
+                       const std::string& kinematic_model_path,
+                       bool home_on_reset,
+                       std::optional<rcs::common::VectorXd> q_home) {
              rcs::common::RobotConfig config;
              config.robot_type = robot_type;
              config.robot_platform = robot_platform;
              config.tcp_offset = tcp_offset;
              config.attachment_site = attachment_site;
              config.kinematic_model_path = kinematic_model_path;
+             config.home_on_reset = home_on_reset;
+             config.q_home = q_home;
              return config;
            }),
            py::arg("robot_type") = default_robot_config.robot_type,
@@ -397,7 +401,9 @@ PYBIND11_MODULE(_core, m) {
            py::arg("tcp_offset") = default_robot_config.tcp_offset,
            py::arg("attachment_site") = default_robot_config.attachment_site,
            py::arg("kinematic_model_path") =
-               default_robot_config.kinematic_model_path)
+               default_robot_config.kinematic_model_path,
+           py::arg("home_on_reset") = default_robot_config.home_on_reset,
+           py::arg("q_home") = default_robot_config.q_home)
       .def_readwrite("robot_type", &rcs::common::RobotConfig::robot_type)
       .def_readwrite("kinematic_model_path",
                      &rcs::common::RobotConfig::kinematic_model_path)
@@ -405,10 +411,19 @@ PYBIND11_MODULE(_core, m) {
                      &rcs::sim::SimRobotConfig::attachment_site)
       .def_readwrite("tcp_offset", &rcs::sim::SimRobotConfig::tcp_offset)
       .def_readwrite("robot_platform",
-                     &rcs::common::RobotConfig::robot_platform);
+                     &rcs::common::RobotConfig::robot_platform)
+      .def_readwrite("home_on_reset", &rcs::common::RobotConfig::home_on_reset)
+      .def_readwrite("q_home", &rcs::common::RobotConfig::q_home);
   py::class_<rcs::common::RobotState>(common, "RobotState").def(py::init<>());
+  rcs::common::GripperConfig default_gripper_config;
   py::class_<rcs::common::GripperConfig>(common, "GripperConfig")
-      .def(py::init<>());
+      .def(py::init([](bool binary) {
+             rcs::common::GripperConfig config;
+             config.binary = binary;
+             return config;
+           }),
+           py::arg("binary") = default_gripper_config.binary)
+      .def_readwrite("binary", &rcs::common::GripperConfig::binary);
   py::class_<rcs::common::GripperState>(common, "GripperState")
       .def(py::init<>());
   py::enum_<rcs::common::GraspType>(common, "GraspType")

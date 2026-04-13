@@ -284,13 +284,12 @@ class RobotWrapper(ActObsInfoWrapper):
     y
     """
 
-    def __init__(self, env, robot: common.Robot, control_mode: ControlMode, home_on_reset: bool = False):
+    def __init__(self, env, robot: common.Robot, control_mode: ControlMode):
         super().__init__(env)
         self.robot = robot
         self._control_mode_overrides = [control_mode]
         self.action_space: gym.spaces.Dict
         self.observation_space: gym.spaces.Dict
-        self.home_on_reset = home_on_reset
         low, high = get_joint_limits(self.robot)
         if control_mode == ControlMode.JOINTS:
             self.action_space = get_space(JointsDictType, params={"joint_limits": {"low": low, "high": high}})
@@ -382,8 +381,12 @@ class RobotWrapper(ActObsInfoWrapper):
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         self.prev_action = None
         self.robot.reset()
-        if self.home_on_reset:
-            self.robot.move_home()
+        cfg = self.robot.get_config()
+        if cfg.home_on_reset:
+            if cfg.q_home is not None:
+                self.robot.set_joint_position(cfg.q_home)
+            else:
+                self.robot.move_home()
         return super().reset(seed=seed, options=options)
 
     def close(self):
@@ -883,7 +886,7 @@ class GripperWrapper(ActObsInfoWrapper):
     BINARY_GRIPPER_CLOSED: ClassVar[list[float]] = [0]
     BINARY_GRIPPER_OPEN: ClassVar[list[float]] = [1]
 
-    def __init__(self, env, gripper: common.Gripper, binary: bool = True):
+    def __init__(self, env, gripper: common.Gripper):
         super().__init__(env)
         self.observation_space: gym.spaces.Dict
         self.observation_space.spaces.update(get_space(GripperDictType).spaces)
@@ -891,7 +894,6 @@ class GripperWrapper(ActObsInfoWrapper):
         self.action_space.spaces.update(get_space(GripperDictType).spaces)
         self.gripper_key = get_space_keys(GripperDictType)[0]
         self.gripper = gripper
-        self.binary = binary
         self._last_gripper_cmd = None
 
     def close(self):
@@ -905,7 +907,7 @@ class GripperWrapper(ActObsInfoWrapper):
 
     def observation(self, observation: dict[str, Any], info: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
         observation = copy.deepcopy(observation)
-        if self.binary:
+        if self.gripper.get_config().binary:
             observation[self.gripper_key] = (
                 self._last_gripper_cmd if self._last_gripper_cmd is not None else self.BINARY_GRIPPER_OPEN
             )
@@ -922,11 +924,11 @@ class GripperWrapper(ActObsInfoWrapper):
         gripper_action = action[self.gripper_key]
         if isinstance(gripper_action, int | float):
             gripper_action = [gripper_action]  # type: ignore
-        if self.binary:
+        if self.gripper.get_config().binary:
             gripper_action = np.round(gripper_action)
         gripper_action = np.clip(gripper_action, 0.0, 1.0)
 
-        if self.binary:
+        if self.gripper.get_config().binary:
             self.gripper.grasp() if gripper_action == self.BINARY_GRIPPER_CLOSED else self.gripper.open()
         else:
             self.gripper.set_normalized_width(gripper_action[0])

@@ -38,12 +38,12 @@ class RCSUR5eEnvCreator(RCSHardwareEnvCreator):
         )
         robot = UR5e(robot_cfg, ik)
         env: gym.Env = HardwareEnv()
-        env = RobotWrapper(env, robot, control_mode, home_on_reset=True)
+        env = RobotWrapper(env, robot, control_mode)
 
         if gripper_cfg is not None:
             gripper = RobotiQGripper(cfg=gripper_cfg)
             # TODO: binary and other things of the wrappers should also be in the config
-            env = GripperWrapper(env, gripper, binary=True)
+            env = GripperWrapper(env, gripper)
 
         if camera_set is not None:
             camera_set.start()

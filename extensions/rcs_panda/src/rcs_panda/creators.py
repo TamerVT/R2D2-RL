@@ -75,14 +75,13 @@ class RCSPandaEnvCreator(RCSHardwareEnvCreator):
             env,
             robot,
             ControlMode.JOINTS if collision_guard is not None else control_mode,
-            home_on_reset=True,
         )
 
         env = PandaHW(env)
         if isinstance(gripper_cfg, hw.FHConfig):
             gripper_cfg.ip = ip
             gripper = hw.FrankaHand(gripper_cfg)
-            env = GripperWrapper(env, gripper, binary=True)
+            env = GripperWrapper(env, gripper)
         elif isinstance(gripper_cfg, rcs.hand.tilburg_hand.THConfig):
             hand = TilburgHand(gripper_cfg)
             env = HandWrapper(env, hand, binary=True)
@@ -144,7 +143,7 @@ class RCSPandaMultiEnvCreator(RCSHardwareEnvCreator):
             if gripper_cfg is not None:
                 gripper_cfg.ip = ip
                 gripper = hw.FrankaHand(gripper_cfg)
-                env = GripperWrapper(env, gripper, binary=True)
+                env = GripperWrapper(env, gripper)
 
             if max_relative_movement is not None:
                 env = RelativeActionSpace(env, max_mov=max_relative_movement, relative_to=relative_to)

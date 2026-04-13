@@ -36,10 +36,10 @@ class RCSSO101EnvCreator(RCSHardwareEnvCreator):
         )
         robot = SO101(cfg=robot_cfg, ik=ik)
         env: gym.Env = HardwareEnv()
-        env = RobotWrapper(env, robot, control_mode, home_on_reset=True)
+        env = RobotWrapper(env, robot, control_mode)
 
         gripper = SO101Gripper(robot._hf_robot, robot)
-        env = GripperWrapper(env, gripper, binary=False)
+        env = GripperWrapper(env, gripper)
 
         if camera_set is not None:
             camera_set.start()

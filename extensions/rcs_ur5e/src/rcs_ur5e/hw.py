@@ -11,7 +11,7 @@ from multiprocessing.shared_memory import SharedMemory
 import numpy as np
 import rtde_control
 import rtde_receive
-from rcs.common_typing import RobotConfigKwargs
+from rcs.common_typing import GripperConfigKwargs, RobotConfigKwargs
 from rcs_ur5e import robotiq_gripper
 
 from rcs import common
@@ -64,8 +64,8 @@ class UR5eConfig(common.RobotConfig):
 
 
 class RobotiQGripperConfig(common.GripperConfig):
-    def __init__(self, ip: str):
-        super().__init__()
+    def __init__(self, ip: str, **kwargs: typing.Unpack[GripperConfigKwargs]) -> None:
+        super().__init__(**kwargs)
         self.ip = ip
 
 
@@ -326,6 +326,7 @@ class UR5e(common.Robot):
 class RobotiQGripper(common.Gripper):
     def __init__(self, cfg: RobotiQGripperConfig):
         super().__init__()
+        self._cfg = cfg
         self.gripper = robotiq_gripper.RobotiqGripper()
         try:
             self.gripper.connect(cfg.ip, 63352, socket_timeout=3.0)  # default port for Robotiq gripper
@@ -335,6 +336,9 @@ class RobotiQGripper(common.Gripper):
         if not self.gripper.is_active():
             self.gripper.activate()
         print("Gripper Connection established.")
+
+    def get_config(self) -> RobotiQGripperConfig:
+        return self._cfg
 
     def get_normalized_width(self) -> float:
         # value between 0 and 1 (0 is closed)

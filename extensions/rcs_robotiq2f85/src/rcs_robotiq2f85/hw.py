@@ -1,10 +1,20 @@
+import typing
+
 from rcs._core.common import Gripper, GripperConfig, GripperState
+from rcs.common_typing import GripperConfigKwargs
 from Robotiq2F85Driver.Robotiq2F85Driver import GripperStatus, Robotiq2F85Driver
 
 
 class RobotiQ2F85GripperConfig(GripperConfig):
 
-    def __init__(self, serial_number: str, speed: float = 100, force: float = 50, async_control: bool = True) -> None:
+    def __init__(
+        self,
+        serial_number: str,
+        speed: float = 100,
+        force: float = 50,
+        async_control: bool = True,
+        **kwargs: typing.Unpack[GripperConfigKwargs],
+    ) -> None:
         """
         Args:
             serial_number: Get the serial number with `udevadm info -a -n /dev/ttyUSB0 | grep serial`, make sure you have read/write permissions to the port.
@@ -12,7 +22,7 @@ class RobotiQ2F85GripperConfig(GripperConfig):
             force: Force in N. Must be between 20 and 235 N.
             async_control: If True, gripper commands return immediately without waiting for the movement to complete. A new command interrupts any ongoing movement.
         """
-        super().__init__()
+        super().__init__(**kwargs)
         self.serial_number = serial_number
         self.speed = speed
         self.force = force

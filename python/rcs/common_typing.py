@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from typing import TypedDict
 
+import numpy
 from rcs._core import common
 
-__all__ = ["BaseCameraConfigKwargs", "RobotConfigKwargs"]
+__all__ = ["BaseCameraConfigKwargs", "RobotConfigKwargs", "GripperConfigKwargs"]
 
 
 class BaseCameraConfigKwargs(TypedDict, total=False):
@@ -22,3 +23,9 @@ class RobotConfigKwargs(TypedDict, total=False):
     tcp_offset: common.Pose
     attachment_site: str
     kinematic_model_path: str
+    home_on_reset: bool
+    q_home: numpy.ndarray | None
+
+
+class GripperConfigKwargs(TypedDict, total=False):
+    binary: bool

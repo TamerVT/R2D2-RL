@@ -44,7 +44,7 @@ class RCSXArm7EnvCreator(RCSHardwareEnvCreator):
         )
         robot = XArm7(cfg=robot_cfg, ik=ik)
         env: gym.Env = HardwareEnv()
-        env = RobotWrapper(env, robot, control_mode, home_on_reset=True)
+        env = RobotWrapper(env, robot, control_mode)
 
         if camera_set is not None:
             camera_set.start()

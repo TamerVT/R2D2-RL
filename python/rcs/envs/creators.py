@@ -98,7 +98,7 @@ class SimEnvCreator(EnvCreator):
 
         if gripper_cfg is not None and isinstance(gripper_cfg, rcs.sim.SimGripperConfig):
             gripper = sim.SimGripper(simulation, gripper_cfg)
-            env = GripperWrapper(env, gripper, binary=True)
+            env = GripperWrapper(env, gripper)
         else:
             gripper = None
 
@@ -169,7 +169,7 @@ class SimMultiEnvCreator(RCSHardwareEnvCreator):
                 gripper_cfg_copy = copy.copy(gripper_cfg)
                 gripper_cfg_copy.add_postfix("_" + mid)
                 gripper = rcs.sim.SimGripper(simulation, gripper_cfg_copy)
-                env = GripperWrapper(env, gripper, binary=True)
+                env = GripperWrapper(env, gripper)
 
             env = RobotSimWrapper(env)
 

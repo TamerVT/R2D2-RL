@@ -188,6 +188,7 @@ class SO101Gripper(common.Gripper):
         super().__init__()
         self._hf_robot = hf_robot
         self._robot = robot
+        self._cfg = common.GripperConfig(binary=False)
 
     def get_normalized_width(self) -> float:
         obs = self._robot.obs
@@ -195,7 +196,9 @@ class SO101Gripper(common.Gripper):
             return 0.0
         return obs["gripper.pos"] / 100.0
 
-    # def get_config(self) -> GripperConfig: ...
+    def get_config(self) -> common.GripperConfig:
+        return self._cfg
+
     # def get_state(self) -> GripperState: ...
 
     def grasp(self) -> None:

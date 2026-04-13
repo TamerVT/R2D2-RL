@@ -30,6 +30,7 @@ stubgen:
 	find ./python -not -path "./python/rcs/_core/*" -name '*.pyi' -delete
 	find ./python/rcs/_core -name '*.pyi' -print | xargs sed -i 's/tuple\[typing\.Literal\[\([0-9]\+\)\], typing\.Literal\[1\]\]/tuple\[typing\.Literal[\1]\]/g'
 	find ./python/rcs/_core -name '*.pyi' -print | xargs sed -i 's/tuple\[\([M|N]\), typing\.Literal\[1\]\]/tuple\[\1\]/g'
+	sed -i 's/    q_home: numpy\.ndarray\[tuple\[M\], numpy\.dtype\[numpy\.float64\]\] | None/    q_home: numpy.ndarray | None/' python/rcs/_core/common.pyi
 	python scripts/generate_common_typing.py
 	ruff check --fix python/rcs/_core python/rcs/common_typing.py
 	isort python/rcs/_core python/rcs/common_typing.py
