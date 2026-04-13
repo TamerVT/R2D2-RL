@@ -22,11 +22,10 @@ ROBOT_INSTANCE = RobotPlatform.SIMULATION
 def main():
 
     if ROBOT_INSTANCE == RobotPlatform.HARDWARE:
-        robot_cfg = UR5eConfig()
+        robot_cfg = UR5eConfig(ip=ROBOT_IP)
         env_rel = RCSUR5eEnvCreator()(
             control_mode=ControlMode.JOINTS,
             robot_cfg=robot_cfg,
-            ip=ROBOT_IP,
             camera_set=None,
             max_relative_movement=np.deg2rad(5),
             relative_to=RelativeTo.LAST_STEP,

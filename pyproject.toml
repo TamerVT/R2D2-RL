@@ -131,6 +131,8 @@ ignore = [
   "G004",    # Logging format string does not contain any placeholders
   "ARG002",
 ]
+[tool.ruff.lint.per-file-ignores]
+"python/rcs/_core/*.pyi" = ["B006"]
 
 [tool.pylint.format]
 max-line-length = 120
