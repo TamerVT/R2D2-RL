@@ -1,28 +1,28 @@
-from dataclasses import dataclass
-
 from rcs._core.common import Gripper, GripperConfig, GripperState
 from Robotiq2F85Driver.Robotiq2F85Driver import GripperStatus, Robotiq2F85Driver
 
 
-@dataclass(kw_only=True)
 class RobotiQ2F85GripperConfig(GripperConfig):
-    serial_number: str
-    """Get the serial number with `udevadm info -a -n /dev/ttyUSB0 | grep serial`, make sure you have read/write permissions to the port."""
-    speed: float = 100
-    """Speed in mm/s. Must be between 20 and 150 mm/s."""
-    force: float = 50
-    """Force in N. Must be between 20 and 235 N."""
-    async_control: bool = True
-    """If True, gripper commands return immediately without waiting for the movement to complete.
-    A new command interrupts any ongoing movement."""
 
-
-@dataclass(kw_only=True)
-class RobotiQ2F85GripperState(GripperState):
-    state: GripperStatus
-
-    def __post_init__(self):
+    def __init__(self, serial_number: str, speed: float = 100, force: float = 50, async_control: bool = True) -> None:
+        """
+        Args:
+            serial_number: Get the serial number with `udevadm info -a -n /dev/ttyUSB0 | grep serial`, make sure you have read/write permissions to the port.
+            speed: Speed in mm/s. Must be between 20 and 150 mm/s.
+            force: Force in N. Must be between 20 and 235 N.
+            async_control: If True, gripper commands return immediately without waiting for the movement to complete. A new command interrupts any ongoing movement.
+        """
         super().__init__()
+        self.serial_number = serial_number
+        self.speed = speed
+        self.force = force
+        self.async_control = async_control
+
+
+class RobotiQ2F85GripperState(GripperState):
+    def __init__(self, state: GripperStatus) -> None:
+        super().__init__()
+        self.state = state
 
 
 class RobotiQ2F85Gripper(Gripper):

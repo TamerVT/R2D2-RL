@@ -1,23 +1,30 @@
 import typing
-from dataclasses import dataclass, field
 from typing import List
 
 import numpy as np
+from rcs.common_typing import RobotConfigKwargs
 from xarm.wrapper import XArmAPI
 
 from rcs import common
 
 
-@dataclass(kw_only=True)
 class XArm7Config(common.RobotConfig):
-    ip: str
-    payload_weight: float = 0.624
-    payload_tcp: List[float] = field(default_factory=lambda: [-4.15, 5.24, 76.38])
-    async_control: bool = False
-    use_internal_ik: bool = True
 
-    def __post_init__(self):
-        super().__init__()
+    def __init__(
+        self,
+        ip: str,
+        payload_weight: float = 0.624,
+        payload_tcp: List[float] | None = None,
+        async_control: bool = False,
+        use_internal_ik: bool = True,
+        **kwargs: typing.Unpack[RobotConfigKwargs],
+    ):
+        super().__init__(**kwargs)
+        self.ip = ip
+        self.payload_weight = payload_weight
+        self.payload_tcp = payload_tcp if payload_tcp is not None else [-4.15, 5.24, 76.38]
+        self.async_control = async_control
+        self.use_internal_ik = use_internal_ik
 
 
 class XArm7(common.Robot):

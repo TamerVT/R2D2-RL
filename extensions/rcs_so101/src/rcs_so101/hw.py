@@ -1,22 +1,30 @@
 import threading
 import typing
-from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 from lerobot.robots import make_robot_from_config
 from lerobot.robots.so101_follower.config_so101_follower import SO101FollowerConfig
 from lerobot.robots.so101_follower.so101_follower import SO101Follower
+from rcs.common_typing import RobotConfigKwargs
 from rcs.utils import SimpleFrameRate
 
 from rcs import common
 
 
-@dataclass(kw_only=True)
 class SO101Config(common.RobotConfig):
-    id: str = "follower"
-    port: str = "/dev/ttyACM0"
-    calibration_dir: str = "."
+
+    def __init__(
+        self,
+        id: str = "follower",
+        port: str = "/dev/ttyACM0",
+        calibration_dir: str = ".",
+        **kwargs: typing.Unpack[RobotConfigKwargs],
+    ):
+        super().__init__(**kwargs)
+        self.id = id
+        self.port = port
+        self.calibration_dir = calibration_dir
 
 
 class SO101(common.Robot):

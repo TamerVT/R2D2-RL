@@ -30,9 +30,10 @@ stubgen:
 	find ./python -not -path "./python/rcs/_core/*" -name '*.pyi' -delete
 	find ./python/rcs/_core -name '*.pyi' -print | xargs sed -i 's/tuple\[typing\.Literal\[\([0-9]\+\)\], typing\.Literal\[1\]\]/tuple\[typing\.Literal[\1]\]/g'
 	find ./python/rcs/_core -name '*.pyi' -print | xargs sed -i 's/tuple\[\([M|N]\), typing\.Literal\[1\]\]/tuple\[\1\]/g'
-	ruff check --fix python/rcs/_core
-	isort python/rcs/_core
-	black python/rcs/_core
+	python scripts/generate_common_typing.py
+	ruff check --fix python/rcs/_core python/rcs/common_typing.py
+	isort python/rcs/_core python/rcs/common_typing.py
+	black python/rcs/_core python/rcs/common_typing.py
 
 # Python
 pycheckformat:

@@ -5,38 +5,45 @@ Uses shared memory to communicate between the main process and the control proce
 import multiprocessing as mp
 import time
 import typing
-from dataclasses import dataclass
 from enum import IntEnum
 from multiprocessing.shared_memory import SharedMemory
 
 import numpy as np
 import rtde_control
 import rtde_receive
+from rcs.common_typing import RobotConfigKwargs
 from rcs_ur5e import robotiq_gripper
 
-import rcs
 from rcs import common
 
 
-@dataclass(kw_only=True)
 class UR5eConfig(common.RobotConfig):
-    ip: str
 
-    # Kinematics Setup
-    robot_type: common.RobotType = common.RobotType.UR5e
-    kinematic_model_path = rcs.scenes["ur5e_empty_world"].mjcf_robot
-    attachment_site = "attachment_site"
-
-    # Robot movement parameters
-    max_velocity: float = 1.0
-    max_acceleration: float = 1.0
-    async_control: bool = True
-    max_servo_joint_step: float = 0.15
-    max_servo_cartesian_step: float = 0.01
-
-    # UR Controller parameters, change with caution
-    lookahead_time: float = 0.05
-    gain: float = 500.0
+    def __init__(
+        self,
+        ip: str,
+        max_velocity: float = 1.0,
+        max_acceleration: float = 1.0,
+        async_control: bool = True,
+        max_servo_joint_step: float = 0.15,
+        max_servo_cartesian_step: float = 0.01,
+        lookahead_time: float = 0.05,
+        gain: float = 500.0,
+        **kwargs: typing.Unpack[RobotConfigKwargs],
+    ):
+        super().__init__(**kwargs)
+        self.robot_platform = common.RobotPlatform.HARDWARE
+        self.robot_type = common.RobotType.UR5e
+        self.ip = ip
+        # Robot movement parameters
+        self.max_velocity = max_velocity
+        self.max_acceleration = max_acceleration
+        self.async_control = async_control
+        self.max_servo_joint_step = max_servo_joint_step
+        self.max_servo_cartesian_step = max_servo_cartesian_step
+        # UR Controller parameters, change with caution
+        self.lookahead_time = lookahead_time
+        self.gain = gain
 
     def to_dict(self) -> dict[str, typing.Any]:
         return {
@@ -55,13 +62,11 @@ class UR5eConfig(common.RobotConfig):
         for key, value in data.items():
             setattr(self, key, value)
 
-    def __post_init__(self):
-        super().__init__()
 
-
-@dataclass(kw_only=True)
 class RobotiQGripperConfig(common.GripperConfig):
-    ip: str
+    def __init__(self, ip: str):
+        super().__init__()
+        self.ip = ip
 
 
 # Define the shared memory
