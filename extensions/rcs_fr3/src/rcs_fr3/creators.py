@@ -90,16 +90,17 @@ class RCSFR3EnvCreator(RCSHardwareEnvCreator):
         )
         # ik = FastIK
         # ik = rcs_robotics_library._core.rl.RoboticsLibraryIK(robot_cfg.kinematic_model_path)
-        robot = hw.Franka(ip, ik)
-        robot.set_config(robot_cfg)
+        robot_cfg.ip = ip
+        robot = hw.Franka(robot_cfg, ik)
 
         env: gym.Env = HardwareEnv()
         env = RobotWrapper(env, robot, ControlMode.JOINTS if collision_guard is not None else control_mode)
 
         env = FR3HW(env)
         if isinstance(gripper_cfg, hw.FHConfig):
-            gripper = hw.FrankaHand(ip, gripper_cfg)
-            env = GripperWrapper(env, gripper, binary=True)
+            gripper_cfg.ip = ip
+            gripper = hw.FrankaHand(gripper_cfg)
+            env = GripperWrapper(env, gripper)
         elif isinstance(gripper_cfg, rcs.hand.tilburg_hand.THConfig):
             hand = TilburgHand(gripper_cfg)
             env = HandWrapper(env, hand, binary=True)
@@ -151,8 +152,8 @@ class RCSFR3MultiEnvCreator(RCSHardwareEnvCreator):
 
         robots: dict[str, hw.Franka] = {}
         for key, ip in name2ip.items():
-            robots[key] = hw.Franka(ip, ik)
-            robots[key].set_config(robot_cfg)
+            robot_cfg.ip = ip
+            robots[key] = hw.Franka(robot_cfg, ik)
 
         envs: dict[str, gym.Env] = {}
         env: gym.Env
@@ -161,8 +162,9 @@ class RCSFR3MultiEnvCreator(RCSHardwareEnvCreator):
             env = RobotWrapper(env, robots[key], control_mode)
             env = FR3HW(env)
             if gripper_cfg is not None:
-                gripper = hw.FrankaHand(ip, gripper_cfg)
-                env = GripperWrapper(env, gripper, binary=True)
+                gripper_cfg.ip = ip
+                gripper = hw.FrankaHand(gripper_cfg)
+                env = GripperWrapper(env, gripper)
 
             if max_relative_movement is not None:
                 env = RelativeActionSpace(env, max_mov=max_relative_movement, relative_to=relative_to)
@@ -190,9 +192,9 @@ class RCSFR3DefaultEnvCreator(RCSHardwareEnvCreator):
             ip=robot_ip,
             camera_set=camera_set,
             control_mode=control_mode,
-            robot_cfg=default_fr3_hw_robot_cfg(),
+            robot_cfg=default_fr3_hw_robot_cfg(robot_ip),
             collision_guard=None,
-            gripper_cfg=default_fr3_hw_gripper_cfg() if gripper else None,
+            gripper_cfg=default_fr3_hw_gripper_cfg(robot_ip) if gripper else None,
             max_relative_movement=(0.2, np.deg2rad(45)) if delta_actions else None,
             relative_to=RelativeTo.LAST_STEP,
         )

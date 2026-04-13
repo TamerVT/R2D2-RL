@@ -20,12 +20,11 @@ ROBOT_INSTANCE = RobotPlatform.SIMULATION  # Change to RobotPlatform.HARDWARE fo
 
 def main():
     if ROBOT_INSTANCE == RobotPlatform.HARDWARE:
-        robot_cfg = UR5eConfig()
+        robot_cfg = UR5eConfig(ip=ROBOT_IP)
         robot_cfg.async_control = False
         env_rel = RCSUR5eEnvCreator()(
             robot_cfg=robot_cfg,
             control_mode=ControlMode.CARTESIAN_TQuat,
-            ip=ROBOT_IP,
             camera_set=None,
             max_relative_movement=0.2,
             relative_to=RelativeTo.LAST_STEP,

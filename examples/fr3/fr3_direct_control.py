@@ -97,21 +97,20 @@ def main():
             simulation.open_gui()
 
         else:
-            fr3_cfg = default_fr3_hw_robot_cfg()
+            fr3_cfg = default_fr3_hw_robot_cfg(ROBOT_IP)
             fr3_cfg.tcp_offset = rcs.common.Pose(rcs.common.FrankaHandTCPOffset())
             ik = rcs.common.Pin(
                 fr3_cfg.kinematic_model_path,
                 fr3_cfg.attachment_site,
                 urdf=fr3_cfg.kinematic_model_path.endswith(".urdf"),
             )
-            robot = hw.Franka(ROBOT_IP, ik)
-            robot.set_config(fr3_cfg)  # type: ignore
+            robot = hw.Franka(fr3_cfg, ik)
 
-            gripper_cfg_hw = hw.FHConfig()
+            gripper_cfg_hw = hw.FHConfig(ip=ROBOT_IP)
             gripper_cfg_hw.epsilon_inner = gripper_cfg_hw.epsilon_outer = 0.1
             gripper_cfg_hw.speed = 0.1
             gripper_cfg_hw.force = 30
-            gripper = hw.FrankaHand(ROBOT_IP, gripper_cfg_hw)
+            gripper = hw.FrankaHand(gripper_cfg_hw)
             input("the robot is going to move, press enter whenever you are ready")
 
         # move to home position and open gripper

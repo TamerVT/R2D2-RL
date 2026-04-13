@@ -6,25 +6,39 @@ import numpy as np
 from lerobot.robots import make_robot_from_config
 from lerobot.robots.so101_follower.config_so101_follower import SO101FollowerConfig
 from lerobot.robots.so101_follower.so101_follower import SO101Follower
+from rcs.common_typing import RobotConfigKwargs
 from rcs.utils import SimpleFrameRate
 
 from rcs import common
 
 
 class SO101Config(common.RobotConfig):
-    id: str = "follower"
-    port: str = "/dev/ttyACM0"
-    calibration_dir: str = "."
+
+    def __init__(
+        self,
+        id: str = "follower",
+        port: str = "/dev/ttyACM0",
+        calibration_dir: str = ".",
+        **kwargs: typing.Unpack[RobotConfigKwargs],
+    ):
+        super().__init__(**kwargs)
+        self.id = id
+        self.port = port
+        self.calibration_dir = calibration_dir
 
 
 class SO101(common.Robot):
-    def __init__(self, robot_cfg: SO101Config, ik: common.Kinematics):
+    def __init__(self, cfg: SO101Config, ik: common.Kinematics):
         super().__init__()
         self.ik = ik
-        cfg = SO101FollowerConfig(id=robot_cfg.id, calibration_dir=Path(robot_cfg.calibration_dir), port=robot_cfg.port)
+        self._robot_config = cfg
+        cfg = SO101FollowerConfig(
+            id=self._robot_config.id,
+            calibration_dir=Path(self._robot_config.calibration_dir),
+            port=self._robot_config.port,
+        )
         self._hf_robot = make_robot_from_config(cfg)
         self._hf_robot.connect()
-        self._robot_config = robot_cfg
         self._thread: threading.Thread | None = None
         self._running = False
         self._goal = None
@@ -174,6 +188,7 @@ class SO101Gripper(common.Gripper):
         super().__init__()
         self._hf_robot = hf_robot
         self._robot = robot
+        self._cfg = common.GripperConfig(binary=False)
 
     def get_normalized_width(self) -> float:
         obs = self._robot.obs
@@ -181,7 +196,9 @@ class SO101Gripper(common.Gripper):
             return 0.0
         return obs["gripper.pos"] / 100.0
 
-    # def get_config(self) -> GripperConfig: ...
+    def get_config(self) -> common.GripperConfig:
+        return self._cfg
+
     # def get_state(self) -> GripperState: ...
 
     def grasp(self) -> None:

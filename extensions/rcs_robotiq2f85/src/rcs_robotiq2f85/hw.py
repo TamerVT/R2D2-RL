@@ -1,37 +1,45 @@
-from dataclasses import dataclass
+import typing
 
 from rcs._core.common import Gripper, GripperConfig, GripperState
+from rcs.common_typing import GripperConfigKwargs
 from Robotiq2F85Driver.Robotiq2F85Driver import GripperStatus, Robotiq2F85Driver
 
 
-@dataclass
 class RobotiQ2F85GripperConfig(GripperConfig):
-    speed: float = 100
-    """Speed in mm/s. Must be between 20 and 150 mm/s."""
-    force: float = 50
-    """Force in N. Must be between 20 and 235 N."""
-    async_control: bool = True
-    """If True, gripper commands return immediately without waiting for the movement to complete.
-    A new command interrupts any ongoing movement."""
+
+    def __init__(
+        self,
+        serial_number: str,
+        speed: float = 100,
+        force: float = 50,
+        async_control: bool = True,
+        **kwargs: typing.Unpack[GripperConfigKwargs],
+    ) -> None:
+        """
+        Args:
+            serial_number: Get the serial number with `udevadm info -a -n /dev/ttyUSB0 | grep serial`, make sure you have read/write permissions to the port.
+            speed: Speed in mm/s. Must be between 20 and 150 mm/s.
+            force: Force in N. Must be between 20 and 235 N.
+            async_control: If True, gripper commands return immediately without waiting for the movement to complete. A new command interrupts any ongoing movement.
+        """
+        super().__init__(**kwargs)
+        self.serial_number = serial_number
+        self.speed = speed
+        self.force = force
+        self.async_control = async_control
 
 
-@dataclass(kw_only=True)
 class RobotiQ2F85GripperState(GripperState):
-    state: GripperStatus
-
-    def __post_init__(self):
+    def __init__(self, state: GripperStatus) -> None:
         super().__init__()
+        self.state = state
 
 
 class RobotiQ2F85Gripper(Gripper):
-    def __init__(self, serial_number: str, cfg: RobotiQ2F85GripperConfig):
-        """
-        serial_number:
-            Get the serial number with `udevadm info -a -n /dev/ttyUSB0 | grep serial`, make sure you have read/write permissions to the port.
-        """
+    def __init__(self, cfg: RobotiQ2F85GripperConfig):
         super().__init__()
         self._cfg: RobotiQ2F85GripperConfig = cfg
-        self.gripper = Robotiq2F85Driver(serial_number=serial_number)
+        self.gripper = Robotiq2F85Driver(serial_number=cfg.serial_number)
 
     def get_normalized_width(self) -> float:
         # value between 0 and 1 (0 is closed)
