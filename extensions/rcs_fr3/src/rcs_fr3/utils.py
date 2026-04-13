@@ -4,8 +4,8 @@ import rcs
 from rcs import common
 
 
-def default_fr3_hw_robot_cfg(async_control: bool = False) -> hw.FR3Config:
-    robot_cfg = hw.FR3Config()
+def default_fr3_hw_robot_cfg(ip: str = "", async_control: bool = False) -> hw.FR3Config:
+    robot_cfg = hw.FR3Config(ip=ip)
     robot_cfg.robot_type = rcs.scenes["fr3_empty_world"].robot_type
     robot_cfg.kinematic_model_path = rcs.scenes["fr3_empty_world"].mjcf_robot
     robot_cfg.tcp_offset = common.Pose(common.FrankaHandTCPOffset())
@@ -16,8 +16,8 @@ def default_fr3_hw_robot_cfg(async_control: bool = False) -> hw.FR3Config:
     return robot_cfg
 
 
-def default_fr3_hw_gripper_cfg(async_control: bool = False) -> hw.FHConfig:
-    gripper_cfg = hw.FHConfig()
+def default_fr3_hw_gripper_cfg(ip: str = "", async_control: bool = False) -> hw.FHConfig:
+    gripper_cfg = hw.FHConfig(ip=ip)
     gripper_cfg.epsilon_inner = gripper_cfg.epsilon_outer = 0.1
     gripper_cfg.speed = 0.1
     gripper_cfg.force = 30

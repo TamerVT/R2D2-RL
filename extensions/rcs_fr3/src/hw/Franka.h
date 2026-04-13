@@ -32,9 +32,7 @@ enum IKSolver { franka_ik = 0, rcs_ik };
 // control
 enum Controller { none = 0, jsc, osc, ztc };
 struct FrankaConfig : common::RobotConfig {
-  // TODO: max force and elbow?
-  // TODO: we can either write specific bindings for each, or we use python
-  // dictionaries with these objects
+  std::string ip;
   common::RobotType robot_type = common::RobotType::FR3;
   common::RobotPlatform robot_platform = common::RobotPlatform::HARDWARE;
   IKSolver ik_solver = IKSolver::rcs_ik;
@@ -45,7 +43,6 @@ struct FrankaConfig : common::RobotConfig {
   bool async_control = false;
   bool tcp_offset_configured_in_desk = true;
   bool ignore_realtime = false;
-  std::string ip;
 };
 
 struct FR3Config : FrankaConfig {};

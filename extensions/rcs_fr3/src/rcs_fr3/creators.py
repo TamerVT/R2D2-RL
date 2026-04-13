@@ -192,9 +192,9 @@ class RCSFR3DefaultEnvCreator(RCSHardwareEnvCreator):
             ip=robot_ip,
             camera_set=camera_set,
             control_mode=control_mode,
-            robot_cfg=default_fr3_hw_robot_cfg(),
+            robot_cfg=default_fr3_hw_robot_cfg(robot_ip),
             collision_guard=None,
-            gripper_cfg=default_fr3_hw_gripper_cfg() if gripper else None,
+            gripper_cfg=default_fr3_hw_gripper_cfg(robot_ip) if gripper else None,
             max_relative_movement=(0.2, np.deg2rad(45)) if delta_actions else None,
             relative_to=RelativeTo.LAST_STEP,
         )

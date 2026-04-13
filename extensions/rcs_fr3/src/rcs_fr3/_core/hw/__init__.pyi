@@ -45,7 +45,16 @@ class FHConfig(rcs._core.common.GripperConfig):
     grasping_width: float
     ip: str
     speed: float
-    def __init__(self) -> None: ...
+    def __init__(
+        self,
+        ip: str,
+        grasping_width: float = 0.05,
+        speed: float = 0.1,
+        force: float = 5.0,
+        epsilon_inner: float = 0.005,
+        epsilon_outer: float = 0.005,
+        async_control: bool = False,
+    ) -> None: ...
 
 class FHState(rcs._core.common.GripperState):
     def __init__(self) -> None: ...
@@ -103,7 +112,6 @@ class FrankaConfig(rcs._core.common.RobotConfig):
     speed_factor: float
     tcp_offset_configured_in_desk: bool
     world_to_robot: rcs._core.common.Pose | None
-    def __init__(self) -> None: ...
 
 class FrankaHand(rcs._core.common.Gripper):
     def __init__(self, cfg: FHConfig) -> None: ...
@@ -285,10 +293,38 @@ class RobotState:
     def theta(self) -> typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(7)]: ...
 
 class FR3Config(FrankaConfig):
-    def __init__(self) -> None: ...
+    def __init__(
+        self,
+        ip: str,
+        ik_solver: IKSolver = ...,
+        speed_factor: float = 0.2,
+        load_parameters: FrankaLoad | None = None,
+        nominal_end_effector_frame: rcs._core.common.Pose | None = None,
+        world_to_robot: rcs._core.common.Pose | None = None,
+        async_control: bool = False,
+        tcp_offset_configured_in_desk: bool = True,
+        ignore_realtime: bool = False,
+        tcp_offset: rcs._core.common.Pose = ...,
+        attachment_site: str = "attachment_site",
+        kinematic_model_path: str = "assets/scenes/fr3_empty_world/robot.xml",
+    ) -> None: ...
 
 class PandaConfig(FrankaConfig):
-    def __init__(self) -> None: ...
+    def __init__(
+        self,
+        ip: str,
+        ik_solver: IKSolver = ...,
+        speed_factor: float = 0.2,
+        load_parameters: FrankaLoad | None = None,
+        nominal_end_effector_frame: rcs._core.common.Pose | None = None,
+        world_to_robot: rcs._core.common.Pose | None = None,
+        async_control: bool = False,
+        tcp_offset_configured_in_desk: bool = True,
+        ignore_realtime: bool = False,
+        tcp_offset: rcs._core.common.Pose = ...,
+        attachment_site: str = "attachment_site",
+        kinematic_model_path: str = "assets/scenes/fr3_empty_world/robot.xml",
+    ) -> None: ...
 
 class FrankaState(rcs._core.common.RobotState):
     def __init__(self) -> None: ...
