@@ -69,11 +69,7 @@ class SO101(common.Robot):
         # print(obs)
         joints_normalized = (joints_hf + 100) / 200
         joints_in_rad = (
-            joints_normalized
-            * (
-                self._robot_config.joint_limits[1]
-                - self._robot_config.joint_limits[0]
-            )
+            joints_normalized * (self._robot_config.joint_limits[1] - self._robot_config.joint_limits[0])
             + self._robot_config.joint_limits[0]
         )
         self._last_joint = joints_in_rad
@@ -109,8 +105,7 @@ class SO101(common.Robot):
     def _set_joint_position(self, q: np.ndarray[tuple[typing.Literal[5]], np.dtype[np.float64]]) -> None:  # type: ignore
         self._last_joint = q
         q_normalized = (q - self._robot_config.joint_limits[0]) / (
-            self._robot_config.joint_limits[1]
-            - self._robot_config.joint_limits[0]
+            self._robot_config.joint_limits[1] - self._robot_config.joint_limits[0]
         )
         q_hf = (q_normalized * 200) - 100
         self._hf_robot.send_action(

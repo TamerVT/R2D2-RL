@@ -535,7 +535,8 @@ PYBIND11_MODULE(_core, m) {
                       std::vector<std::string> arm_collision_geoms,
                       std::vector<std::string> joints,
                       std::optional<rcs::common::VectorXd> q_home,
-                      std::vector<std::string> actuators, std::string base, size_t dof,
+                      std::vector<std::string> actuators, std::string base,
+                      size_t dof,
                       const Eigen::Matrix<double, 2, Eigen::Dynamic,
                                           Eigen::ColMajor>& joint_limits) {
             rcs::sim::SimRobotConfig config;

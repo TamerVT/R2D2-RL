@@ -21,7 +21,6 @@ class ModelComposer:
         self.attachment_site_name = attachment_site_name
         self.add_gravcomp = add_gravcomp
 
-
     def _resolve_asset_paths(self, spec: mujoco.MjSpec, xml_path: str):
         """Resolves relative paths to absolute ones."""
         if spec.compiler.autolimits:

@@ -1,5 +1,7 @@
 """Robot control stack python bindings."""
+
 from rcs._core import __version__, common
+
 from rcs import camera, envs, hand, sim
 
 # make submodules available

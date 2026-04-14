@@ -181,8 +181,6 @@ class ControlMode(Enum):
     CARTESIAN_TQuat = auto()
 
 
-
-
 class BaseEnv(gym.Env):
     PLATFORM: RobotPlatform
 
