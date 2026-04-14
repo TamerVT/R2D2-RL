@@ -9,11 +9,17 @@ class ModelComposer:
     Composes MuJoCo scenes using mjSpec with flexible positioning and prefixing.
     """
 
-    def __init__(self, model_name: str = "rcs_scene", attachment_site_name: str = "attachment_site"):
+    def __init__(
+        self,
+        model_name: str = "rcs_scene",
+        attachment_site_name: str = "attachment_site",
+        add_gravcomp: bool = False,
+    ):
         self.spec = mujoco.MjSpec()
         self.spec.modelname = model_name
         self.spec.compiler.autolimits = True
         self.attachment_site_name = attachment_site_name
+        self.add_gravcomp = add_gravcomp
 
 
     def _resolve_asset_paths(self, spec: mujoco.MjSpec, xml_path: str):
@@ -133,6 +139,7 @@ class ModelComposer:
 
     def save_mjcf(self, output_path: str):
         """Compiles and saves the MJCF."""
+        self._apply_gravcomp()
         self.spec.compile()
         xml_str = self.spec.to_xml()
         with open(output_path, "w") as f:
@@ -140,4 +147,15 @@ class ModelComposer:
         return xml_str
 
     def get_model(self):
+        self._apply_gravcomp()
         return self.spec.compile()
+
+    def _apply_gravcomp(self):
+        if not self.add_gravcomp:
+            return
+
+        for body in self.spec.bodies:
+            body.gravcomp = 1
+
+        for joint in self.spec.joints:
+            joint.actgravcomp = True

@@ -43,6 +43,7 @@ class SimSceneConfig(BaseSceneConfig):
     max_relative_movement: float | tuple[float, float] | None = None
     relative_to: RelativeTo = RelativeTo.LAST_STEP
     robot2world: dict[str, rcs.common.Pose] | None = None
+    add_gravcomp: bool = False
     wrapper_cfg: WrapperConfig = field(default_factory=WrapperConfig)
     open_gui_on_create: bool = True
 
@@ -72,7 +73,11 @@ class SimScene(BaseScene):
         raise NotImplementedError
 
     def load_scene(self, key: str) -> ModelComposer:
-        composer = ModelComposer(model_name=key, attachment_site_name=self.cfg.robot_cfgs[self.lead_robot_name].attachment_site)
+        composer = ModelComposer(
+            model_name=key,
+            attachment_site_name=self.cfg.robot_cfgs[self.lead_robot_name].attachment_site,
+            add_gravcomp=self.cfg.add_gravcomp,
+        )
         composer.load_base_scene(key)
         return composer
 
@@ -134,7 +139,9 @@ class SimScene(BaseScene):
                 self.add_gripper_mujoco(mjcf, robot_name)
 
         # save the composed scene for debugging
-        # mjcf.save_mjcf(f"temp.xml")
+        # mjcf.save_mjcf(f"scene.xml")
+        # you can also apply a scene path e.g. the saved one
+        # mjcf = "scene.xml"
 
         simulation = Sim(mjcf, self.cfg.sim_cfg)
         ik = rcs.common.Pin(
@@ -246,9 +253,10 @@ class EmptyWorldFR3(SimScene):
         camera_cfgs: dict[str, SimCameraConfig] | None = None
         max_relative_movement: float | tuple[float, float] | None = None
         relative_to: RelativeTo = RelativeTo.LAST_STEP
-        robot2world: dict[str, rcs.common.Pose] | None = {"fr3": rcs.common.Pose(translation=np.array([0.0, 0.0, 0.0]), rotation=np.eye(3))}
+        robot2world: dict[str, rcs.common.Pose] | None = {"fr3": rcs.common.Pose()}
         wrapper_cfg: WrapperConfig = WrapperConfig(binary_gripper=True, home_on_reset=True)
         open_gui_on_create = True
+        add_gravcomp = True
         return SimSceneConfig(
             robot_cfgs=robot_cfgs,
             sim_cfg=sim_cfg,
@@ -262,6 +270,7 @@ class EmptyWorldFR3(SimScene):
             robot2world=robot2world,
             wrapper_cfg=wrapper_cfg,
             open_gui_on_create=open_gui_on_create,
+            add_gravcomp=add_gravcomp,
         )
 
 if __name__ == "__main__":
