@@ -21,10 +21,6 @@ def default_sim_robot_cfg(scene: str = "fr3_empty_world", idx: str = "") -> sim.
     robot_cfg.robot_type = scene_cfg.robot_type
     robot_cfg.tcp_offset = common.Pose(common.FrankaHandTCPOffset())
     robot_cfg.add_prefix(idx)
-    if (mjb := rcs.scenes[scene].mjb) is not None:
-        robot_cfg.mjcf_scene_path = mjb
-    else:
-        robot_cfg.mjcf_scene_path = scene_cfg.mjcf_scene
     robot_cfg.kinematic_model_path = scene_cfg.mjcf_robot
     # robot_cfg.kinematic_model_path = scene_cfg.urdf
     return robot_cfg

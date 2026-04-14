@@ -75,7 +75,7 @@ if __name__ == "__main__":
     sim_cfg.async_control = True
     sim_cfg.frequency = 1  # in Hz (1 sec delay)
 
-    simulation = sim.Sim(robot_cfg.mjcf_scene_path, sim_cfg)
+    simulation = sim.Sim(mjcf_scene_path, sim_cfg)
     ik = rcs.common.Pin(
         robot_cfg.kinematic_model_path,
         robot_cfg.attachment_site,

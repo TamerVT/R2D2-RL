@@ -30,7 +30,6 @@ struct SimRobotConfig : common::RobotConfig {
       "fr3_joint5", "fr3_joint6", "fr3_joint7",
   };
   std::string base = "base";
-  std::string mjcf_scene_path = "assets/scenes/fr3_empty_world/scene.xml";
 
   void add_prefix(const std::string& id) {
     for (auto& s : this->arm_collision_geoms) {

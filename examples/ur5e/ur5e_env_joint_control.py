@@ -45,7 +45,6 @@ def main():
         robot_sim_cfg.attachment_site = "attachment_site"
         robot_sim_cfg.arm_collision_geoms = []
         scene = rcs.scenes["ur5e_empty_world"]
-        robot_sim_cfg.mjcf_scene_path = scene.mjb or scene.mjcf_scene
         robot_sim_cfg.kinematic_model_path = rcs.scenes["ur5e_empty_world"].mjcf_robot
         robot_sim_cfg.base = "base"
 

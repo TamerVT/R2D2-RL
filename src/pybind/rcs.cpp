@@ -516,7 +516,7 @@ PYBIND11_MODULE(_core, m) {
                       std::string kinematic_model_path,
                       double joint_rotational_tolerance,
                       double seconds_between_callbacks,
-                      std::string mjcf_scene_path, bool trajectory_trace,
+                      bool trajectory_trace,
                       std::vector<std::string> arm_collision_geoms,
                       std::vector<std::string> joints,
                       std::vector<std::string> actuators, std::string base) {
@@ -528,7 +528,6 @@ PYBIND11_MODULE(_core, m) {
             config.kinematic_model_path = kinematic_model_path;
             config.joint_rotational_tolerance = joint_rotational_tolerance;
             config.seconds_between_callbacks = seconds_between_callbacks;
-            config.mjcf_scene_path = mjcf_scene_path;
             config.trajectory_trace = trajectory_trace;
             config.arm_collision_geoms = arm_collision_geoms;
             config.joints = joints;
@@ -545,7 +544,6 @@ PYBIND11_MODULE(_core, m) {
               default_simrobot_cfg.joint_rotational_tolerance,
           py::arg("seconds_between_callbacks") =
               default_simrobot_cfg.seconds_between_callbacks,
-          py::arg("mjcf_scene_path") = default_simrobot_cfg.mjcf_scene_path,
           py::arg("trajectory_trace") = default_simrobot_cfg.trajectory_trace,
           py::arg("arm_collision_geoms") =
               default_simrobot_cfg.arm_collision_geoms,
@@ -557,8 +555,6 @@ PYBIND11_MODULE(_core, m) {
                      &rcs::sim::SimRobotConfig::joint_rotational_tolerance)
       .def_readwrite("seconds_between_callbacks",
                      &rcs::sim::SimRobotConfig::seconds_between_callbacks)
-      .def_readwrite("mjcf_scene_path",
-                     &rcs::sim::SimRobotConfig::mjcf_scene_path)
       .def_readwrite("trajectory_trace",
                      &rcs::sim::SimRobotConfig::trajectory_trace)
       .def_readwrite("arm_collision_geoms",
@@ -807,7 +803,7 @@ PYBIND11_MODULE(_core, m) {
       .def_readwrite("seconds_between_callbacks",
                      &rcs::sim::SimTilburgHandConfig::seconds_between_callbacks)
       .def("add_prefix", &rcs::sim::SimTilburgHandConfig::add_prefix,
-           py::arg("id"));
+           py::arg("id"))
       .def("__copy__",
            [](const rcs::sim::SimTilburgHandConfig& self) {
              return rcs::sim::SimTilburgHandConfig(self);

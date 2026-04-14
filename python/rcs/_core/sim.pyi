@@ -195,7 +195,6 @@ class SimRobotConfig(rcs._core.common.RobotConfig):
     base: str
     joint_rotational_tolerance: float
     joints: list[str]
-    mjcf_scene_path: str
     seconds_between_callbacks: float
     trajectory_trace: bool
     def __copy__(self) -> SimRobotConfig: ...
@@ -208,7 +207,6 @@ class SimRobotConfig(rcs._core.common.RobotConfig):
         kinematic_model_path: str = "assets/scenes/fr3_empty_world/robot.xml",
         joint_rotational_tolerance: float = 0.0008726646259971648,
         seconds_between_callbacks: float = 0.1,
-        mjcf_scene_path: str = "assets/scenes/fr3_empty_world/scene.xml",
         trajectory_trace: bool = False,
         arm_collision_geoms: list[str] = [
             "fr3_link0_collision",
