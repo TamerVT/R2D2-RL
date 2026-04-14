@@ -181,23 +181,6 @@ class ControlMode(Enum):
     CARTESIAN_TQuat = auto()
 
 
-def get_dof(robot: common.Robot) -> int:
-    """Returns the number of degrees of freedom of the robot."""
-    return common.robots_meta_config(robot.get_config().robot_type).dof
-
-
-def get_joint_limits(robot: common.Robot) -> tuple[np.ndarray, np.ndarray]:
-    """Returns the joint limits of the robot.
-
-    The first element is the lower limit, the second element is the upper limit.
-    """
-    limits = common.robots_meta_config(robot.get_config().robot_type).joint_limits
-    return limits[0], limits[1]
-
-
-def get_home_position(robot: common.Robot) -> np.ndarray:
-    """Returns the home position of the robot."""
-    return common.robots_meta_config(robot.get_config().robot_type).q_home
 
 
 class BaseEnv(gym.Env):
@@ -284,13 +267,14 @@ class RobotWrapper(ActObsInfoWrapper):
     y
     """
 
-    def __init__(self, env, robot: common.Robot, control_mode: ControlMode):
+    def __init__(self, env, robot: common.Robot, control_mode: ControlMode, home_on_reset: bool = True):
         super().__init__(env)
         self.robot = robot
         self._control_mode_overrides = [control_mode]
+        self.home_on_reset = home_on_reset
         self.action_space: gym.spaces.Dict
         self.observation_space: gym.spaces.Dict
-        low, high = get_joint_limits(self.robot)
+        low, high = robot.get_config().joint_limits
         if control_mode == ControlMode.JOINTS:
             self.action_space = get_space(JointsDictType, params={"joint_limits": {"low": low, "high": high}})
         elif control_mode == ControlMode.CARTESIAN_TRPY:
@@ -381,12 +365,8 @@ class RobotWrapper(ActObsInfoWrapper):
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         self.prev_action = None
         self.robot.reset()
-        cfg = self.robot.get_config()
-        if cfg.home_on_reset:
-            if cfg.q_home is not None:
-                self.robot.set_joint_position(cfg.q_home)
-            else:
-                self.robot.move_home()
+        if self.home_on_reset:
+            self.robot.move_home()
         return super().reset(seed=seed, options=options)
 
     def close(self):
@@ -620,7 +600,7 @@ class RelativeActionSpace(gym.ActionWrapper):
             self.action_space.spaces.update(
                 get_space(
                     LimitedJointsRelDictType,
-                    params={"joint_limits": {"max_joint_mov": self.max_mov, "dof": get_dof(self._robot)}},
+                    params={"joint_limits": {"max_joint_mov": self.max_mov, "dof": self._robot.get_config().dof}},
                 ).spaces
             )
         elif self.get_wrapper_attr("get_control_mode")() == ControlMode.CARTESIAN_TQuat:
@@ -675,7 +655,7 @@ class RelativeActionSpace(gym.ActionWrapper):
         if self.get_wrapper_attr("get_control_mode")() == ControlMode.JOINTS and self.joints_key in action:
             assert isinstance(self._origin, np.ndarray), "Invalid origin type give the control mode."
             assert isinstance(self.max_mov, float)
-            low, high = get_joint_limits(self._robot)
+            low, high = self._robot.get_config().joint_limits
             # TODO: should we also clip euqally for all joints?
             if self.relative_to == RelativeTo.LAST_STEP or self._last_action is None:
                 limited_joints = np.clip(action[self.joints_key], -self.max_mov, self.max_mov)
@@ -886,8 +866,9 @@ class GripperWrapper(ActObsInfoWrapper):
     BINARY_GRIPPER_CLOSED: ClassVar[list[float]] = [0]
     BINARY_GRIPPER_OPEN: ClassVar[list[float]] = [1]
 
-    def __init__(self, env, gripper: common.Gripper):
+    def __init__(self, env, gripper: common.Gripper, binary: bool = True):
         super().__init__(env)
+        self.binary = binary
         self.observation_space: gym.spaces.Dict
         self.observation_space.spaces.update(get_space(GripperDictType).spaces)
         self.action_space: gym.spaces.Dict
@@ -907,7 +888,7 @@ class GripperWrapper(ActObsInfoWrapper):
 
     def observation(self, observation: dict[str, Any], info: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
         observation = copy.deepcopy(observation)
-        if self.gripper.get_config().binary:
+        if self.binary:
             observation[self.gripper_key] = (
                 self._last_gripper_cmd if self._last_gripper_cmd is not None else self.BINARY_GRIPPER_OPEN
             )
@@ -924,11 +905,11 @@ class GripperWrapper(ActObsInfoWrapper):
         gripper_action = action[self.gripper_key]
         if isinstance(gripper_action, int | float):
             gripper_action = [gripper_action]  # type: ignore
-        if self.gripper.get_config().binary:
+        if self.binary:
             gripper_action = np.round(gripper_action)
         gripper_action = np.clip(gripper_action, 0.0, 1.0)
 
-        if self.gripper.get_config().binary:
+        if self.binary:
             self.gripper.grasp() if gripper_action == self.BINARY_GRIPPER_CLOSED else self.gripper.open()
         else:
             self.gripper.set_normalized_width(gripper_action[0])

@@ -19,13 +19,14 @@ class BaseCameraConfigKwargs(TypedDict, total=False):
 
 class RobotConfigKwargs(TypedDict, total=False):
     robot_type: common.RobotType
+    dof: int
+    joint_limits: numpy.ndarray
     robot_platform: common.RobotPlatform
     tcp_offset: common.Pose
     attachment_site: str
     kinematic_model_path: str
-    home_on_reset: bool
     q_home: numpy.ndarray | None
 
 
 class GripperConfigKwargs(TypedDict, total=False):
-    binary: bool
+    gripper_type: common.GripperType

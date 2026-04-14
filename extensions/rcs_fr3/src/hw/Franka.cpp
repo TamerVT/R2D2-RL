@@ -632,9 +632,13 @@ void Franka::zero_torque_controller() {
 void Franka::move_home() {
   // sync
   this->stop_control_thread();
+  if (!this->m_cfg.q_home.has_value()) {
+    std::cerr << "Home position is not defined in the config." << std::endl;
+    return;
+  }
   FrankaMotionGenerator motion_generator(
       this->m_cfg.speed_factor,
-      common::robots_meta_config.at(this->m_cfg.robot_type).q_home);
+      this->m_cfg.q_home.value());
   this->robot.control(motion_generator);
 }
 

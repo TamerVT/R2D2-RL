@@ -11,12 +11,12 @@ import pybind11_stubgen.typing_ext
 
 __all__: list[str] = [
     "BaseCameraConfig",
-    "FR3",
     "FrankaHandTCPOffset",
     "GraspType",
     "Gripper",
     "GripperConfig",
     "GripperState",
+    "GripperType",
     "HARDWARE",
     "Hand",
     "HandConfig",
@@ -28,23 +28,17 @@ __all__: list[str] = [
     "LATERAL_GRASP",
     "POWER_GRASP",
     "PRECISION_GRASP",
-    "Panda",
     "Pin",
     "Pose",
     "RPY",
     "Robot",
     "RobotConfig",
-    "RobotMetaConfig",
     "RobotPlatform",
     "RobotState",
     "RobotType",
     "RotVec",
     "SIMULATION",
-    "SO101",
     "TRIPOD_GRASP",
-    "UR5e",
-    "XArm7",
-    "robots_meta_config",
 ]
 M = typing.TypeVar("M", bound=int)
 N = typing.TypeVar("N", bound=int)
@@ -107,11 +101,22 @@ class Gripper:
     def shut(self) -> None: ...
 
 class GripperConfig:
-    binary: bool
-    def __init__(self, binary: bool = True) -> None: ...
+    gripper_type: GripperType
+    def __init__(self, gripper_type: GripperType = ...) -> None: ...
 
 class GripperState:
     def __init__(self) -> None: ...
+
+class GripperType:
+    FrankaHand: typing.ClassVar[GripperType]  # value = <GripperType: FrankaHand>
+    @staticmethod
+    def get_all() -> list[GripperType]: ...
+    def __eq__(self, arg0: typing.Any) -> bool: ...
+    def __hash__(self) -> int: ...
+    def __init__(self, arg0: str) -> None: ...
+    def __repr__(self) -> str: ...
+    @property
+    def id(self) -> str: ...
 
 class Hand:
     def __init__(self) -> None: ...
@@ -235,7 +240,8 @@ class Robot:
 
 class RobotConfig:
     attachment_site: str
-    home_on_reset: bool
+    dof: int
+    joint_limits: numpy.ndarray[tuple[typing.Literal[2], N], numpy.dtype[numpy.float64]]
     kinematic_model_path: str
     q_home: numpy.ndarray | None
     robot_platform: RobotPlatform
@@ -244,21 +250,14 @@ class RobotConfig:
     def __init__(
         self,
         robot_type: RobotType = ...,
+        dof: int = 7,
+        joint_limits: numpy.ndarray[tuple[typing.Literal[2], N], numpy.dtype[numpy.float64]] = ...,
         robot_platform: RobotPlatform = ...,
         tcp_offset: Pose = ...,
         attachment_site: str = "attachment_site",
         kinematic_model_path: str = "assets/scenes/fr3_empty_world/robot.xml",
-        home_on_reset: bool = True,
         q_home: numpy.ndarray[tuple[M], numpy.dtype[numpy.float64]] | None = None,
     ) -> None: ...
-
-class RobotMetaConfig:
-    @property
-    def dof(self) -> int: ...
-    @property
-    def joint_limits(self) -> numpy.ndarray[tuple[typing.Literal[2], N], numpy.dtype[numpy.float64]]: ...
-    @property
-    def q_home(self) -> numpy.ndarray[tuple[M], numpy.dtype[numpy.float64]]: ...
 
 class RobotPlatform:
     """
@@ -293,42 +292,15 @@ class RobotState:
     def __init__(self) -> None: ...
 
 class RobotType:
-    """
-    Members:
-
-      FR3
-
-      UR5e
-
-      SO101
-
-      XArm7
-
-      Panda
-    """
-
-    FR3: typing.ClassVar[RobotType]  # value = <RobotType.FR3: 0>
-    Panda: typing.ClassVar[RobotType]  # value = <RobotType.Panda: 4>
-    SO101: typing.ClassVar[RobotType]  # value = <RobotType.SO101: 2>
-    UR5e: typing.ClassVar[RobotType]  # value = <RobotType.UR5e: 1>
-    XArm7: typing.ClassVar[RobotType]  # value = <RobotType.XArm7: 3>
-    __members__: typing.ClassVar[
-        dict[str, RobotType]
-    ]  # value = {'FR3': <RobotType.FR3: 0>, 'UR5e': <RobotType.UR5e: 1>, 'SO101': <RobotType.SO101: 2>, 'XArm7': <RobotType.XArm7: 3>, 'Panda': <RobotType.Panda: 4>}
-    def __eq__(self, other: typing.Any) -> bool: ...
-    def __getstate__(self) -> int: ...
+    FR3: typing.ClassVar[RobotType]  # value = <RobotType: FR3>
+    @staticmethod
+    def get_all() -> list[RobotType]: ...
+    def __eq__(self, arg0: typing.Any) -> bool: ...
     def __hash__(self) -> int: ...
-    def __index__(self) -> int: ...
-    def __init__(self, value: int) -> None: ...
-    def __int__(self) -> int: ...
-    def __ne__(self, other: typing.Any) -> bool: ...
+    def __init__(self, arg0: str) -> None: ...
     def __repr__(self) -> str: ...
-    def __setstate__(self, state: int) -> None: ...
-    def __str__(self) -> str: ...
     @property
-    def name(self) -> str: ...
-    @property
-    def value(self) -> int: ...
+    def id(self) -> str: ...
 
 class RotVec:
     def __init__(self, vec: numpy.ndarray[tuple[typing.Literal[3]], numpy.dtype[numpy.float64]]) -> None: ...
@@ -348,16 +320,10 @@ def IdentityRotMatrix() -> numpy.ndarray[tuple[typing.Literal[3], typing.Literal
 def IdentityRotQuatVec() -> numpy.ndarray[tuple[typing.Literal[4]], numpy.dtype[numpy.float64]]: ...
 def IdentityTranslation() -> numpy.ndarray[tuple[typing.Literal[3]], numpy.dtype[numpy.float64]]: ...
 def _bootstrap_egl(fn_addr: int, display: int, context: int) -> None: ...
-def robots_meta_config(robot_type: RobotType) -> RobotMetaConfig: ...
 
-FR3: RobotType  # value = <RobotType.FR3: 0>
 HARDWARE: RobotPlatform  # value = <RobotPlatform.HARDWARE: 1>
 LATERAL_GRASP: GraspType  # value = <GraspType.LATERAL_GRASP: 2>
 POWER_GRASP: GraspType  # value = <GraspType.POWER_GRASP: 0>
 PRECISION_GRASP: GraspType  # value = <GraspType.PRECISION_GRASP: 1>
-Panda: RobotType  # value = <RobotType.Panda: 4>
 SIMULATION: RobotPlatform  # value = <RobotPlatform.SIMULATION: 0>
-SO101: RobotType  # value = <RobotType.SO101: 2>
 TRIPOD_GRASP: GraspType  # value = <GraspType.TRIPOD_GRASP: 3>
-UR5e: RobotType  # value = <RobotType.UR5e: 1>
-XArm7: RobotType  # value = <RobotType.XArm7: 3>

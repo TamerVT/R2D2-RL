@@ -81,7 +81,7 @@ class XArm7(common.Robot):
     def move_home(self) -> None:
         home = typing.cast(
             np.ndarray[tuple[typing.Literal[7]], np.dtype[np.float64]],
-            common.robots_meta_config(common.RobotType.XArm7).q_home,
+            self._config.q_home,
         )
         # self.set_joint_position(home)
         self._xarm.set_mode(0)

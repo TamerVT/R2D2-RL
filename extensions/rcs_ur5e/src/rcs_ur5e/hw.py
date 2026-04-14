@@ -306,7 +306,7 @@ class UR5e(common.Robot):
     def move_home(self) -> None:
         home = typing.cast(
             np.ndarray[tuple[typing.Literal[6]], np.dtype[np.float64]],
-            common.robots_meta_config(common.RobotType.UR5e).q_home,
+            self._config.q_home,
         )
         if np.any((home < -2 * np.pi) | (home > 2 * np.pi)):
             msg = f"Home position {home} is out of bounds."

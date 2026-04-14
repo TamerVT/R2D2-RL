@@ -9,6 +9,7 @@
 #include <sim/camera.h>
 #include <sim/gui.h>
 
+#include <functional>
 #include <memory>
 
 #include "rcs/Kinematics.h"
@@ -22,6 +23,30 @@
 #define MACRO_STRINGIFY(x) STRINGIFY(x)
 
 namespace py = pybind11;
+
+template <typename T>
+py::class_<T> bind_type_class(py::module_& m, const std::string& class_name) {
+  return py::class_<T>(m, class_name.c_str())
+      .def(py::init<std::string>())
+      .def_static("get_all", &T::get_all)
+      .def_readonly("id", &T::id)
+      // just uses the id, this allows us to use strings also
+      // for comparison and dictionary lookups
+      .def("__hash__", [](const T& t) { return py::hash(py::str(t.id)); })
+      .def("__eq__",
+           [](const T& self, py::handle other) {
+             if (py::isinstance<T>(other)) {
+               return self.id == py::cast<T>(other).id;
+             }
+             if (py::isinstance<py::str>(other)) {
+               return self.id == py::cast<std::string>(other);
+             }
+             return false;
+           })
+      .def("__repr__", [class_name](const T& t) {
+        return "<" + class_name + ": " + t.id + ">";
+      });
+}
 
 /**
  * @brief Robot trampoline class for python bindings,
@@ -351,40 +376,23 @@ PYBIND11_MODULE(_core, m) {
            py::arg("path"), py::arg("frame_id") = "fr3_link8",
            py::arg("urdf") = true);
 
-  py::enum_<rcs::common::RobotType>(common, "RobotType")
-      .value("FR3", rcs::common::RobotType::FR3)
-      .value("UR5e", rcs::common::RobotType::UR5e)
-      .value("SO101", rcs::common::RobotType::SO101)
-      .value("XArm7", rcs::common::RobotType::XArm7)
-      .value("Panda", rcs::common::RobotType::Panda)
-      .export_values();
+  bind_type_class<rcs::common::RobotType>(common, "RobotType")
+      .def_readonly_static("FR3", &rcs::common::RobotType::FR3);
 
   py::enum_<rcs::common::RobotPlatform>(common, "RobotPlatform")
       .value("HARDWARE", rcs::common::RobotPlatform::HARDWARE)
       .value("SIMULATION", rcs::common::RobotPlatform::SIMULATION)
       .export_values();
 
-  py::class_<rcs::common::RobotMetaConfig>(common, "RobotMetaConfig")
-      .def_readonly("q_home", &rcs::common::RobotMetaConfig::q_home)
-      .def_readonly("dof", &rcs::common::RobotMetaConfig::dof)
-      .def_readonly("joint_limits",
-                    &rcs::common::RobotMetaConfig::joint_limits);
-
-  common.def(
-      "robots_meta_config",
-      [](rcs::common::RobotType robot_type) -> rcs::common::RobotMetaConfig {
-        return rcs::common::robots_meta_config.at(robot_type);
-      },
-      py::arg("robot_type"));
-
   rcs::common::RobotConfig default_robot_config;
   py::class_<rcs::common::RobotConfig>(common, "RobotConfig")
-      .def(py::init([](rcs::common::RobotType robot_type,
+      .def(py::init([](rcs::common::RobotType robot_type, size_t dof,
+                       const Eigen::Matrix<double, 2, Eigen::Dynamic,
+                                           Eigen::ColMajor>& joint_limits,
                        rcs::common::RobotPlatform robot_platform,
                        const rcs::common::Pose& tcp_offset,
                        const std::string& attachment_site,
                        const std::string& kinematic_model_path,
-                       bool home_on_reset,
                        std::optional<rcs::common::VectorXd> q_home) {
              rcs::common::RobotConfig config;
              config.robot_type = robot_type;
@@ -392,19 +400,23 @@ PYBIND11_MODULE(_core, m) {
              config.tcp_offset = tcp_offset;
              config.attachment_site = attachment_site;
              config.kinematic_model_path = kinematic_model_path;
-             config.home_on_reset = home_on_reset;
              config.q_home = q_home;
+             config.dof = dof;
+             config.joint_limits = joint_limits;
              return config;
            }),
            py::arg("robot_type") = default_robot_config.robot_type,
+           py::arg("dof") = default_robot_config.dof,
+           py::arg("joint_limits") = default_robot_config.joint_limits,
            py::arg("robot_platform") = default_robot_config.robot_platform,
            py::arg("tcp_offset") = default_robot_config.tcp_offset,
            py::arg("attachment_site") = default_robot_config.attachment_site,
            py::arg("kinematic_model_path") =
                default_robot_config.kinematic_model_path,
-           py::arg("home_on_reset") = default_robot_config.home_on_reset,
            py::arg("q_home") = default_robot_config.q_home)
       .def_readwrite("robot_type", &rcs::common::RobotConfig::robot_type)
+      .def_readwrite("dof", &rcs::common::RobotConfig::dof)
+      .def_readwrite("joint_limits", &rcs::common::RobotConfig::joint_limits)
       .def_readwrite("kinematic_model_path",
                      &rcs::common::RobotConfig::kinematic_model_path)
       .def_readwrite("attachment_site",
@@ -412,18 +424,21 @@ PYBIND11_MODULE(_core, m) {
       .def_readwrite("tcp_offset", &rcs::sim::SimRobotConfig::tcp_offset)
       .def_readwrite("robot_platform",
                      &rcs::common::RobotConfig::robot_platform)
-      .def_readwrite("home_on_reset", &rcs::common::RobotConfig::home_on_reset)
       .def_readwrite("q_home", &rcs::common::RobotConfig::q_home);
   py::class_<rcs::common::RobotState>(common, "RobotState").def(py::init<>());
+
+  bind_type_class<rcs::common::GripperType>(common, "GripperType")
+      .def_readonly_static("FrankaHand", &rcs::common::GripperType::FrankaHand);
+
   rcs::common::GripperConfig default_gripper_config;
   py::class_<rcs::common::GripperConfig>(common, "GripperConfig")
-      .def(py::init([](bool binary) {
+      .def(py::init([](rcs::common::GripperType gripper_type) {
              rcs::common::GripperConfig config;
-             config.binary = binary;
+             config.gripper_type = gripper_type;
              return config;
            }),
-           py::arg("binary") = default_gripper_config.binary)
-      .def_readwrite("binary", &rcs::common::GripperConfig::binary);
+           py::arg("gripper_type") = default_gripper_config.gripper_type)
+      .def_readwrite("gripper_type", &rcs::common::GripperConfig::gripper_type);
   py::class_<rcs::common::GripperState>(common, "GripperState")
       .def(py::init<>());
   py::enum_<rcs::common::GraspType>(common, "GraspType")
@@ -515,8 +530,7 @@ PYBIND11_MODULE(_core, m) {
                       rcs::common::Pose tcp_offset, std::string attachment_site,
                       std::string kinematic_model_path,
                       double joint_rotational_tolerance,
-                      double seconds_between_callbacks,
-                      bool trajectory_trace,
+                      double seconds_between_callbacks, bool trajectory_trace,
                       std::vector<std::string> arm_collision_geoms,
                       std::vector<std::string> joints,
                       std::vector<std::string> actuators, std::string base) {
@@ -570,8 +584,7 @@ PYBIND11_MODULE(_core, m) {
            [](const rcs::sim::SimRobotConfig& self, py::dict) {
              return rcs::sim::SimRobotConfig(self);
            })
-      .def("add_prefix", &rcs::sim::SimRobotConfig::add_prefix,
-           py::arg("id"));
+      .def("add_prefix", &rcs::sim::SimRobotConfig::add_prefix, py::arg("id"));
   py::class_<rcs::sim::SimRobotState, rcs::common::RobotState>(sim,
                                                                "SimRobotState")
       .def(py::init<>())
