@@ -374,10 +374,11 @@ PYBIND11_MODULE(_core, m) {
              std::shared_ptr<rcs::common::Pin>>(common, "Pin")
       .def(py::init<const std::string&, const std::string&, bool>(),
            py::arg("path"), py::arg("frame_id") = "fr3_link8",
-           py::arg("urdf") = true);
+           py::arg("urdf") = false);
 
   bind_type_class<rcs::common::RobotType>(common, "RobotType")
-      .def_readonly_static("FR3", &rcs::common::RobotType::FR3);
+      .def_readonly_static("FR3", &rcs::common::RobotType::FR3)
+      .def_readonly_static("Panda", &rcs::common::RobotType::Panda);
 
   py::enum_<rcs::common::RobotPlatform>(common, "RobotPlatform")
       .value("HARDWARE", rcs::common::RobotPlatform::HARDWARE)
@@ -420,8 +421,8 @@ PYBIND11_MODULE(_core, m) {
       .def_readwrite("kinematic_model_path",
                      &rcs::common::RobotConfig::kinematic_model_path)
       .def_readwrite("attachment_site",
-                     &rcs::sim::SimRobotConfig::attachment_site)
-      .def_readwrite("tcp_offset", &rcs::sim::SimRobotConfig::tcp_offset)
+                     &rcs::common::RobotConfig::attachment_site)
+      .def_readwrite("tcp_offset", &rcs::common::RobotConfig::tcp_offset)
       .def_readwrite("robot_platform",
                      &rcs::common::RobotConfig::robot_platform)
       .def_readwrite("q_home", &rcs::common::RobotConfig::q_home);
@@ -533,7 +534,10 @@ PYBIND11_MODULE(_core, m) {
                       double seconds_between_callbacks, bool trajectory_trace,
                       std::vector<std::string> arm_collision_geoms,
                       std::vector<std::string> joints,
-                      std::vector<std::string> actuators, std::string base) {
+                      std::optional<rcs::common::VectorXd> q_home,
+                      std::vector<std::string> actuators, std::string base, size_t dof,
+                      const Eigen::Matrix<double, 2, Eigen::Dynamic,
+                                          Eigen::ColMajor>& joint_limits) {
             rcs::sim::SimRobotConfig config;
             config.robot_type = robot_type;
             config.robot_platform = rcs::common::RobotPlatform::SIMULATION;
@@ -547,6 +551,9 @@ PYBIND11_MODULE(_core, m) {
             config.joints = joints;
             config.actuators = actuators;
             config.base = base;
+            config.dof = dof;
+            config.joint_limits = joint_limits;
+            config.q_home = q_home;
             return config;
           }),
           py::arg("robot_type") = default_simrobot_cfg.robot_type,
@@ -562,8 +569,11 @@ PYBIND11_MODULE(_core, m) {
           py::arg("arm_collision_geoms") =
               default_simrobot_cfg.arm_collision_geoms,
           py::arg("joints") = default_simrobot_cfg.joints,
+          py::arg("q_home") = default_simrobot_cfg.q_home,
           py::arg("actuators") = default_simrobot_cfg.actuators,
-          py::arg("base") = default_simrobot_cfg.base)
+          py::arg("base") = default_simrobot_cfg.base,
+          py::arg("dof") = default_simrobot_cfg.dof,
+          py::arg("joint_limits") = default_simrobot_cfg.joint_limits)
 
       .def_readwrite("joint_rotational_tolerance",
                      &rcs::sim::SimRobotConfig::joint_rotational_tolerance)
@@ -576,6 +586,8 @@ PYBIND11_MODULE(_core, m) {
       .def_readwrite("joints", &rcs::sim::SimRobotConfig::joints)
       .def_readwrite("actuators", &rcs::sim::SimRobotConfig::actuators)
       .def_readwrite("base", &rcs::sim::SimRobotConfig::base)
+      .def_readwrite("dof", &rcs::sim::SimRobotConfig::dof)
+      .def_readwrite("joint_limits", &rcs::sim::SimRobotConfig::joint_limits)
       .def("__copy__",
            [](const rcs::sim::SimRobotConfig& self) {
              return rcs::sim::SimRobotConfig(self);

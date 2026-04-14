@@ -41,7 +41,7 @@ struct SimRobotConfig : common::RobotConfig {
     for (auto& s : this->actuators) {
       s = id + s;
     }
-    this->attachment_site += id;
+    this->attachment_site = id + this->attachment_site;
     this->base = id + this->base;
   }
 };

@@ -48,8 +48,10 @@ struct RobotType : public TypeBase<RobotType> {
     using TypeBase::TypeBase; // Inherit the constructor
 
     static const RobotType FR3;
+    static const RobotType Panda;
 };
 inline const RobotType RobotType::FR3{"FR3"};
+inline const RobotType RobotType::Panda{"Panda"};
 
 struct RobotConfig {
   RobotType robot_type = RobotType::FR3;

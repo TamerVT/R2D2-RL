@@ -52,7 +52,7 @@ class ModelComposer:
             return None
 
     def add_robot(
-        self, xml_path: str, prefix: str, pos: Union[list, tuple] = (0, 0, 0), quat: Union[list, tuple] = (1, 0, 0, 0)
+        self, xml_path: str, prefix: str, pos: Union[list, tuple] = (0, 0, 0), quat: Union[list, tuple] = (0, 0, 0, 1)
     ) -> mujoco._specs.MjsBody:
         """
         Attaches a robot MJCF at a specific pose.
@@ -77,7 +77,9 @@ class ModelComposer:
 
         # 3. Apply the pose directly to the body
         robot_root.pos = pos
-        robot_root.quat = quat
+        # change quaternion rotation order to mujoco format
+        quat_list = list(quat)
+        robot_root.quat = quat_list[3:4] + quat_list[0:3]
 
         return robot_root
 
@@ -96,7 +98,7 @@ class ModelComposer:
         return attachment_site.attach(gripper_root, gripper_prefix, "")
 
     def add_object_from_xml(
-        self, xml_path: str, prefix: str, pos: Union[list, tuple] = (0, 0, 0), quat: Union[list, tuple] = (1, 0, 0, 0)
+        self, xml_path: str, prefix: str, pos: Union[list, tuple] = (0, 0, 0), quat: Union[list, tuple] = (0, 0, 0, 1)
     ) -> mujoco._specs.MjsBody:
         """
         Attaches a single object MJCF at a specific pose.
@@ -123,7 +125,9 @@ class ModelComposer:
 
         # Apply the pose
         obj_root.pos = pos
-        obj_root.quat = quat
+        # change quaternion rotation order to mujoco format
+        quat_list = list(quat)
+        obj_root.quat = quat_list[3:4] + quat_list[0:3]
 
         return obj_root
 
