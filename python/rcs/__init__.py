@@ -109,5 +109,18 @@ ROBOTS: dict[common.RobotType, RobotMetaConfig] = {
 
 GRIPPER_PATHS = {common.GripperType.FrankaHand: "assets/grippers/franka_hand/franka_hand.xml"}
 
+SCENE_PATHS = {"empty_world": "assets/scenes/empty_world/scene.xml"}
+
 # make submodules available
-__all__ = ["__doc__", "__version__", "common", "sim", "camera", "envs", "hand", "ROBOTS", "GRIPPER_PATHS"]
+__all__ = [
+    "__doc__",
+    "__version__",
+    "common",
+    "sim",
+    "camera",
+    "envs",
+    "hand",
+    "ROBOTS",
+    "GRIPPER_PATHS",
+    "SCENE_PATHS",
+]

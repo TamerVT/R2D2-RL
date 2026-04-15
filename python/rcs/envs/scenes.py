@@ -1,6 +1,7 @@
 import typing
 from abc import ABC
 from dataclasses import dataclass, field
+from os import PathLike
 
 import gymnasium as gym
 import numpy as np
@@ -37,7 +38,7 @@ from rcs.sim.composer import ModelComposer
 from rcs.sim.sim import Sim
 
 import rcs
-from rcs import GRIPPER_PATHS
+from rcs import GRIPPER_PATHS, ROBOTS, SCENE_PATHS
 
 
 class BaseSceneConfig:
@@ -67,7 +68,8 @@ class SimSceneConfig(BaseSceneConfig):
     sim_cfg: SimConfig
     control_mode: ControlMode
     task: str | None = None
-    scene: str = "assets/scenes/empty_world/scene.xml"
+    scene: str = SCENE_PATHS["empty_world"]
+    """path or key to load the mujoco scene, e.g. from SCENE_PATHS, will be passed to load_scene()"""
     gripper_cfgs: dict[str, SimGripperConfig] | None = None
     camera_cfgs: dict[str, SimCameraConfig] | None = None
     max_relative_movement: float | tuple[float, float] | None = None
@@ -76,6 +78,8 @@ class SimSceneConfig(BaseSceneConfig):
     add_gravcomp: bool = False
     wrapper_cfg: WrapperConfig = field(default_factory=WrapperConfig)
     open_gui_on_create: bool = True
+    seperate_robot_mjcf: dict[str, tuple[str, rcs.common.Pose]] | None = None
+    """Optional path to mjcf robot files and offset for scene composition, if not provided the kinematic_model_path from the robot configs will be used."""
 
 
 class SimScene(BaseScene):
@@ -84,7 +88,7 @@ class SimScene(BaseScene):
         super().__init__()
         self.config_key = config_key
         self.cfg = self.load_config(config_key)
-        self.robots_names = self.cfg.robot_cfgs.keys()
+        self.robots_names = list(self.cfg.robot_cfgs.keys())
         self.lead_robot_name = next(iter(self.robots_names))
         self.robot_prefix_template = "robot{robot_name}_"
         self.gripper_prefix_template = "gripper{robot_name}_"
@@ -92,13 +96,43 @@ class SimScene(BaseScene):
     def load_config(self, key: str) -> SimSceneConfig:
         raise NotImplementedError
 
-    def load_scene(self, key: str) -> ModelComposer:
+    def load_scene(self, key: str) -> ModelComposer | str | PathLike:
+        """Loads the mujoco scene
+
+        Args:
+            key (str): Key to identify the scene, e.g. path
+
+        Returns:
+            ModelComposer | str | PathLike: path to scene file (mjcf or mjb), or composer object
+        """
         composer = ModelComposer(
             model_name=key,
-            attachment_site_name=self.cfg.robot_cfgs[self.lead_robot_name].attachment_site,
             add_gravcomp=self.cfg.add_gravcomp,
         )
         composer.load_base_scene(key)
+
+        self.add_task_mujoco(self.cfg.task, composer)
+
+        name_path_r2w = (
+            self.cfg.seperate_robot_mjcf
+            if self.cfg.seperate_robot_mjcf is not None
+            else {
+                robot_name: (self.cfg.robot_cfgs[robot_name].kinematic_model_path, self.cfg.robot2world[robot_name])
+                for robot_name in self.robots_names
+            }
+        )
+
+        for robot_name, (robot_xml, robot2world) in name_path_r2w.items():
+            self.add_robot_mujoco(composer, robot_name, robot_xml, robot2world)
+            if self.cfg.gripper_cfgs is not None:
+                gripper_xml = GRIPPER_PATHS[self.cfg.gripper_cfgs[robot_name].gripper_type]
+                self.add_gripper_mujoco(
+                    composer,
+                    robot_name,
+                    gripper_xml,
+                    self.cfg.robot_cfgs[robot_name].attachment_site,
+                )
+
         return composer
 
     def add_task_mujoco(self, key: str | None, composer: ModelComposer):
@@ -109,15 +143,11 @@ class SimScene(BaseScene):
         """Add task-specific wrappers to the environment."""
         return env
 
-    def add_robot_mujoco(self, composer: ModelComposer, robot_name: str):
-        # mujoco scene composition
-        if self.cfg.robot2world is None:
+    def add_robot_mujoco(
+        self, composer: ModelComposer, robot_name: str, robot_xml: str, robot2world: rcs.common.Pose | None = None
+    ):
+        if robot2world is None:
             robot2world = rcs.common.Pose()
-        else:
-            robot2world = self.cfg.robot2world[robot_name]
-        robot_xml = ROBOT_PATHS.get(self.cfg.robot_cfgs[robot_name].robot_type)
-        if not robot_xml:
-            raise ValueError(f"Robot XML for type {self.cfg.robot_cfgs[robot_name].robot_type} not found.")
         composer.add_robot(
             robot_xml,
             self.robot_prefix_template.format(robot_name=robot_name),
@@ -133,16 +163,14 @@ class SimScene(BaseScene):
         env = RobotSimWrapper(env)
         return env
 
-    def add_gripper_mujoco(self, composer: ModelComposer, robot_name: str):
+    def add_gripper_mujoco(self, composer: ModelComposer, robot_name: str, gripper_xml: str, attachment_site: str):
         # mujoco scene composition
         assert self.cfg.gripper_cfgs is not None, "Gripper configs must be provided to add grippers."
-        gripper_xml = GRIPPER_PATHS.get(self.cfg.gripper_cfgs[robot_name].gripper_type)
-        if not gripper_xml:
-            raise ValueError(f"Gripper XML for type {self.cfg.gripper_cfgs[robot_name].gripper_type} not found.")
         composer.add_gripper(
             xml_path=gripper_xml,
             gripper_prefix=self.gripper_prefix_template.format(robot_name=robot_name),
             robot_prefix=self.robot_prefix_template.format(robot_name=robot_name),
+            attachment_site_name=attachment_site,
         )
 
     def add_gripper_env(self, robot_name: str, simulation: Sim, env: gym.Env):
@@ -155,14 +183,8 @@ class SimScene(BaseScene):
         return env
 
     def create(self) -> gym.Env:
-        mjcf = self.load_scene(self.cfg.scene)
-        self.add_task_mujoco(self.cfg.task, mjcf)
-        # TODO this for loop must be optional in case the robot is just one model
-        for robot_name in self.robots_names:
-            self.add_robot_mujoco(mjcf, robot_name)
-            if self.cfg.gripper_cfgs is not None:
-                self.add_gripper_mujoco(mjcf, robot_name)
 
+        mjcf = self.load_scene(self.cfg.scene)
         # save the composed scene for debugging
         # mjcf.save_mjcf(f"scene.xml")
         # you can also apply a scene path e.g. the saved one
@@ -250,7 +272,7 @@ class EmptyWorldFR3(SimScene):
         sim_cfg: SimConfig = SimConfig(async_control=True, realtime=True, frequency=30, max_convergence_steps=500)
         control_mode: ControlMode = ControlMode.CARTESIAN_TQuat
         task: str | None = None
-        scene: str = "assets/scenes/empty_world/scene.xml"
+        scene: str = SCENE_PATHS["empty_world"]
         gripper_cfg = SimGripperConfig(
             epsilon_inner=0.005,
             epsilon_outer=0.005,

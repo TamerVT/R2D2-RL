@@ -12,13 +12,11 @@ class ModelComposer:
     def __init__(
         self,
         model_name: str = "rcs_scene",
-        attachment_site_name: str = "attachment_site",
         add_gravcomp: bool = False,
     ):
         self.spec = mujoco.MjSpec()
         self.spec.modelname = model_name
         self.spec.compiler.autolimits = True
-        self.attachment_site_name = attachment_site_name
         self.add_gravcomp = add_gravcomp
 
     def _resolve_asset_paths(self, spec: mujoco.MjSpec, xml_path: str):
@@ -91,9 +89,15 @@ class ModelComposer:
 
         return robot_root
 
-    def add_gripper(self, xml_path: str, robot_prefix: str, gripper_prefix: str = "gripper_") -> mujoco._specs.MjsBody:
+    def add_gripper(
+        self,
+        xml_path: str,
+        robot_prefix: str,
+        gripper_prefix: str = "gripper_",
+        attachment_site_name: str = "attachment_site",
+    ) -> mujoco._specs.MjsBody:
         """Attaches a gripper to a robot's 'attachment_site'."""
-        site_name = robot_prefix + self.attachment_site_name
+        site_name = robot_prefix + attachment_site_name
         attachment_site = self._find_site(site_name)
 
         if not attachment_site:
