@@ -47,8 +47,7 @@ class Sim(_Sim):
         if isinstance(mjmdl, ModelComposer):
             self.model = mjmdl.get_model()
         else:
-            if isinstance(mjmdl, str):
-                mjmdl = Path(mjmdl)
+            mjmdl = Path(mjmdl)
             if mjmdl.suffix == ".xml":
                 self.model = mj.MjModel.from_xml_path(str(mjmdl))
             elif mjmdl.suffix == ".mjb":

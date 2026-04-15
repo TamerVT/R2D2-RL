@@ -1,5 +1,5 @@
 import os
-from typing import List, Optional, Union
+from typing import Optional, Union
 
 import mujoco
 
@@ -40,7 +40,8 @@ class ModelComposer:
     def load_base_scene(self, xml_path: str):
         """Loads the base world XML."""
         if not os.path.exists(xml_path):
-            raise FileNotFoundError(f"Base scene XML not found: {xml_path}")
+            msg = f"Base scene XML not found: {xml_path}"
+            raise FileNotFoundError(msg)
         self.spec = mujoco.MjSpec.from_file(xml_path)
         self._resolve_asset_paths(self.spec, xml_path)
 
@@ -53,7 +54,7 @@ class ModelComposer:
     def _find_body(self, name: str) -> Optional[mujoco._specs.MjsBody]:
         try:
             return self.spec.find_body(name)
-        except:
+        except ValueError:
             return None
 
     def add_robot(
@@ -63,7 +64,8 @@ class ModelComposer:
         Attaches a robot MJCF at a specific pose.
         """
         if not os.path.exists(xml_path):
-            raise FileNotFoundError(f"Robot MJCF not found: {xml_path}")
+            msg = f"Robot MJCF not found: {xml_path}"
+            raise FileNotFoundError(msg)
 
         child_spec = mujoco.MjSpec.from_file(xml_path)
         self._resolve_asset_paths(child_spec, xml_path)
@@ -78,7 +80,8 @@ class ModelComposer:
 
         robot_root = self._find_body(prefixed_root_name)
         if not robot_root:
-            raise ValueError(f"Could not find robot root body '{prefixed_root_name}' after attachment.")
+            msg = f"Could not find robot root body '{prefixed_root_name}' after attachment."
+            raise ValueError(msg)
 
         # 3. Apply the pose directly to the body
         robot_root.pos = pos
@@ -94,7 +97,8 @@ class ModelComposer:
         attachment_site = self._find_site(site_name)
 
         if not attachment_site:
-            raise ValueError(f"Attachment site '{site_name}' not found.")
+            msg = f"Attachment site '{site_name}' not found."
+            raise ValueError(msg)
 
         gripper_spec = mujoco.MjSpec.from_file(xml_path)
         self._resolve_asset_paths(gripper_spec, xml_path)
@@ -110,7 +114,8 @@ class ModelComposer:
         Assumes the XML contains only one root body in the worldbody.
         """
         if not os.path.exists(xml_path):
-            raise FileNotFoundError(f"Object MJCF not found: {xml_path}")
+            msg = f"Object MJCF not found: {xml_path}"
+            raise FileNotFoundError(msg)
 
         # Load the child spec
         child_spec = mujoco.MjSpec.from_file(xml_path)
@@ -126,7 +131,8 @@ class ModelComposer:
 
         obj_root = self._find_body(prefixed_root_name)
         if not obj_root:
-            raise ValueError(f"Could not find object root body '{prefixed_root_name}' after attachment.")
+            msg = f"Could not find object root body '{prefixed_root_name}' after attachment."
+            raise ValueError(msg)
 
         # Apply the pose
         obj_root.pos = pos
