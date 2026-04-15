@@ -5,21 +5,8 @@ from os import PathLike
 
 import gymnasium as gym
 import numpy as np
-from rcs._core.common import (
-    BaseCameraConfig,
-    FrankaHandTCPOffset,
-    GripperConfig,
-    GripperType,
-    RobotConfig,
-    RobotType,
-)
-from rcs._core.sim import (
-    SimCameraConfig,
-    SimConfig,
-    SimGripperConfig,
-    SimRobot,
-    SimRobotConfig,
-)
+from rcs._core.common import FrankaHandTCPOffset, RobotType
+from rcs._core.sim import SimCameraConfig, SimConfig, SimGripperConfig, SimRobotConfig
 from rcs.camera.interface import BaseCameraSet
 from rcs.camera.sim import SimCameraSet
 from rcs.envs.base import (
@@ -38,7 +25,7 @@ from rcs.sim.composer import ModelComposer
 from rcs.sim.sim import Sim
 
 import rcs
-from rcs import GRIPPER_PATHS, ROBOTS, SCENE_PATHS
+from rcs import GRIPPER_PATHS, SCENE_PATHS
 
 
 class BaseSceneConfig:
@@ -53,7 +40,7 @@ class BaseScene(ABC):
 
     def load_config(self, key: str) -> BaseSceneConfig:
         # TODO: load type form yaml with type checking
-        pass
+        raise NotImplementedError
 
 
 @dataclass(kw_only=True)
@@ -80,10 +67,10 @@ class SimSceneConfig(BaseSceneConfig):
     add_gravcomp: bool = False
     wrapper_cfg: WrapperConfig = field(default_factory=WrapperConfig)
     open_gui_on_create: bool = True
-    shared_base_frame_to_root_frame: rcs.common.Pose = rcs.common.Pose()
+    shared_base_frame_to_root_frame: rcs.common.Pose = field(default_factory=rcs.common.Pose)
     """shared base frame is a common reference frame for all robots in the scene and the origin for all actions and observations, e.g. the middle of franka duo
     root_frame defines the origin where the parent of the robot assets are placed"""
-    root_frame_to_world: rcs.common.Pose = rcs.common.Pose()
+    root_frame_to_world: rcs.common.Pose = field(default_factory=rcs.common.Pose)
     """root_frame defines the origin where the parent of the robot assets are placed
     world frame is the mujoco world frame"""
     alternative_combined_robot_mjcf: str | None = None
@@ -139,7 +126,6 @@ class SimScene(BaseScene):
                 robot2world=self.cfg.root_frame_to_world,
                 robot_prefix="",
             )
-            return composer
         else:
             # robot is composed by composer
             for robot_name in self.robots_names:
@@ -180,7 +166,6 @@ class SimScene(BaseScene):
 
     def add_task_mujoco(self, key: str | None, composer: ModelComposer):
         """Add task-specific elements to the Mujoco scene."""
-        pass
 
     def add_task_env(self, key: str | None, env: gym.Env, simulation: Sim) -> gym.Env:
         """Add task-specific wrappers to the environment."""
@@ -221,8 +206,7 @@ class SimScene(BaseScene):
         self.cfg.robot_cfgs[robot_name].add_prefix(self.robot_prefix_template.format(robot_name=robot_name))
         robot = rcs.sim.SimRobot(sim=simulation, ik=ik, cfg=self.cfg.robot_cfgs[robot_name])
         env = RobotWrapper(env, robot, self.cfg.control_mode, home_on_reset=self.cfg.wrapper_cfg.home_on_reset)
-        env = RobotSimWrapper(env)
-        return env
+        return RobotSimWrapper(env)
 
     def add_gripper_mujoco(self, composer: ModelComposer, robot_name: str, gripper_xml: str, attachment_site: str):
         # mujoco scene composition
@@ -240,14 +224,13 @@ class SimScene(BaseScene):
         self.cfg.gripper_cfgs[robot_name].add_prefix(self.gripper_prefix_template.format(robot_name=robot_name))
         gripper = rcs.sim.SimGripper(simulation, self.cfg.gripper_cfgs[robot_name])
         env = GripperWrapper(env, gripper, binary=self.cfg.wrapper_cfg.binary_gripper)
-        env = GripperWrapperSim(env)
-        return env
+        return GripperWrapperSim(env)
 
     def create(self) -> gym.Env:
 
         mjcf = self.load_scene(self.cfg.scene)
         # save the composed scene for debugging
-        mjcf.save_mjcf(f"scene.xml")
+        # mjcf.save_mjcf("scene.xml")
         # you can also apply a scene path e.g. the saved one
         # mjcf = "scene.xml"
 
@@ -285,6 +268,9 @@ class SimScene(BaseScene):
 
 
 class EmptyWorldFR3(SimScene):
+
+    def load_scene(self):
+        return super().load_scene(self.cfg.scene)
 
     def load_config(self, key: str) -> SimSceneConfig:
         robot_cfg = SimRobotConfig(

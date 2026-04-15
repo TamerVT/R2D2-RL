@@ -1,5 +1,4 @@
 import logging
-from os import PathLike
 
 import gymnasium as gym
 import rcs.hand.tilburg_hand

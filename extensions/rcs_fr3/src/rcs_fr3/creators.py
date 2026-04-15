@@ -1,6 +1,5 @@
 import logging
 import typing
-from os import PathLike
 
 import gymnasium as gym
 import numpy as np

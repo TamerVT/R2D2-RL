@@ -8,7 +8,7 @@ from rcs import common
 
 
 # only for scene that have empty_world in key
-@pytest.mark.parametrize("robot_name", [k for k in rcs.ROBOTS])
+@pytest.mark.parametrize("robot_name", rcs.ROBOTS)
 def test_kinematics_identity(robot_name):
     robot = rcs.ROBOTS[robot_name]
 

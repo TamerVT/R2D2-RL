@@ -2,8 +2,9 @@ import logging
 
 import numpy as np
 from rcs._core.common import RobotPlatform
-from rcs._core.sim import CameraType
+from rcs._core.sim import CameraType, SimConfig
 from rcs.camera.sim import SimCameraConfig, SimCameraSet
+from rcs.envs.scenes import EmptyWorldFR3
 from rcs_fr3._core import hw
 from rcs_fr3.desk import FCI, ContextManager, Desk, load_creds_franka_desk
 from rcs_fr3.utils import default_fr3_hw_robot_cfg
@@ -60,8 +61,12 @@ def main():
         robot: rcs.common.Robot
         gripper: rcs.common.Gripper
         if ROBOT_INSTANCE == RobotPlatform.SIMULATION:
-            scene = rcs.scenes["fr3_empty_world"]
-            simulation = sim.Sim(scene.mjb or scene.mjcf_scene)
+            scene = EmptyWorldFR3("empty_world_fr3")
+            sim_cfg = SimConfig(
+                realtime=False,
+                async_control=False,
+            )
+            simulation = sim.Sim(scene.load_scene(), sim_cfg)
             robot_cfg = sim.SimRobotConfig()
             robot_cfg.tcp_offset = rcs.common.Pose(rcs.common.FrankaHandTCPOffset())
             ik = rcs.common.Pin(
