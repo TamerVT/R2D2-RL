@@ -55,6 +55,43 @@ class ModelComposer:
         except ValueError:
             return None
 
+    def add_camera(
+        self,
+        resolution: tuple[int, int],
+        fovy: float,
+        name: str,
+        pos: tuple[float, float, float] = (0, 0, 0),
+        quat: tuple[float, float, float, float] = (0, 0, 0, 1),
+        robot_prefix: str | None = None,
+        attachment_site_name: str = "attachment_site",
+    ) -> mujoco._specs.MjsCamera:
+        """Adds a fixed camera to the world body or to a robot attachment site."""
+        if robot_prefix is None:
+            camera_mount = self.spec.worldbody.add_body()
+            camera_mount.name = f"{name}_mount"
+        else:
+            site_name = robot_prefix + attachment_site_name
+            attachment_site = self._find_site(site_name)
+
+            if not attachment_site:
+                msg = f"Attachment site '{site_name}' not found."
+                raise ValueError(msg)
+
+            camera_mount = mujoco.MjSpec().worldbody.add_body()
+            camera_mount.name = "mount"
+            camera_mount = attachment_site.attach(camera_mount, f"{name}_", "")
+
+        camera_mount.pos = list(pos)
+        quat_list = list(quat)
+        camera_mount.quat = quat_list[3:4] + quat_list[0:3]
+
+        camera = camera_mount.add_camera()
+        camera.name = name
+        camera.resolution = resolution
+        camera.fovy = fovy
+
+        return camera
+
     def add_robot(
         self, xml_path: str, prefix: str, pos: Union[list, tuple] = (0, 0, 0), quat: Union[list, tuple] = (0, 0, 0, 1)
     ) -> mujoco._specs.MjsBody:
