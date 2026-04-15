@@ -78,7 +78,7 @@ ROBOTS: dict[common.RobotType, RobotMetaConfig] = {
     ),
     common.RobotType("UR5e"): RobotMetaConfig(
         mjcf_model_path="assets/robots/ur5e/ur5e.xml",
-        dof=7,
+        dof=6,
         q_home=np.array([0.0, -2.02711196, 1.64630026, -1.18999615, -1.57079762, 0.0]),
         joint_limits=np.array(
             [
@@ -89,7 +89,7 @@ ROBOTS: dict[common.RobotType, RobotMetaConfig] = {
     ),
     common.RobotType("SO101"): RobotMetaConfig(
         mjcf_model_path="assets/robots/so101/so101.xml",
-        dof=7,
+        dof=5,
         q_home=np.array([-0.01914898, -1.90521916, 1.56476701, 1.04783839, -1.40323926]),
         joint_limits=np.array(
             [
@@ -107,7 +107,8 @@ ROBOTS: dict[common.RobotType, RobotMetaConfig] = {
 }
 
 
-GRIPPER_PATHS = {common.GripperType.FrankaHand: "assets/grippers/franka_hand/franka_hand.xml"}
+GRIPPER_PATHS = {common.GripperType.FrankaHand: "assets/grippers/franka_hand/franka_hand.xml",
+                 common.GripperType("Robotiq2F85"): "assets/grippers/robotiq_2f85/robotiq_2f85.xml"}
 
 SCENE_PATHS = {"empty_world": "assets/scenes/empty_world/scene.xml"}
 
