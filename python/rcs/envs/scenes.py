@@ -37,6 +37,7 @@ from rcs.sim.composer import ModelComposer
 from rcs.sim.sim import Sim
 
 import rcs
+from rcs import GRIPPER_PATHS
 
 
 class BaseSceneConfig:
@@ -44,12 +45,14 @@ class BaseSceneConfig:
 
 
 class BaseScene(ABC):
+    config_type: typing.Type
 
     def create(self) -> gym.Env:
         raise NotImplementedError
 
     def load_config(self, key: str) -> BaseSceneConfig:
-        raise NotImplementedError
+        # TODO: load type form yaml with type checking
+        pass
 
 
 @dataclass(kw_only=True)
@@ -73,12 +76,6 @@ class SimSceneConfig(BaseSceneConfig):
     add_gravcomp: bool = False
     wrapper_cfg: WrapperConfig = field(default_factory=WrapperConfig)
     open_gui_on_create: bool = True
-
-
-# TODO: this must be "installed" with cmake
-ROBOT_PATHS = {RobotType.FR3: "assets/robots/fr3/fr3.xml"}
-
-GRIPPER_PATHS = {GripperType.FrankaHand: "assets/grippers/franka_hand/franka_hand.xml"}
 
 
 class SimScene(BaseScene):
@@ -210,8 +207,8 @@ class EmptyWorldFR3(SimScene):
         robot_cfg = SimRobotConfig(
             robot_type=RobotType.FR3,
             tcp_offset=rcs.common.Pose(pose_matrix=FrankaHandTCPOffset()),
-            attachment_site="attachment_site",
-            kinematic_model_path=ROBOT_PATHS[RobotType.FR3],
+            attachment_site=rcs.ROBOTS[RobotType.FR3].attachment_site,
+            kinematic_model_path=rcs.ROBOTS[RobotType.FR3].mjcf_model_path,
             joint_rotational_tolerance=0.05 * (np.pi / 180.0),
             seconds_between_callbacks=0.1,
             trajectory_trace=False,
@@ -244,14 +241,9 @@ class EmptyWorldFR3(SimScene):
                 "fr3_joint7",
             ],
             base="base",
-            dof=7,
-            joint_limits=np.array(
-                [
-                    [-2.3093, -1.5133, -2.4937, -2.7478, -2.4800, 0.8521, -2.6895],
-                    [2.3093, 1.5133, 2.4937, -0.4461, 2.4800, 4.2094, 2.6895],
-                ]
-            ),
-            q_home=np.array([0.0, -np.pi / 4, 0.0, -3 * np.pi / 4, 0.0, np.pi / 2, np.pi / 4]),
+            dof=rcs.ROBOTS[RobotType.FR3].dof,
+            joint_limits=rcs.ROBOTS[RobotType.FR3].joint_limits,
+            q_home=rcs.ROBOTS[RobotType.FR3].q_home,
         )
 
         robot_cfgs: dict[str, SimRobotConfig] = {"fr3": robot_cfg}
