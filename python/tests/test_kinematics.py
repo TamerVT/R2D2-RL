@@ -5,41 +5,25 @@ import rcs
 from rcs import common
 
 # Map robot types to their end-effector frame names
-ROBOT_FRAME_IDS = {
-    common.RobotType.FR3: "attachment_site_0",
-    common.RobotType.Panda: "attachment_site_0",
-    common.RobotType.XArm7: "attachment_site",
-    common.RobotType.SO101: "gripper",
-    common.RobotType.UR5e: "attachment_site",
-}
 
 
 # only for scene that have empty_world in key
-@pytest.mark.parametrize("scene_name", [k for k in rcs.scenes if "empty_world" in k])
-def test_kinematics_identity(scene_name):
-    scene = rcs.scenes[scene_name]
+@pytest.mark.parametrize("robot_name", [k for k in rcs.ROBOTS])
+def test_kinematics_identity(robot_name):
+    robot = rcs.ROBOTS[robot_name]
 
     # Determine model path and type
-    model_path = scene.mjcf_robot
+    model_path = robot.mjcf_model_path
 
-    # Get frame ID
-    if scene.robot_type not in ROBOT_FRAME_IDS:
-        pytest.skip(f"Frame ID not defined for robot type {scene.robot_type}")
-
-    frame_id = ROBOT_FRAME_IDS[scene.robot_type]
+    frame_id = robot.attachment_site
 
     # Initialize Pinocchio interface
     try:
         pin = common.Pin(model_path, frame_id, False)
     except Exception as e:
-        pytest.fail(f"Failed to initialize Pin for {scene_name}: {e}")
+        pytest.fail(f"Failed to initialize Pin for {robot_name}: {e}")
 
-    # Get home configuration
-    try:
-        meta_config = common.robots_meta_config(scene.robot_type)
-        q_home = meta_config.q_home
-    except Exception as e:
-        pytest.fail(f"Failed to get meta config for {scene_name}: {e}")
+    q_home = robot.q_home
 
     # Test 1: FK at home
     # Identity pose (no TCP offset)
