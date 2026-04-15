@@ -74,12 +74,24 @@ class SimSceneConfig(BaseSceneConfig):
     camera_cfgs: dict[str, SimCameraConfig] | None = None
     max_relative_movement: float | tuple[float, float] | None = None
     relative_to: RelativeTo = RelativeTo.LAST_STEP
-    robot2world: dict[str, rcs.common.Pose] | None = None
+    robot_to_shared_base_frame: dict[str, rcs.common.Pose] | None = None
+    """shared base frame is a common reference frame for all robots in the scene and the origin for all actions and observations, e.g. the middle of franka duo
+    thus this transformation defines the offset of each robot's base to this shared base frame."""
     add_gravcomp: bool = False
     wrapper_cfg: WrapperConfig = field(default_factory=WrapperConfig)
     open_gui_on_create: bool = True
-    seperate_robot_mjcf: dict[str, tuple[str, rcs.common.Pose]] | None = None
-    """Optional path to mjcf robot files and offset for scene composition, if not provided the kinematic_model_path from the robot configs will be used."""
+    shared_base_frame_to_root_frame: rcs.common.Pose = rcs.common.Pose()
+    """shared base frame is a common reference frame for all robots in the scene and the origin for all actions and observations, e.g. the middle of franka duo
+    root_frame defines the origin where the parent of the robot assets are placed"""
+    root_frame_to_world: rcs.common.Pose = rcs.common.Pose()
+    """root_frame defines the origin where the parent of the robot assets are placed
+    world frame is the mujoco world frame"""
+    alternative_combined_robot_mjcf: str | None = None
+    """If you dont want to compose your scene with ModelComposer API,
+    you can directly provide a combined robot mjcf with correct prefixing and the composer will add it as is without modifications.
+    Prefixes need to as follows: robot{robot_name} where robot_name is the key in robot_cfgs, e.g. robot0, robot1, etc.
+    root_frame_to_world will be used to place the robot in the world and
+    shared_base_frame_to_root_frame will be used to determine the origin of the robot's action space."""
 
 
 class SimScene(BaseScene):
@@ -113,17 +125,28 @@ class SimScene(BaseScene):
 
         self.add_task_mujoco(self.cfg.task, composer)
 
-        name_path_r2w = (
-            self.cfg.seperate_robot_mjcf
-            if self.cfg.seperate_robot_mjcf is not None
-            else {
-                robot_name: (self.cfg.robot_cfgs[robot_name].kinematic_model_path, self.cfg.robot2world[robot_name])
-                for robot_name in self.robots_names
-            }
-        )
+        if self.cfg.alternative_combined_robot_mjcf is not None:
+            self.add_robot_mujoco(
+                composer,
+                robot_name=self.lead_robot_name,
+                robot_xml=self.cfg.alternative_combined_robot_mjcf,
+                robot2world=self.cfg.root_frame_to_world,
+                robot_prefix="",
+            )
+            return composer
 
-        for robot_name, (robot_xml, robot2world) in name_path_r2w.items():
-            self.add_robot_mujoco(composer, robot_name, robot_xml, robot2world)
+        for robot_name in self.robots_names:
+            robot_to_shared_frame = (
+                self.cfg.robot_to_shared_base_frame[robot_name]
+                if self.cfg.robot_to_shared_base_frame is not None
+                else rcs.common.Pose()
+            )
+            robot2world = (
+                robot_to_shared_frame * self.cfg.shared_base_frame_to_root_frame * self.cfg.root_frame_to_world
+            )
+            self.add_robot_mujoco(
+                composer, robot_name, self.cfg.robot_cfgs[robot_name].kinematic_model_path, robot2world
+            )
             if self.cfg.gripper_cfgs is not None:
                 gripper_xml = GRIPPER_PATHS[self.cfg.gripper_cfgs[robot_name].gripper_type]
                 self.add_gripper_mujoco(
@@ -144,13 +167,20 @@ class SimScene(BaseScene):
         return env
 
     def add_robot_mujoco(
-        self, composer: ModelComposer, robot_name: str, robot_xml: str, robot2world: rcs.common.Pose | None = None
+        self,
+        composer: ModelComposer,
+        robot_name: str,
+        robot_xml: str,
+        robot2world: rcs.common.Pose | None = None,
+        robot_prefix: str | None = None,
     ):
         if robot2world is None:
             robot2world = rcs.common.Pose()
+        if robot_prefix is None:
+            robot_prefix = self.robot_prefix_template.format(robot_name=robot_name)
         composer.add_robot(
             robot_xml,
-            self.robot_prefix_template.format(robot_name=robot_name),
+            robot_prefix,
             pos=list(robot2world.translation()),
             quat=list(robot2world.rotation_q()),
         )
@@ -186,7 +216,7 @@ class SimScene(BaseScene):
 
         mjcf = self.load_scene(self.cfg.scene)
         # save the composed scene for debugging
-        # mjcf.save_mjcf(f"scene.xml")
+        mjcf.save_mjcf(f"scene.xml")
         # you can also apply a scene path e.g. the saved one
         # mjcf = "scene.xml"
 
@@ -210,7 +240,7 @@ class SimScene(BaseScene):
                 env = RelativeActionSpace(env, max_mov=self.cfg.max_relative_movement, relative_to=self.cfg.relative_to)
             envs[robot_name] = env
 
-        env = MultiRobotWrapper(envs, self.cfg.robot2world)
+        env = MultiRobotWrapper(envs, self.cfg.robot_to_shared_base_frame)
         if self.cfg.camera_cfgs is not None:
             camera_set = typing.cast(
                 BaseCameraSet,
@@ -270,6 +300,7 @@ class EmptyWorldFR3(SimScene):
 
         robot_cfgs: dict[str, SimRobotConfig] = {"fr3": robot_cfg}
         sim_cfg: SimConfig = SimConfig(async_control=True, realtime=True, frequency=30, max_convergence_steps=500)
+
         control_mode: ControlMode = ControlMode.CARTESIAN_TQuat
         task: str | None = None
         scene: str = SCENE_PATHS["empty_world"]
@@ -291,10 +322,13 @@ class EmptyWorldFR3(SimScene):
         camera_cfgs: dict[str, SimCameraConfig] | None = None
         max_relative_movement: float | tuple[float, float] | None = None
         relative_to: RelativeTo = RelativeTo.LAST_STEP
-        robot2world: dict[str, rcs.common.Pose] | None = {"fr3": rcs.common.Pose()}
+        robot_to_shared_base_frame: dict[str, rcs.common.Pose] | None = {"fr3": rcs.common.Pose()}
         wrapper_cfg: WrapperConfig = WrapperConfig(binary_gripper=True, home_on_reset=True)
         open_gui_on_create = True
         add_gravcomp = True
+        shared_base_frame_to_root_frame = rcs.common.Pose()
+        root_frame_to_world = rcs.common.Pose()
+        alternative_combined_robot_mjcf: str | None = None
         return SimSceneConfig(
             robot_cfgs=robot_cfgs,
             sim_cfg=sim_cfg,
@@ -305,10 +339,13 @@ class EmptyWorldFR3(SimScene):
             camera_cfgs=camera_cfgs,
             max_relative_movement=max_relative_movement,
             relative_to=relative_to,
-            robot2world=robot2world,
+            robot_to_shared_base_frame=robot_to_shared_base_frame,
             wrapper_cfg=wrapper_cfg,
             open_gui_on_create=open_gui_on_create,
             add_gravcomp=add_gravcomp,
+            shared_base_frame_to_root_frame=shared_base_frame_to_root_frame,
+            root_frame_to_world=root_frame_to_world,
+            alternative_combined_robot_mjcf=alternative_combined_robot_mjcf,
         )
 
 

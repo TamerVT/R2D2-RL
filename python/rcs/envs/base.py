@@ -380,19 +380,21 @@ class MultiRobotWrapper(gym.Env):
     ----------------
     MultiRobotWrapper
 
-    All envs are stepped sequentially. Supports offset of robot bases by the `robot2world` parameter.
+    All envs are stepped sequentially. Supports offset of robot bases by the `robot_to_shared_base_frame` parameter.
     """
 
     PLATFORM: RobotPlatform | None = None
 
     def __init__(
-        self, envs: dict[str, gym.Env] | dict[str, gym.Wrapper], robot2world: dict[str, common.Pose] | None = None
+        self,
+        envs: dict[str, gym.Env] | dict[str, gym.Wrapper],
+        robot_to_shared_base_frame: dict[str, common.Pose] | None = None,
     ):
         self.envs = envs
-        if robot2world is None:
-            self.robot2world = {}
+        if robot_to_shared_base_frame is None:
+            self.robot_to_shared_base_frame = {}
         else:
-            self.robot2world = robot2world
+            self.robot_to_shared_base_frame = robot_to_shared_base_frame
         self.lead_env: gym.Env | None = None
         self.sim: simulation.Sim | None = None
 
@@ -420,7 +422,7 @@ class MultiRobotWrapper(gym.Env):
             env_item.unwrapped.main_greenlet = main_gr
 
     def _translate_pose(self, key, dic, to_world=True):
-        r2w = self.robot2world.get(key, common.Pose())
+        r2w = self.robot_to_shared_base_frame.get(key, common.Pose())
         if not to_world:
             r2w = r2w.inverse()
         if "tquat" in dic:
