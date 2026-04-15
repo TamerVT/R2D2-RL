@@ -102,6 +102,8 @@ class Sim:
 
 class SimCameraConfig(rcs._core.common.BaseCameraConfig):
     type: CameraType
+    def __copy__(self) -> SimCameraConfig: ...
+    def __deepcopy__(self, arg0: dict) -> SimCameraConfig: ...
     def __init__(
         self, identifier: str, frame_rate: int, resolution_width: int, resolution_height: int, type: CameraType = ...
     ) -> None: ...
@@ -143,6 +145,7 @@ class SimGripperConfig(rcs._core.common.GripperConfig):
     collision_geoms_fingers: list[str]
     epsilon_inner: float
     epsilon_outer: float
+    gripper_type: rcs._core.common.GripperType
     ignored_collision_geoms: list[str]
     joints: list[str]
     max_actuator_width: float
@@ -166,6 +169,7 @@ class SimGripperConfig(rcs._core.common.GripperConfig):
         actuator: str = "actuator8",
         max_actuator_width: float = 255.0,
         min_actuator_width: float = 0.0,
+        gripper_type: rcs._core.common.GripperType = ...,
     ) -> None: ...
     def add_prefix(self, id: str) -> None: ...
 

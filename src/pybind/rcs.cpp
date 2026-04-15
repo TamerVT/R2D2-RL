@@ -622,7 +622,7 @@ PYBIND11_MODULE(_core, m) {
                        std::vector<std::string> collision_geoms_fingers,
                        std::vector<std::string> joints, double max_joint_width,
                        double min_joint_width, std::string actuator,
-                       double max_actuator_width, double min_actuator_width) {
+                       double max_actuator_width, double min_actuator_width, rcs::common::GripperType gripper_type) {
              rcs::sim::SimGripperConfig config;
              config.epsilon_inner = epsilon_inner;
              config.epsilon_outer = epsilon_outer;
@@ -636,6 +636,7 @@ PYBIND11_MODULE(_core, m) {
              config.actuator = actuator;
              config.max_actuator_width = max_actuator_width;
              config.min_actuator_width = min_actuator_width;
+             config.gripper_type = gripper_type;
              return config;
            }),
            py::arg("epsilon_inner") = default_simgripper_cfg.epsilon_inner,
@@ -654,7 +655,8 @@ PYBIND11_MODULE(_core, m) {
            py::arg("max_actuator_width") =
                default_simgripper_cfg.max_actuator_width,
            py::arg("min_actuator_width") =
-               default_simgripper_cfg.min_actuator_width)
+               default_simgripper_cfg.min_actuator_width,
+           py::arg("gripper_type") = default_simgripper_cfg.gripper_type)
       .def_readwrite("epsilon_inner",
                      &rcs::sim::SimGripperConfig::epsilon_inner)
       .def_readwrite("epsilon_outer",
@@ -677,6 +679,7 @@ PYBIND11_MODULE(_core, m) {
                      &rcs::sim::SimGripperConfig::max_actuator_width)
       .def_readwrite("min_actuator_width",
                      &rcs::sim::SimGripperConfig::min_actuator_width)
+      .def_readwrite("gripper_type", &rcs::sim::SimGripperConfig::gripper_type)
       .def("__copy__",
            [](const rcs::sim::SimGripperConfig& self) {
              return rcs::sim::SimGripperConfig(self);
