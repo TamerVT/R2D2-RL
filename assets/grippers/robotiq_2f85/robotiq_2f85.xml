@@ -8,14 +8,14 @@
     <material name="silicone" rgba="0.1882 0.1882 0.1882 1"/>
     <material name="black" rgba="0.149 0.149 0.149 1"/>
 
-    <mesh file="base.stl"/>
-    <mesh file="base_coupling.stl"/>
-    <mesh file="c-a01-85-open.stl"/>
-    <mesh file="driver.stl"/>
-    <mesh file="coupler.stl"/>
-    <mesh file="spring_link.stl"/>
-    <mesh file="follower.stl"/>
-    <mesh file="tongue.stl"/>
+    <mesh name="base" file="base_2f85.stl"/>
+    <mesh name="base_coupling" file="base_coupling.stl"/>
+    <mesh name="c-a01-85-open" file="c-a01-85-open.stl"/>
+    <mesh name="driver" file="driver.stl"/>
+    <mesh name="coupler" file="coupler.stl"/>
+    <mesh name="spring_link" file="spring_link.stl"/>
+    <mesh name="follower" file="follower.stl"/>
+    <mesh name="tongue" file="tongue.stl"/>
   </asset>
 
   <default>
