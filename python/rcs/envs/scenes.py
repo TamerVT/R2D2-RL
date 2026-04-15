@@ -92,6 +92,11 @@ class SimSceneConfig(BaseSceneConfig):
     Prefixes need to as follows: robot{robot_name} where robot_name is the key in robot_cfgs, e.g. robot0, robot1, etc.
     root_frame_to_world will be used to place the robot in the world and
     shared_base_frame_to_root_frame will be used to determine the origin of the robot's action space."""
+    objects: dict[str, tuple[str, rcs.common.Pose]] | None = None
+    """dict of object_id to tuple of (object_xml, object2world), will be added to the scene, object2world is the pose of the object in the mujoco world frame"""
+    robot_objects: dict[str, tuple[str, rcs.common.Pose]] | None = None
+    """dict of object_id to tuple of (object_xml, object2root_frame), will be added to the robot object2root_frame is the pose of the object in the root frame of the robot,
+    which is defined by shared_base_frame_to_root_frame, object_id must be unique across all objects and robots in the scene"""
 
 
 class SimScene(BaseScene):
@@ -126,6 +131,7 @@ class SimScene(BaseScene):
         self.add_task_mujoco(self.cfg.task, composer)
 
         if self.cfg.alternative_combined_robot_mjcf is not None:
+            # robot is in one mjcf
             self.add_robot_mujoco(
                 composer,
                 robot_name=self.lead_robot_name,
@@ -134,20 +140,24 @@ class SimScene(BaseScene):
                 robot_prefix="",
             )
             return composer
+        else:
+            # robot is composed by composer
+            for robot_name in self.robots_names:
+                robot_to_shared_frame = (
+                    self.cfg.robot_to_shared_base_frame[robot_name]
+                    if self.cfg.robot_to_shared_base_frame is not None
+                    else rcs.common.Pose()
+                )
+                robot2world = (
+                    robot_to_shared_frame * self.cfg.shared_base_frame_to_root_frame * self.cfg.root_frame_to_world
+                )
+                self.add_robot_mujoco(
+                    composer, robot_name, self.cfg.robot_cfgs[robot_name].kinematic_model_path, robot2world
+                )
 
-        for robot_name in self.robots_names:
-            robot_to_shared_frame = (
-                self.cfg.robot_to_shared_base_frame[robot_name]
-                if self.cfg.robot_to_shared_base_frame is not None
-                else rcs.common.Pose()
-            )
-            robot2world = (
-                robot_to_shared_frame * self.cfg.shared_base_frame_to_root_frame * self.cfg.root_frame_to_world
-            )
-            self.add_robot_mujoco(
-                composer, robot_name, self.cfg.robot_cfgs[robot_name].kinematic_model_path, robot2world
-            )
-            if self.cfg.gripper_cfgs is not None:
+        if self.cfg.gripper_cfgs is not None:
+            # add gripper to each robot
+            for robot_name in self.robots_names:
                 gripper_xml = GRIPPER_PATHS[self.cfg.gripper_cfgs[robot_name].gripper_type]
                 self.add_gripper_mujoco(
                     composer,
@@ -155,6 +165,16 @@ class SimScene(BaseScene):
                     gripper_xml,
                     self.cfg.robot_cfgs[robot_name].attachment_site,
                 )
+
+        # add robot-specific objects
+        if self.cfg.robot_objects is not None:
+            for object_id, (object_xml, object2root_frame) in self.cfg.robot_objects.items():
+                object2world = object2root_frame * self.cfg.root_frame_to_world
+                self.add_object_mujoco(composer, object_id, object_xml, object2world)
+        # add external objects
+        if self.cfg.objects is not None:
+            for object_id, (object_xml, object2world) in self.cfg.objects.items():
+                self.add_object_mujoco(composer, object_id, object_xml, object2world)
 
         return composer
 
@@ -165,6 +185,17 @@ class SimScene(BaseScene):
     def add_task_env(self, key: str | None, env: gym.Env, simulation: Sim) -> gym.Env:
         """Add task-specific wrappers to the environment."""
         return env
+
+    def add_object_mujoco(
+        self, composer: ModelComposer, object_id: str, object_xml: str, object2world: rcs.common.Pose
+    ):
+        """Add an object to the Mujoco scene."""
+        composer.add_object_from_xml(
+            object_xml,
+            prefix=object_id + "_",
+            pos=list(object2world.translation()),
+            quat=list(object2world.rotation_q()),
+        )
 
     def add_robot_mujoco(
         self,
@@ -329,6 +360,8 @@ class EmptyWorldFR3(SimScene):
         shared_base_frame_to_root_frame = rcs.common.Pose()
         root_frame_to_world = rcs.common.Pose()
         alternative_combined_robot_mjcf: str | None = None
+        objects: dict[str, tuple[str, rcs.common.Pose]] | None = None
+        robot_objects: dict[str, tuple[str, rcs.common.Pose]] | None = None
         return SimSceneConfig(
             robot_cfgs=robot_cfgs,
             sim_cfg=sim_cfg,
@@ -346,6 +379,8 @@ class EmptyWorldFR3(SimScene):
             shared_base_frame_to_root_frame=shared_base_frame_to_root_frame,
             root_frame_to_world=root_frame_to_world,
             alternative_combined_robot_mjcf=alternative_combined_robot_mjcf,
+            objects=objects,
+            robot_objects=robot_objects,
         )
 
 
