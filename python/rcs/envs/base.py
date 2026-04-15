@@ -391,6 +391,10 @@ class MultiRobotWrapper(gym.Env):
         robot_to_shared_base_frame: dict[str, common.Pose] | None = None,
     ):
         self.envs = envs
+        self.action_space = gym.spaces.Dict({key: copy.deepcopy(env.action_space) for key, env in self.envs.items()})
+        self.observation_space = gym.spaces.Dict(
+            {key: copy.deepcopy(env.observation_space) for key, env in self.envs.items()}
+        )
         if robot_to_shared_base_frame is None:
             self.robot_to_shared_base_frame = {}
         else:

@@ -7,7 +7,13 @@ from os import PathLike
 import gymnasium as gym
 import numpy as np
 from rcs._core.common import FrankaHandTCPOffset, RobotType
-from rcs._core.sim import SimCameraConfig, SimConfig, SimGripperConfig, SimRobotConfig
+from rcs._core.sim import (
+    CameraType,
+    SimCameraConfig,
+    SimConfig,
+    SimGripperConfig,
+    SimRobotConfig,
+)
 from rcs.camera.interface import BaseCameraSet
 from rcs.camera.sim import SimCameraSet
 from rcs.envs.base import (
@@ -51,6 +57,14 @@ class WrapperConfig:
 
 
 @dataclass(kw_only=True)
+class CameraAdderConfig:
+    fovy: float = 60.0
+    offset: rcs.common.Pose = field(default_factory=rcs.common.Pose)
+    attachment_site: str = "attachment_site"
+    robot_name: str | None = None
+
+
+@dataclass(kw_only=True)
 class SimSceneConfig(BaseSceneConfig):
     robot_cfgs: dict[str, SimRobotConfig]
     sim_cfg: SimConfig
@@ -85,6 +99,8 @@ class SimSceneConfig(BaseSceneConfig):
     robot_objects: dict[str, tuple[str, rcs.common.Pose]] | None = None
     """dict of object_id to tuple of (object_xml, object2root_frame), will be added to the robot object2root_frame is the pose of the object in the root frame of the robot,
     which is defined by shared_base_frame_to_root_frame, object_id must be unique across all objects and robots in the scene"""
+    camera_adds: dict[str, CameraAdderConfig] | None = None
+    """dict of camera_name to CameraAdderConfig, cameras will be added to the scene according to the config, camera_name must be unique across all cameras in the scene"""
 
 
 class SimScene(BaseScene):
@@ -163,6 +179,34 @@ class SimScene(BaseScene):
         if self.cfg.objects is not None:
             for object_id, (object_xml, object2world) in self.cfg.objects.items():
                 self.add_object_mujoco(composer, object_id, object_xml, object2world)
+
+        # camera adds
+        if self.cfg.camera_adds is not None:
+            for camera_name, camera_add_cfg in self.cfg.camera_adds.items():
+                assert self.cfg.camera_cfgs is not None, "Camera configs must be provided to add cameras."
+                assert (
+                    camera_name in self.cfg.camera_cfgs
+                ), f"Camera config for camera {camera_name} must be provided to add camera {camera_name} to the scene"
+                composer.add_camera(
+                    resolution=(
+                        self.cfg.camera_cfgs[camera_name].resolution_width,
+                        self.cfg.camera_cfgs[camera_name].resolution_height,
+                    ),
+                    fovy=camera_add_cfg.fovy,
+                    name=camera_name,
+                    pos=list(camera_add_cfg.offset.translation()),
+                    quat=list(camera_add_cfg.offset.rotation_q()),
+                    robot_prefix=(
+                        self.robot_prefix_template.format(robot_name=camera_add_cfg.robot_name)
+                        if camera_add_cfg.robot_name is not None
+                        else None
+                    ),
+                    attachment_site_name=(
+                        self.cfg.robot_cfgs[camera_add_cfg.robot_name].attachment_site
+                        if camera_add_cfg.robot_name is not None
+                        else camera_add_cfg.attachment_site
+                    ),
+                )
 
         return composer
 
@@ -347,7 +391,22 @@ class EmptyWorldFR3(SimScene):
             min_actuator_width=0.0,
         )
         gripper_cfgs: dict[str, SimGripperConfig] = {"fr3": gripper_cfg}
-        camera_cfgs: dict[str, SimCameraConfig] | None = None
+        camera_cfgs: dict[str, SimCameraConfig] | None = {
+            "bird_eye": SimCameraConfig(
+                identifier="bird_eye",
+                type=CameraType.fixed,
+                resolution_width=1280,
+                resolution_height=720,
+                frame_rate=30,
+            ),
+            "wrist": SimCameraConfig(
+                identifier="wrist",
+                type=CameraType.fixed,
+                resolution_width=1280,
+                resolution_height=720,
+                frame_rate=30,
+            ),
+        }
         max_relative_movement: float | tuple[float, float] | None = None
         relative_to: RelativeTo = RelativeTo.LAST_STEP
         robot_to_shared_base_frame: dict[str, rcs.common.Pose] | None = {"fr3": rcs.common.Pose()}
@@ -359,6 +418,20 @@ class EmptyWorldFR3(SimScene):
         alternative_combined_robot_mjcf: str | None = None
         objects: dict[str, tuple[str, rcs.common.Pose]] | None = None
         robot_objects: dict[str, tuple[str, rcs.common.Pose]] | None = None
+        add_camera_adds: dict[str, CameraAdderConfig] | None = {
+            "bird_eye": CameraAdderConfig(
+                fovy=60.0,
+                offset=rcs.common.Pose(
+                    translation=[0.271, -0.000, 2.080], quaternion=[0.0060, -0.0060, -0.7067, 0.7074]
+                ),
+            ),
+            "wrist": CameraAdderConfig(
+                fovy=60.0,
+                offset=rcs.common.Pose(translation=[0, 0, 0], quaternion=[0, 0, -0.3826834, 0.9238795])
+                * rcs.common.Pose(translation=[0.062, -0.009, 0.05245], rpy_vector=[0, np.pi, -np.pi / 2]),
+                robot_name="fr3",
+            ),
+        }
         return SimSceneConfig(
             robot_cfgs=robot_cfgs,
             sim_cfg=sim_cfg,
@@ -378,6 +451,7 @@ class EmptyWorldFR3(SimScene):
             alternative_combined_robot_mjcf=alternative_combined_robot_mjcf,
             objects=objects,
             robot_objects=robot_objects,
+            camera_adds=add_camera_adds,
         )
 
 
