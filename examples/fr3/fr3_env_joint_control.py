@@ -43,20 +43,20 @@ FR3_IP = "192.168.101.1"
 def main():
     if ROBOT_INSTANCE == RobotPlatform.SIMULATION:
         scene = EmptyWorldFR3()
-        robot_cfg = next(iter(scene.prefixed_cfg.robot_cfgs.values()))
-        gripper_cfg = next(iter(scene.prefixed_cfg.gripper_cfgs.values()))
-        camera_cfgs = scene.prefixed_cfg.camera_cfgs
+        fr3 = next(iter(scene.config.robot_cfgs))
+        robot_cfg = scene.config.robot_cfgs[fr3]
+        gripper_cfg = next(iter(scene.config.gripper_cfgs.values()))
+        camera_cfgs = scene.config.camera_cfgs
         sim_cfg = SimConfig(
             realtime=False,
             async_control=False,
         )
 
         simulation = sim.Sim(scene.load_scene(), sim_cfg)
-        ik_robot_cfg = next(iter(scene.cfg.robot_cfgs.values()))
+        kinematic_model_path, attachment_site = scene.kinematics_cfg[fr3]
         ik = rcs.common.Pin(
-            ik_robot_cfg.kinematic_model_path,
-            ik_robot_cfg.attachment_site,
-            urdf=ik_robot_cfg.kinematic_model_path.endswith(".urdf"),
+            kinematic_model_path,
+            attachment_site,
         )
 
         robot = rcs.sim.SimRobot(simulation, ik, robot_cfg)

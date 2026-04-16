@@ -66,17 +66,18 @@ def main():
                 realtime=False,
                 async_control=False,
             )
+            fr3 = next(iter(scene.config.robot_cfgs))
             simulation = sim.Sim(scene.load_scene(), sim_cfg)
-            robot_cfg = next(iter(scene.prefixed_cfg.robot_cfgs.values()))
-            ik_robot_cfg = next(iter(scene.cfg.robot_cfgs.values()))
+            robot_cfg = scene.config.robot_cfgs[fr3]
+
+            kinematic_model_path, attachment_site = scene.kinematics_cfg[fr3]
             ik = rcs.common.Pin(
-                ik_robot_cfg.kinematic_model_path,
-                ik_robot_cfg.attachment_site,
-                urdf=ik_robot_cfg.kinematic_model_path.endswith(".urdf"),
+                kinematic_model_path,
+                attachment_site,
             )
             robot = rcs.sim.SimRobot(simulation, ik, robot_cfg)
 
-            gripper_cfg_sim = next(iter(scene.prefixed_cfg.gripper_cfgs.values()))
+            gripper_cfg_sim = next(iter(scene.config.gripper_cfgs.values()))
             gripper = sim.SimGripper(simulation, gripper_cfg_sim)
 
             # add camera to have a rendering gui

@@ -23,9 +23,10 @@ from rcs import sim
 if __name__ == "__main__":
     # default configs
     scene = EmptyWorldFR3()
-    robot_cfg = next(iter(scene.prefixed_cfg.robot_cfgs.values()))
-    gripper_cfg = next(iter(scene.prefixed_cfg.gripper_cfgs.values()))
-    camera_cfgs = scene.prefixed_cfg.camera_cfgs
+    fr3 = next(iter(scene.config.robot_cfgs))
+    robot_cfg = scene.config.robot_cfgs[fr3]
+    gripper_cfg = next(iter(scene.config.gripper_cfgs.values()))
+    camera_cfgs = scene.config.camera_cfgs
     sim_cfg = SimConfig(
         realtime=True,
         async_control=True,
@@ -35,10 +36,10 @@ if __name__ == "__main__":
     s = scene.load_scene()
     s.save_mjcf("scene.xml")
     simulation = sim.Sim(s, sim_cfg)
-    ik_robot_cfg = next(iter(scene.cfg.robot_cfgs.values()))
+    kinematic_model_path, attachment_site = scene.kinematics_cfg[fr3]
     ik = rcs.common.Pin(
-        ik_robot_cfg.kinematic_model_path,
-        ik_robot_cfg.attachment_site,
+        kinematic_model_path,
+        attachment_site,
     )
 
     # base env
