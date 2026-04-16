@@ -213,8 +213,7 @@ class SimScene(BaseScene):
                     ),
                     fovy=camera_add_cfg.fovy,
                     name=camera_name,
-                    pos=list(camera_add_cfg.offset.translation()),
-                    quat=list(camera_add_cfg.offset.rotation_q()),
+                    pose=camera_add_cfg.offset,
                     robot_prefix=(
                         self.robot_prefix_template.format(robot_name=camera_add_cfg.robot_name)
                         if camera_add_cfg.robot_name is not None
@@ -243,8 +242,7 @@ class SimScene(BaseScene):
         composer.add_object_world_frame(
             object_xml,
             object_prefix=object_id + "_",
-            pos=list(object2world.translation()),
-            quat=list(object2world.rotation_q()),
+            pose=object2world,
         )
 
     def add_object_robot_frame_mujoco(
@@ -262,8 +260,7 @@ class SimScene(BaseScene):
             robot_prefix=self.robot_prefix_template.format(robot_name=robot_name),
             object_prefix=object_id + "_",
             attachment_site_name=attachment_site,
-            pos=list(object2robot_frame.translation()),
-            quat=list(object2robot_frame.rotation_q()),
+            pose=object2robot_frame,
         )
 
     def add_robot_mujoco(
@@ -279,8 +276,7 @@ class SimScene(BaseScene):
         composer.add_robot(
             robot_xml,
             robot_prefix,
-            pos=list(robot2world.translation()),
-            quat=list(robot2world.rotation_q()),
+            pose=robot2world,
         )
 
     def add_robot_env(self, robot_name: str, env: gym.Env, simulation: Sim, ik: rcs.common.Kinematics):
@@ -304,8 +300,7 @@ class SimScene(BaseScene):
             gripper_prefix=self.gripper_prefix_template.format(robot_name=robot_name),
             robot_prefix=self.robot_prefix_template.format(robot_name=robot_name),
             attachment_site_name=attachment_site,
-            pos=list(gripper_offset.translation()),
-            quat=list(gripper_offset.rotation_q()),
+            pose=gripper_offset,
         )
 
     def add_gripper_env(self, robot_name: str, simulation: Sim, env: gym.Env):

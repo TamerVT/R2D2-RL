@@ -1,7 +1,8 @@
 import os
-from typing import Optional, Union
+from typing import Optional
 
 import mujoco
+from rcs._core.common import Pose
 
 
 class ModelComposer:
@@ -55,17 +56,23 @@ class ModelComposer:
         except ValueError:
             return None
 
+    def _apply_pose(self, body: mujoco._specs.MjsBody, pose: Pose):
+        body.pos = list(pose.translation())
+        quat_list = list(pose.rotation_q())
+        body.quat = quat_list[3:4] + quat_list[0:3]
+
     def add_camera(
         self,
         resolution: tuple[int, int],
         fovy: float,
         name: str,
-        pos: tuple[float, float, float] = (0, 0, 0),
-        quat: tuple[float, float, float, float] = (0, 0, 0, 1),
+        pose: Pose | None = None,
         robot_prefix: str | None = None,
         attachment_site_name: str = "attachment_site",
     ) -> mujoco._specs.MjsCamera:
         """Adds a fixed camera to the world body or to a robot attachment site."""
+        if pose is None:
+            pose = Pose()
         if robot_prefix is None:
             camera_mount = self.spec.worldbody.add_body()
             camera_mount.name = f"{name}_mount"
@@ -81,9 +88,7 @@ class ModelComposer:
             camera_mount.name = "mount"
             camera_mount = attachment_site.attach(camera_mount, f"{name}_", "")
 
-        camera_mount.pos = list(pos)
-        quat_list = list(quat)
-        camera_mount.quat = quat_list[3:4] + quat_list[0:3]
+        self._apply_pose(camera_mount, pose)
 
         camera = camera_mount.add_camera()
         camera.name = name
@@ -92,12 +97,12 @@ class ModelComposer:
 
         return camera
 
-    def add_robot(
-        self, xml_path: str, prefix: str, pos: Union[list, tuple] = (0, 0, 0), quat: Union[list, tuple] = (0, 0, 0, 1)
-    ) -> mujoco._specs.MjsBody:
+    def add_robot(self, xml_path: str, prefix: str, pose: Pose | None = None) -> mujoco._specs.MjsBody:
         """
         Attaches a robot MJCF at a specific pose.
         """
+        if pose is None:
+            pose = Pose()
         if not os.path.exists(xml_path):
             msg = f"Robot MJCF not found: {xml_path}"
             raise FileNotFoundError(msg)
@@ -119,10 +124,7 @@ class ModelComposer:
             raise ValueError(msg)
 
         # 3. Apply the pose directly to the body
-        robot_root.pos = pos
-        # change quaternion rotation order to mujoco format
-        quat_list = list(quat)
-        robot_root.quat = quat_list[3:4] + quat_list[0:3]
+        self._apply_pose(robot_root, pose)
 
         return robot_root
 
@@ -132,10 +134,11 @@ class ModelComposer:
         robot_prefix: str,
         gripper_prefix: str = "gripper_",
         attachment_site_name: str = "attachment_site",
-        pos: Union[list, tuple] = (0, 0, 0),
-        quat: Union[list, tuple] = (0, 0, 0, 1),
+        pose: Pose | None = None,
     ) -> mujoco._specs.MjsBody:
         """Attaches a gripper to a robot's attachment site with an optional local pose offset."""
+        if pose is None:
+            pose = Pose()
         site_name = robot_prefix + attachment_site_name
         attachment_site = self._find_site(site_name)
 
@@ -148,9 +151,7 @@ class ModelComposer:
 
         gripper_root = gripper_spec.worldbody.first_body()
         gripper_root = attachment_site.attach(gripper_root, gripper_prefix, "")
-        gripper_root.pos = pos
-        quat_list = list(quat)
-        gripper_root.quat = quat_list[3:4] + quat_list[0:3]
+        self._apply_pose(gripper_root, pose)
         return gripper_root
 
     def add_object_robot_frame(
@@ -159,10 +160,11 @@ class ModelComposer:
         robot_prefix: str,
         object_prefix: str,
         attachment_site_name: str,
-        pos: Union[list, tuple] = (0, 0, 0),
-        quat: Union[list, tuple] = (0, 0, 0, 1),
+        pose: Pose | None = None,
     ) -> mujoco._specs.MjsBody:
         """Attaches an object to a robot attachment site with an optional local pose offset."""
+        if pose is None:
+            pose = Pose()
         site_name = robot_prefix + attachment_site_name
         attachment_site = self._find_site(site_name)
 
@@ -175,18 +177,16 @@ class ModelComposer:
 
         object_root = object_spec.worldbody.first_body()
         object_root = attachment_site.attach(object_root, object_prefix, "")
-        object_root.pos = pos
-        quat_list = list(quat)
-        object_root.quat = quat_list[3:4] + quat_list[0:3]
+        self._apply_pose(object_root, pose)
         return object_root
 
-    def add_object_world_frame(
-        self, xml_path: str, object_prefix: str, pos: Union[list, tuple] = (0, 0, 0), quat: Union[list, tuple] = (0, 0, 0, 1)
-    ) -> mujoco._specs.MjsBody:
+    def add_object_world_frame(self, xml_path: str, object_prefix: str, pose: Pose | None = None) -> mujoco._specs.MjsBody:
         """
         Attaches a single object MJCF at a specific pose.
         Assumes the XML contains only one root body in the worldbody.
         """
+        if pose is None:
+            pose = Pose()
         if not os.path.exists(xml_path):
             msg = f"Object MJCF not found: {xml_path}"
             raise FileNotFoundError(msg)
@@ -208,10 +208,7 @@ class ModelComposer:
             raise ValueError(msg)
 
         # Apply the pose
-        obj_root.pos = pos
-        # change quaternion rotation order to mujoco format
-        quat_list = list(quat)
-        obj_root.quat = quat_list[3:4] + quat_list[0:3]
+        self._apply_pose(obj_root, pose)
 
         return obj_root
 
