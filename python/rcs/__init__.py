@@ -30,7 +30,7 @@ ROBOTS: dict[common.RobotType, RobotMetaConfig] = {
     common.RobotType.FR3: RobotMetaConfig(
         mjcf_model_path="assets/robots/fr3/fr3.xml",
         dof=7,
-        q_home=np.array([0.0, -np.pi / 4, 0.0, -3 * np.pi / 4, 0.0, np.pi / 2, np.pi / 4]),
+        q_home=np.array([0.0, -np.pi / 4, 0.0, -3 * np.pi / 4, 0.0, np.pi / 2, 0.0]),
         joint_limits=np.array(
             [
                 [-2.3093, -1.5133, -2.4937, -2.7478, -2.4800, 0.8521, -2.6895],
@@ -41,7 +41,7 @@ ROBOTS: dict[common.RobotType, RobotMetaConfig] = {
     common.RobotType.Panda: RobotMetaConfig(
         mjcf_model_path="assets/robots/panda/panda.xml",
         dof=7,
-        q_home=np.array([0.0, -np.pi / 4, 0.0, -3 * np.pi / 4, 0.0, np.pi / 2, np.pi / 4]),
+        q_home=np.array([0.0, -np.pi / 4, 0.0, -3 * np.pi / 4, 0.0, np.pi / 2, 0.0]),
         joint_limits=np.array(
             [
                 [
