@@ -5,7 +5,7 @@
 
   <asset>
     <material name="gray" rgba="0.8 0.8 0.8 1"/>
-    <material name="black" rgba="1 1 1 0.2"/>
+    <material name="black" rgba="0.1 0.1 0.1 1"/>
 
     <mesh name="d405" file="d405.obj"/>
   </asset>

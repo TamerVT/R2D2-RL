@@ -57,10 +57,10 @@ class ModelComposer:
             return None
 
     def _find_camera(self, name: str) -> Optional[mujoco._specs.MjsCamera]:
-        try:
-            return self.spec.find_camera(name)
-        except ValueError:
-            return None
+        for camera in self.spec.cameras:
+            if camera.name == name:
+                return camera
+        return None
 
     def _apply_pose(self, body: mujoco._specs.MjsBody, pose: Pose):
         body.pos = list(pose.translation())
