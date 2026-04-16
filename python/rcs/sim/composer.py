@@ -153,8 +153,35 @@ class ModelComposer:
         gripper_root.quat = quat_list[3:4] + quat_list[0:3]
         return gripper_root
 
-    def add_object_from_xml(
-        self, xml_path: str, prefix: str, pos: Union[list, tuple] = (0, 0, 0), quat: Union[list, tuple] = (0, 0, 0, 1)
+    def add_object_robot_frame(
+        self,
+        xml_path: str,
+        robot_prefix: str,
+        object_prefix: str,
+        attachment_site_name: str,
+        pos: Union[list, tuple] = (0, 0, 0),
+        quat: Union[list, tuple] = (0, 0, 0, 1),
+    ) -> mujoco._specs.MjsBody:
+        """Attaches an object to a robot attachment site with an optional local pose offset."""
+        site_name = robot_prefix + attachment_site_name
+        attachment_site = self._find_site(site_name)
+
+        if not attachment_site:
+            msg = f"Attachment site '{site_name}' not found."
+            raise ValueError(msg)
+
+        object_spec = mujoco.MjSpec.from_file(xml_path)
+        self._resolve_asset_paths(object_spec, xml_path)
+
+        object_root = object_spec.worldbody.first_body()
+        object_root = attachment_site.attach(object_root, object_prefix, "")
+        object_root.pos = pos
+        quat_list = list(quat)
+        object_root.quat = quat_list[3:4] + quat_list[0:3]
+        return object_root
+
+    def add_object_world_frame(
+        self, xml_path: str, object_prefix: str, pos: Union[list, tuple] = (0, 0, 0), quat: Union[list, tuple] = (0, 0, 0, 1)
     ) -> mujoco._specs.MjsBody:
         """
         Attaches a single object MJCF at a specific pose.
@@ -170,12 +197,11 @@ class ModelComposer:
 
         # Attach using a frame
         frame = self.spec.worldbody.add_frame()
-        frame.attach(child_spec, prefix, "")
+        frame.attach(child_spec, object_prefix, "")
 
         # Identify the root of the added object
         child_root_name = child_spec.worldbody.first_body().name
-        prefixed_root_name = f"{prefix}{child_root_name}"
-
+        prefixed_root_name = f"{object_prefix}{child_root_name}"
         obj_root = self._find_body(prefixed_root_name)
         if not obj_root:
             msg = f"Could not find object root body '{prefixed_root_name}' after attachment."

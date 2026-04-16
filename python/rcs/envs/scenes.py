@@ -95,11 +95,14 @@ class SimSceneConfig(BaseSceneConfig):
     Prefixes need to as follows: robot{robot_name} where robot_name is the key in robot_cfgs, e.g. robot0, robot1, etc.
     root_frame_to_world will be used to place the robot in the world and
     shared_base_frame_to_root_frame will be used to determine the origin of the robot's action space."""
-    objects: dict[str, tuple[str, rcs.common.Pose]] | None = None
+    world_frame_objects: dict[str, tuple[str, rcs.common.Pose]] | None = None
     """dict of object_id to tuple of (object_xml, object2world), will be added to the scene, object2world is the pose of the object in the mujoco world frame"""
-    robot_objects: dict[str, tuple[str, rcs.common.Pose]] | None = None
+    root_frame_objects: dict[str, tuple[str, rcs.common.Pose]] | None = None
     """dict of object_id to tuple of (object_xml, object2root_frame), will be added to the robot object2root_frame is the pose of the object in the root frame of the robot,
     which is defined by shared_base_frame_to_root_frame, object_id must be unique across all objects and robots in the scene"""
+    robot_frame_objects: dict[str, dict[str, tuple[str, rcs.common.Pose]]] | None = None
+    """dict of robot_name to dict of object_id to tuple of (object_xml, object2robot_frame), objects will be attached to that robot's attachment site,
+    object2robot_frame is the pose of the object in the robot attachment-site frame, object_id must be unique across all objects and robots in the scene"""
     camera_adds: dict[str, CameraAdderConfig] | None = None
     """dict of camera_name to CameraAdderConfig, cameras will be added to the scene according to the config, camera_name must be unique across all cameras in the scene"""
     gripper_offsets: dict[str, rcs.common.Pose] | None = None
@@ -174,14 +177,27 @@ class SimScene(BaseScene):
                 )
 
         # add robot-specific objects
-        if self.cfg.robot_objects is not None:
-            for object_id, (object_xml, object2root_frame) in self.cfg.robot_objects.items():
+        if self.cfg.root_frame_objects is not None:
+            for object_id, (object_xml, object2root_frame) in self.cfg.root_frame_objects.items():
                 object2world = object2root_frame * self.cfg.root_frame_to_world
                 self.add_object_mujoco(composer, object_id, object_xml, object2world)
         # add external objects
-        if self.cfg.objects is not None:
-            for object_id, (object_xml, object2world) in self.cfg.objects.items():
+        if self.cfg.world_frame_objects is not None:
+            for object_id, (object_xml, object2world) in self.cfg.world_frame_objects.items():
                 self.add_object_mujoco(composer, object_id, object_xml, object2world)
+        # add robot-frame objects
+        if self.cfg.robot_frame_objects is not None:
+            for robot_name, robot_objects in self.cfg.robot_frame_objects.items():
+                attachment_site = self.cfg.robot_cfgs[robot_name].attachment_site
+                for object_id, (object_xml, object2robot_frame) in robot_objects.items():
+                    self.add_object_robot_frame_mujoco(
+                        composer,
+                        robot_name=robot_name,
+                        object_id=object_id,
+                        object_xml=object_xml,
+                        object2robot_frame=object2robot_frame,
+                        attachment_site=attachment_site,
+                    )
 
         # camera adds
         if self.cfg.camera_adds is not None:
@@ -224,11 +240,30 @@ class SimScene(BaseScene):
         self, composer: ModelComposer, object_id: str, object_xml: str, object2world: rcs.common.Pose
     ):
         """Add an object to the Mujoco scene."""
-        composer.add_object_from_xml(
+        composer.add_object_world_frame(
             object_xml,
-            prefix=object_id + "_",
+            object_prefix=object_id + "_",
             pos=list(object2world.translation()),
             quat=list(object2world.rotation_q()),
+        )
+
+    def add_object_robot_frame_mujoco(
+        self,
+        composer: ModelComposer,
+        robot_name: str,
+        object_id: str,
+        object_xml: str,
+        object2robot_frame: rcs.common.Pose,
+        attachment_site: str,
+    ):
+        """Add an object to the Mujoco scene in a robot attachment-site frame."""
+        composer.add_object_robot_frame(
+            xml_path=object_xml,
+            robot_prefix=self.robot_prefix_template.format(robot_name=robot_name),
+            object_prefix=object_id + "_",
+            attachment_site_name=attachment_site,
+            pos=list(object2robot_frame.translation()),
+            quat=list(object2robot_frame.rotation_q()),
         )
 
     def add_robot_mujoco(
@@ -427,8 +462,8 @@ class EmptyWorldFR3(SimScene):
         shared_base_frame_to_root_frame = rcs.common.Pose()
         root_frame_to_world = rcs.common.Pose()
         alternative_combined_robot_mjcf: str | None = None
-        objects: dict[str, tuple[str, rcs.common.Pose]] | None = None
-        robot_objects: dict[str, tuple[str, rcs.common.Pose]] | None = None
+        world_frame_objects: dict[str, tuple[str, rcs.common.Pose]] | None = None
+        root_frame_objects: dict[str, tuple[str, rcs.common.Pose]] | None = None
         add_camera_adds: dict[str, CameraAdderConfig] | None = {
             "bird_eye": CameraAdderConfig(
                 fovy=60.0,
@@ -460,8 +495,8 @@ class EmptyWorldFR3(SimScene):
             shared_base_frame_to_root_frame=shared_base_frame_to_root_frame,
             root_frame_to_world=root_frame_to_world,
             alternative_combined_robot_mjcf=alternative_combined_robot_mjcf,
-            objects=objects,
-            robot_objects=robot_objects,
+            world_frame_objects=world_frame_objects,
+            root_frame_objects=root_frame_objects,
             camera_adds=add_camera_adds,
         )
 
