@@ -119,6 +119,11 @@ OBJECT_PATHS = {
     "robotiq_d405_mount": "assets/objects/robotiq_d405_mount/robotiq_d405_mount.xml",
 }
 
+CAMERA_PATHS = {
+    "d405": "assets/cameras/d405/d405.xml",
+    "zed_mini": "assets/cameras/zed_mini/zed_mini.xml",
+}
+
 # make submodules available
 __all__ = [
     "__doc__",

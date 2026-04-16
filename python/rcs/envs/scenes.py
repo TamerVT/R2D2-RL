@@ -33,7 +33,7 @@ from rcs.sim.composer import ModelComposer
 from rcs.sim.sim import Sim
 
 import rcs
-from rcs import GRIPPER_PATHS, OBJECT_PATHS, SCENE_PATHS
+from rcs import CAMERA_PATHS, GRIPPER_PATHS, OBJECT_PATHS, SCENE_PATHS
 
 
 class BaseSceneConfig:
@@ -328,9 +328,7 @@ class SimScene(BaseScene):
     def add_robot_env(self, robot_name: str, env: gym.Env, simulation: Sim, ik: rcs.common.Kinematics):
         # rcs wrapper composition
         robot = rcs.sim.SimRobot(sim=simulation, ik=ik, cfg=self.config.robot_cfgs[robot_name])
-        env = RobotWrapper(
-            env, robot, self.config.control_mode, home_on_reset=self.config.wrapper_cfg.home_on_reset
-        )
+        env = RobotWrapper(env, robot, self.config.control_mode, home_on_reset=self.config.wrapper_cfg.home_on_reset)
         return RobotSimWrapper(env)
 
     def add_gripper_mujoco(self, composer: ModelComposer, robot_name: str, gripper_xml: str, attachment_site: str):
@@ -671,12 +669,14 @@ class EmptyWorldFR3Duo(SimScene):
         }
         add_camera_adds: dict[str, CameraAdderConfig] | None = {
             "bird_eye": CameraAdderConfig(
+                xml_path=CAMERA_PATHS["zed_mini"],
                 fovy=60.0,
                 offset=rcs.common.Pose(
                     translation=[0.271, -0.000, 2.080], quaternion=[0.0060, -0.0060, -0.7067, 0.7074]
                 ),
             ),
             "wrist": CameraAdderConfig(
+                xml_path=CAMERA_PATHS["d405"],
                 fovy=60.0,
                 offset=rcs.common.Pose(translation=[0, 0, 0], quaternion=[0, 0, -0.3826834, 0.9238795])
                 * rcs.common.Pose(translation=[0.062, -0.009, 0.05245], rpy_vector=[0, np.pi, -np.pi / 2]),

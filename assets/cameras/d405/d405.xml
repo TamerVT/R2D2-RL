@@ -1,0 +1,32 @@
+<mujoco model="d405">
+  <compiler angle="radian" meshdir="assets" autolimits="true"/>
+
+  <option cone="elliptic" impratio="10"/>
+
+  <asset>
+    <material name="gray" rgba="0.8 0.8 0.8 1"/>
+    <material name="black" rgba="1 1 1 0.2"/>
+
+    <mesh name="d405" file="d405.obj"/>
+  </asset>
+
+  <default>
+    <default class="d405">
+      <default class="visual">
+        <geom type="mesh" contype="0" conaffinity="0" group="2" material="black"/>
+      </default>
+      <default class="collision">
+        <geom type="mesh" group="3"/>
+      </default>
+    </default>
+  </default>
+
+  <worldbody>
+    <body name="base" childclass="d405">
+      <geom mesh="d405"  material="black" class="visual"/>
+      <geom mesh="d405"  material="black" class="collision"/>
+      <camera name="camera" pos="0 0 0" quat="0 0 1 0"/>
+    </body>
+  </worldbody>
+
+</mujoco>
