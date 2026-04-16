@@ -8,7 +8,7 @@
     <material name="silicone" rgba="0.1882 0.1882 0.1882 1"/>
     <material name="black" rgba="0.149 0.149 0.149 1"/>
 
-    <mesh name="base" file="base_2f85.stl"/>
+    <mesh name="base" file="base.stl"/>
     <mesh name="base_coupling" file="base_coupling.stl"/>
     <mesh name="c-a01-85-open" file="c-a01-85-open.stl"/>
     <mesh name="driver" file="driver.stl"/>

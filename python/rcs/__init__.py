@@ -107,8 +107,10 @@ ROBOTS: dict[common.RobotType, RobotMetaConfig] = {
 }
 
 
-GRIPPER_PATHS = {common.GripperType.FrankaHand: "assets/grippers/franka_hand/franka_hand.xml",
-                 common.GripperType("Robotiq2F85"): "assets/grippers/robotiq_2f85/robotiq_2f85.xml"}
+GRIPPER_PATHS = {
+    common.GripperType.FrankaHand: "assets/grippers/franka_hand/franka_hand.xml",
+    common.GripperType("Robotiq2F85"): "assets/grippers/robotiq_2f85/robotiq_2f85.xml",
+}
 
 SCENE_PATHS = {"empty_world": "assets/scenes/empty_world/scene.xml"}
 

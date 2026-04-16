@@ -1,4 +1,5 @@
 import copy
+import time
 import typing
 from abc import ABC
 from dataclasses import dataclass, field
@@ -6,7 +7,7 @@ from os import PathLike
 
 import gymnasium as gym
 import numpy as np
-from rcs._core.common import FrankaHandTCPOffset, RobotType
+from rcs._core.common import FrankaHandTCPOffset, GripperType, RobotType
 from rcs._core.sim import (
     CameraType,
     SimCameraConfig,
@@ -325,7 +326,7 @@ class SimScene(BaseScene):
 class EmptyWorldFR3(SimScene):
 
     def __init__(self):
-        super().__init__("", robot_prefix_template="fr3", gripper_prefix_template="fh")
+        super().__init__("", robot_prefix_template="robot", gripper_prefix_template="gripper")
 
     def load_config(self, key: str) -> SimSceneConfig:
         robot_cfg = SimRobotConfig(
@@ -370,8 +371,8 @@ class EmptyWorldFR3(SimScene):
             q_home=rcs.ROBOTS[RobotType.FR3].q_home,
         )
 
-        robot_cfgs: dict[str, SimRobotConfig] = {"fr3": robot_cfg}
-        sim_cfg: SimConfig = SimConfig(async_control=True, realtime=True, frequency=30, max_convergence_steps=500)
+        robot_cfgs: dict[str, SimRobotConfig] = {"robot": robot_cfg}
+        sim_cfg: SimConfig = SimConfig(async_control=False, realtime=True, frequency=1, max_convergence_steps=500)
 
         control_mode: ControlMode = ControlMode.CARTESIAN_TQuat
         task: str | None = None
@@ -389,8 +390,9 @@ class EmptyWorldFR3(SimScene):
             actuator="hand_actuator",
             max_actuator_width=255.0,
             min_actuator_width=0.0,
+            gripper_type=GripperType.FrankaHand,
         )
-        gripper_cfgs: dict[str, SimGripperConfig] = {"fr3": gripper_cfg}
+        gripper_cfgs: dict[str, SimGripperConfig] = {"robot": gripper_cfg}
         camera_cfgs: dict[str, SimCameraConfig] | None = {
             "bird_eye": SimCameraConfig(
                 identifier="bird_eye",
@@ -409,7 +411,7 @@ class EmptyWorldFR3(SimScene):
         }
         max_relative_movement: float | tuple[float, float] | None = None
         relative_to: RelativeTo = RelativeTo.LAST_STEP
-        robot_to_shared_base_frame: dict[str, rcs.common.Pose] | None = {"fr3": rcs.common.Pose()}
+        robot_to_shared_base_frame: dict[str, rcs.common.Pose] | None = {"robot": rcs.common.Pose()}
         wrapper_cfg: WrapperConfig = WrapperConfig(binary_gripper=True, home_on_reset=True)
         open_gui_on_create = True
         add_gravcomp = True
@@ -429,7 +431,7 @@ class EmptyWorldFR3(SimScene):
                 fovy=60.0,
                 offset=rcs.common.Pose(translation=[0, 0, 0], quaternion=[0, 0, -0.3826834, 0.9238795])
                 * rcs.common.Pose(translation=[0.062, -0.009, 0.05245], rpy_vector=[0, np.pi, -np.pi / 2]),
-                robot_name="fr3",
+                robot_name="robot",
             ),
         }
         return SimSceneConfig(
@@ -455,17 +457,66 @@ class EmptyWorldFR3(SimScene):
         )
 
 
+class EmptyWorldUR5e(EmptyWorldFR3):
+
+    def load_config(self, key: str) -> SimSceneConfig:
+        rt = RobotType("UR5e")
+        cfg = super().load_config(key)
+        lead_robot_name = next(iter(cfg.robot_cfgs))
+
+        robot_cfg = cfg.robot_cfgs[lead_robot_name]
+        robot_cfg.tcp_offset = rcs.common.Pose()
+        robot_cfg.attachment_site = rcs.ROBOTS[rt].attachment_site
+        robot_cfg.kinematic_model_path = rcs.ROBOTS[rt].mjcf_model_path
+        robot_cfg.arm_collision_geoms = []
+        robot_cfg.joints = [
+            "shoulder_pan_joint",
+            "shoulder_lift_joint",
+            "elbow_joint",
+            "wrist_1_joint",
+            "wrist_2_joint",
+            "wrist_3_joint",
+        ]
+        robot_cfg.actuators = ["shoulder_pan", "shoulder_lift", "elbow", "wrist_1", "wrist_2", "wrist_3"]
+        robot_cfg.dof = rcs.ROBOTS[rt].dof
+        robot_cfg.joint_limits = rcs.ROBOTS[rt].joint_limits
+        robot_cfg.q_home = rcs.ROBOTS[rt].q_home
+        robot_cfg.base = "base"
+
+        gripper_cfg = cfg.gripper_cfgs[lead_robot_name]
+
+        gripper_cfg.actuator = "fingers_actuator"
+        gripper_cfg.joints = ["right_driver_joint", "left_driver_joint"]
+        gripper_cfg.collision_geoms = []
+        gripper_cfg.collision_geoms_fingers = []
+        gripper_cfg.max_actuator_width = 0
+        gripper_cfg.min_actuator_width = 255
+        gripper_cfg.max_joint_width = 0.005
+        gripper_cfg.min_joint_width = 1.0
+        gripper_cfg.gripper_type = GripperType("Robotiq2F85")
+
+        cfg.camera_cfgs = None
+        cfg.camera_adds = None
+
+        return cfg
+
+
 if __name__ == "__main__":
-    scene = EmptyWorldFR3()
+    # scene = EmptyWorldFR3()
+    scene = EmptyWorldUR5e()
     env = scene.create()
     obs, info = env.reset()
     print(obs)
     for _ in range(100):
         for _ in range(10):
             # move 1cm in x direction (forward) and close gripper
-            act = {"fr3": {"tquat": [0.01, 0, 0, 0, 0, 0, 1], "gripper": [0]}}
+            act = {"robot": {"tquat": [0.01, 0, 0, 0, 0, 0, 1], "gripper": [0]}}
             obs, reward, terminated, truncated, info = env.step(act)
+            print(obs)
+            time.sleep(1.0)
         for _ in range(10):
             # move 1cm in negative x direction (backward) and open gripper
-            act = {"fr3": {"tquat": [-0.01, 0, 0, 0, 0, 0, 1], "gripper": [1]}}
+            act = {"robot": {"tquat": [-0.01, 0, 0, 0, 0, 0, 1], "gripper": [1]}}
             obs, reward, terminated, truncated, info = env.step(act)
+            print(obs)
+            time.sleep(1.0)
