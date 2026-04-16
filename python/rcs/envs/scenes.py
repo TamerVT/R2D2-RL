@@ -7,7 +7,7 @@ from os import PathLike
 
 import gymnasium as gym
 import numpy as np
-from rcs._core.common import FrankaHandTCPOffset, GripperType, RobotType
+from rcs._core.common import FrankaHandTCPOffset, GripperType, Pose, RobotType
 from rcs._core.sim import (
     CameraType,
     SimCameraConfig,
@@ -33,7 +33,7 @@ from rcs.sim.composer import ModelComposer
 from rcs.sim.sim import Sim
 
 import rcs
-from rcs import GRIPPER_PATHS, SCENE_PATHS
+from rcs import GRIPPER_PATHS, OBJECT_PATHS, SCENE_PATHS
 
 
 class BaseSceneConfig:
@@ -500,6 +500,162 @@ class EmptyWorldFR3(SimScene):
         )
 
 
+class EmptyWorldFR3Duo(SimScene):
+
+    def __init__(self):
+        super().__init__(
+            "", robot_prefix_template="robot_{robot_name}_", gripper_prefix_template="gripper_{robot_name}_"
+        )
+
+    def load_config(self, key: str) -> SimSceneConfig:
+        robot_cfg = SimRobotConfig(
+            robot_type=RobotType.FR3,
+            tcp_offset=rcs.common.Pose(pose_matrix=FrankaHandTCPOffset()),
+            attachment_site=rcs.ROBOTS[RobotType.FR3].attachment_site,
+            kinematic_model_path=rcs.ROBOTS[RobotType.FR3].mjcf_model_path,
+            joint_rotational_tolerance=0.05 * (np.pi / 180.0),
+            seconds_between_callbacks=0.1,
+            trajectory_trace=False,
+            arm_collision_geoms=[
+                "fr3_link0_collision",
+                "fr3_link1_collision",
+                "fr3_link2_collision",
+                "fr3_link3_collision",
+                "fr3_link4_collision",
+                "fr3_link5_collision",
+                "fr3_link6_collision",
+                "fr3_link7_collision",
+            ],
+            joints=[
+                "fr3_joint1",
+                "fr3_joint2",
+                "fr3_joint3",
+                "fr3_joint4",
+                "fr3_joint5",
+                "fr3_joint6",
+                "fr3_joint7",
+            ],
+            actuators=[
+                "fr3_joint1",
+                "fr3_joint2",
+                "fr3_joint3",
+                "fr3_joint4",
+                "fr3_joint5",
+                "fr3_joint6",
+                "fr3_joint7",
+            ],
+            base="base",
+            dof=rcs.ROBOTS[RobotType.FR3].dof,
+            joint_limits=rcs.ROBOTS[RobotType.FR3].joint_limits,
+            q_home=rcs.ROBOTS[RobotType.FR3].q_home,
+        )
+
+        robot_cfgs: dict[str, SimRobotConfig] = {"left": robot_cfg, "right": robot_cfg}
+        sim_cfg: SimConfig = SimConfig(async_control=False, realtime=True, frequency=1, max_convergence_steps=500)
+
+        control_mode: ControlMode = ControlMode.CARTESIAN_TQuat
+        task: str | None = None
+        scene: str = SCENE_PATHS["empty_world"]
+        gripper_cfg = SimGripperConfig(
+            epsilon_inner=0.005,
+            epsilon_outer=0.005,
+            seconds_between_callbacks=0.1,
+            ignored_collision_geoms=[],
+            collision_geoms=["hand_c", "finger_0_left", "finger_0_right"],
+            collision_geoms_fingers=["finger_0_left", "finger_0_right"],
+            joints=["finger_joint1", "finger_joint2"],
+            max_joint_width=0.04,
+            min_joint_width=0.0,
+            actuator="hand_actuator",
+            max_actuator_width=255.0,
+            min_actuator_width=0.0,
+            gripper_type=GripperType("Robotiq2F85"),
+        )
+        gripper_cfgs: dict[str, SimGripperConfig] = {"left": gripper_cfg, "right": gripper_cfg}
+        camera_cfgs: dict[str, SimCameraConfig] | None = {
+            "bird_eye": SimCameraConfig(
+                identifier="bird_eye",
+                type=CameraType.fixed,
+                resolution_width=1280,
+                resolution_height=720,
+                frame_rate=30,
+            ),
+            "wrist": SimCameraConfig(
+                identifier="wrist",
+                type=CameraType.fixed,
+                resolution_width=1280,
+                resolution_height=720,
+                frame_rate=30,
+            ),
+        }
+        max_relative_movement: float | tuple[float, float] | None = None
+        relative_to: RelativeTo = RelativeTo.LAST_STEP
+        robot_to_shared_base_frame: dict[str, rcs.common.Pose] | None = {
+            "left": Pose(translation=[0, 0.05018, 0.342], quaternion=[-0.436978, 0.0225312, -0.243326, 0.865641]),
+            "right": Pose(translation=[0, -0.05018, 0.342], quaternion=[0.436978, 0.0225312, 0.243326, 0.865641]),
+        }
+        wrapper_cfg: WrapperConfig = WrapperConfig(binary_gripper=True, home_on_reset=True)
+        open_gui_on_create = True
+        add_gravcomp = True
+        shared_base_frame_to_root_frame = rcs.common.Pose()
+        root_frame_to_world = rcs.common.Pose()
+        alternative_combined_robot_mjcf: str | None = None
+        world_frame_objects: dict[str, tuple[str, rcs.common.Pose]] | None = None
+        root_frame_objects: dict[str, tuple[str, rcs.common.Pose]] | None = {
+            "duo_mount": (OBJECT_PATHS["fr3_duo_mount"], Pose(translation=[0, 0, 0.342], quaternion=[0, 0, 0, 1]))
+        }
+        robot_frame_objects: dict[str, dict[str, tuple[str, rcs.common.Pose]]] | None = {
+            "left": {
+                "left_d405_mount": (
+                    OBJECT_PATHS["robotiq_d405_mount"],
+                    Pose(translation=[0, 0, 0], quaternion=[0, 0, 0, 1]),
+                )
+            },
+            "right": {
+                "right_d405_mount": (
+                    OBJECT_PATHS["robotiq_d405_mount"],
+                    Pose(translation=[0, 0, 0], quaternion=[0, 0, 0, 1]),
+                )
+            },
+        }
+        add_camera_adds: dict[str, CameraAdderConfig] | None = {
+            "bird_eye": CameraAdderConfig(
+                fovy=60.0,
+                offset=rcs.common.Pose(
+                    translation=[0.271, -0.000, 2.080], quaternion=[0.0060, -0.0060, -0.7067, 0.7074]
+                ),
+            ),
+            "wrist": CameraAdderConfig(
+                fovy=60.0,
+                offset=rcs.common.Pose(translation=[0, 0, 0], quaternion=[0, 0, -0.3826834, 0.9238795])
+                * rcs.common.Pose(translation=[0.062, -0.009, 0.05245], rpy_vector=[0, np.pi, -np.pi / 2]),
+                robot_name="left",
+            ),
+        }
+        return SimSceneConfig(
+            robot_cfgs=robot_cfgs,
+            sim_cfg=sim_cfg,
+            control_mode=control_mode,
+            task=task,
+            scene=scene,
+            gripper_cfgs=gripper_cfgs,
+            camera_cfgs=camera_cfgs,
+            max_relative_movement=max_relative_movement,
+            relative_to=relative_to,
+            robot_to_shared_base_frame=robot_to_shared_base_frame,
+            wrapper_cfg=wrapper_cfg,
+            open_gui_on_create=open_gui_on_create,
+            add_gravcomp=add_gravcomp,
+            shared_base_frame_to_root_frame=shared_base_frame_to_root_frame,
+            root_frame_to_world=root_frame_to_world,
+            alternative_combined_robot_mjcf=alternative_combined_robot_mjcf,
+            world_frame_objects=world_frame_objects,
+            root_frame_objects=root_frame_objects,
+            robot_frame_objects=robot_frame_objects,
+            camera_adds=add_camera_adds,
+        )
+
+
 class EmptyWorldUR5e(EmptyWorldFR3):
 
     def load_config(self, key: str) -> SimSceneConfig:
@@ -546,8 +702,9 @@ class EmptyWorldUR5e(EmptyWorldFR3):
 
 
 if __name__ == "__main__":
+    scene = EmptyWorldFR3Duo()
     # scene = EmptyWorldFR3()
-    scene = EmptyWorldUR5e()
+    # scene = EmptyWorldUR5e()
     env = scene.create()
     obs, info = env.reset()
     print(obs)

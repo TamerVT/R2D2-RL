@@ -180,7 +180,9 @@ class ModelComposer:
         self._apply_pose(object_root, pose)
         return object_root
 
-    def add_object_world_frame(self, xml_path: str, object_prefix: str, pose: Pose | None = None) -> mujoco._specs.MjsBody:
+    def add_object_world_frame(
+        self, xml_path: str, object_prefix: str, pose: Pose | None = None
+    ) -> mujoco._specs.MjsBody:
         """
         Attaches a single object MJCF at a specific pose.
         Assumes the XML contains only one root body in the worldbody.
