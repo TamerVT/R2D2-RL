@@ -473,6 +473,9 @@ class EmptyWorldFR3(SimScene):
                 robot_name="robot",
             ),
         }
+        gripper_offsets: dict[str, rcs.common.Pose] | None = {
+            "robot": rcs.common.Pose(rotation=FrankaHandTCPOffset()[:3, :3], translation=[0, 0, 0])
+        }
         return SimSceneConfig(
             robot_cfgs=robot_cfgs,
             sim_cfg=sim_cfg,
@@ -493,6 +496,7 @@ class EmptyWorldFR3(SimScene):
             world_frame_objects=world_frame_objects,
             root_frame_objects=root_frame_objects,
             camera_adds=add_camera_adds,
+            gripper_offsets=gripper_offsets,
         )
 
 
@@ -536,6 +540,7 @@ class EmptyWorldUR5e(EmptyWorldFR3):
 
         cfg.camera_cfgs = None
         cfg.camera_adds = None
+        cfg.gripper_offsets = None
 
         return cfg
 
