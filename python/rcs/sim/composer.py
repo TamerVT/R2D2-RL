@@ -132,8 +132,10 @@ class ModelComposer:
         robot_prefix: str,
         gripper_prefix: str = "gripper_",
         attachment_site_name: str = "attachment_site",
+        pos: Union[list, tuple] = (0, 0, 0),
+        quat: Union[list, tuple] = (0, 0, 0, 1),
     ) -> mujoco._specs.MjsBody:
-        """Attaches a gripper to a robot's 'attachment_site'."""
+        """Attaches a gripper to a robot's attachment site with an optional local pose offset."""
         site_name = robot_prefix + attachment_site_name
         attachment_site = self._find_site(site_name)
 
@@ -145,7 +147,11 @@ class ModelComposer:
         self._resolve_asset_paths(gripper_spec, xml_path)
 
         gripper_root = gripper_spec.worldbody.first_body()
-        return attachment_site.attach(gripper_root, gripper_prefix, "")
+        gripper_root = attachment_site.attach(gripper_root, gripper_prefix, "")
+        gripper_root.pos = pos
+        quat_list = list(quat)
+        gripper_root.quat = quat_list[3:4] + quat_list[0:3]
+        return gripper_root
 
     def add_object_from_xml(
         self, xml_path: str, prefix: str, pos: Union[list, tuple] = (0, 0, 0), quat: Union[list, tuple] = (0, 0, 0, 1)

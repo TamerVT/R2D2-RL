@@ -102,6 +102,8 @@ class SimSceneConfig(BaseSceneConfig):
     which is defined by shared_base_frame_to_root_frame, object_id must be unique across all objects and robots in the scene"""
     camera_adds: dict[str, CameraAdderConfig] | None = None
     """dict of camera_name to CameraAdderConfig, cameras will be added to the scene according to the config, camera_name must be unique across all cameras in the scene"""
+    gripper_offsets: dict[str, rcs.common.Pose] | None = None
+    """optional offsets for the gripper from the robot's attachment site"""
 
 
 class SimScene(BaseScene):
@@ -257,11 +259,18 @@ class SimScene(BaseScene):
     def add_gripper_mujoco(self, composer: ModelComposer, robot_name: str, gripper_xml: str, attachment_site: str):
         # mujoco scene composition
         assert self.cfg.gripper_cfgs is not None, "Gripper configs must be provided to add grippers."
+        gripper_offset = (
+            self.cfg.gripper_offsets[robot_name]
+            if self.cfg.gripper_offsets is not None and robot_name in self.cfg.gripper_offsets
+            else rcs.common.Pose()
+        )
         composer.add_gripper(
             xml_path=gripper_xml,
             gripper_prefix=self.gripper_prefix_template.format(robot_name=robot_name),
             robot_prefix=self.robot_prefix_template.format(robot_name=robot_name),
             attachment_site_name=attachment_site,
+            pos=list(gripper_offset.translation()),
+            quat=list(gripper_offset.rotation_q()),
         )
 
     def add_gripper_env(self, robot_name: str, simulation: Sim, env: gym.Env):
