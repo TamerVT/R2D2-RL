@@ -16,32 +16,29 @@ from rcs.envs.base import (
 )
 from rcs.envs.scenes import EmptyWorldFR3
 from rcs.envs.sim import GripperWrapperSim, RobotSimWrapper
-from rcs.envs.utils import (
-    default_mujoco_cameraset_cfg,
-    default_sim_gripper_cfg,
-    default_sim_robot_cfg,
-)
 
 import rcs
 from rcs import sim
 
 if __name__ == "__main__":
     # default configs
-    robot_cfg = default_sim_robot_cfg(scene="fr3_empty_world")
-    gripper_cfg = default_sim_gripper_cfg()
-    cameras = default_mujoco_cameraset_cfg()
+    scene = EmptyWorldFR3()
+    robot_cfg = next(iter(scene.prefixed_cfg.robot_cfgs.values()))
+    gripper_cfg = next(iter(scene.prefixed_cfg.gripper_cfgs.values()))
+    camera_cfgs = scene.prefixed_cfg.camera_cfgs
     sim_cfg = SimConfig(
         realtime=True,
         async_control=True,
         frequency=1,  # in Hz (1 sec delay)
     )
 
-    scene = EmptyWorldFR3("empty_world_fr3")
-    simulation = sim.Sim(scene.load_scene(), sim_cfg)
+    s = scene.load_scene()
+    s.save_mjcf("scene.xml")
+    simulation = sim.Sim(s, sim_cfg)
+    ik_robot_cfg = next(iter(scene.cfg.robot_cfgs.values()))
     ik = rcs.common.Pin(
-        robot_cfg.kinematic_model_path,
-        robot_cfg.attachment_site,
-        urdf=False,
+        ik_robot_cfg.kinematic_model_path,
+        ik_robot_cfg.attachment_site,
     )
 
     # base env
@@ -57,7 +54,7 @@ if __name__ == "__main__":
     env = GripperWrapperSim(env)
 
     # camera
-    camera_set = SimCameraSet(simulation, cameras, physical_units=True, render_on_demand=True)
+    camera_set = SimCameraSet(simulation, camera_cfgs, physical_units=True, render_on_demand=True)
     env = CameraSetWrapper(env, camera_set, include_depth=True)  # type: ignore
 
     # relative actions bounded by 10cm translation and 10 degree rotation
