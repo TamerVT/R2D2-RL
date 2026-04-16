@@ -12,7 +12,7 @@ from rcs.camera.interface import BaseCameraSet, CameraFrame, DataFrame, Frame, I
 from rcs import common
 
 try:
-    import pyzed.sl as sl
+    from pyzed import sl
 except ImportError:  # pragma: no cover - exercised via fake backend tests
     sl = None  # type: ignore[assignment]
 
@@ -72,16 +72,15 @@ class PyZEDCameraHandle:
     def grab_frame(self) -> ZEDFrameBundle:
         err = self.camera.grab(self.runtime_parameters)
         if err != sl.ERROR_CODE.SUCCESS:  # type: ignore[union-attr]
-            raise RuntimeError(f"Failed to grab ZED frame: {err}")
+            msg = f"Failed to grab ZED frame: {err}"
+            raise RuntimeError(msg)
 
         self.camera.retrieve_image(self.image_mat, sl.VIEW.LEFT)  # type: ignore[union-attr]
         color_raw = np.array(self.image_mat.get_data(), copy=True)
         if color_raw.ndim != 3:
-            raise RuntimeError(f"Unexpected ZED image shape {color_raw.shape}")
-        if color_raw.shape[2] == 4:
-            color_rgb = color_raw[:, :, :3][:, :, ::-1]
-        else:
-            color_rgb = color_raw[:, :, ::-1]
+            msg = f"Unexpected ZED image shape {color_raw.shape}"
+            raise RuntimeError(msg)
+        color_rgb = color_raw[:, :, :3][:, :, ::-1] if color_raw.shape[2] == 4 else color_raw[:, :, ::-1]
 
         depth = None
         if self.device_info.has_depth:
@@ -201,7 +200,8 @@ class ZEDCameraSet(HardwareCamera):
         camera = sl.Camera()
         err = camera.open(init)
         if err != sl.ERROR_CODE.SUCCESS:
-            raise RuntimeError(f"Could not open ZED camera {config.identifier}: {err}")
+            msg = f"Could not open ZED camera {config.identifier}: {err}"
+            raise RuntimeError(msg)
 
         information = camera.get_camera_information()
         calibration = information.camera_configuration.calibration_parameters

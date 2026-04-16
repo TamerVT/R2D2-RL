@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+from typing import TypedDict
 
 import numpy as np
 import pytest
@@ -8,9 +9,9 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT / "python"))
 sys.path.insert(0, str(REPO_ROOT / "extensions/rcs_zed/src"))
 
-from rcs_zed.camera import ZEDCameraSet, ZEDDeviceInfo, ZEDFrameBundle
+from rcs_zed.camera import ZEDCameraSet, ZEDDeviceInfo, ZEDFrameBundle  # noqa: E402
 
-from rcs import common
+from rcs import common  # noqa: E402
 
 
 class FakeOpenedZEDCamera:
@@ -27,14 +28,20 @@ class FakeOpenedZEDCamera:
         self.closed = True
 
 
-@pytest.fixture()
-def patch_zed(monkeypatch):
-    state: dict[str, object] = {"devices": {}, "opened": {}, "open_calls": []}
+class PatchZedState(TypedDict):
+    devices: dict[str, ZEDDeviceInfo]
+    opened: dict[str, FakeOpenedZEDCamera]
+    open_calls: list[tuple[str, bool, bool]]
 
-    def fake_enumerate(cls):
+
+@pytest.fixture()
+def patch_zed(monkeypatch) -> PatchZedState:
+    state: PatchZedState = {"devices": {}, "opened": {}, "open_calls": []}
+
+    def fake_enumerate(_cls):
         return state["devices"]
 
-    def fake_open(cls, config: common.BaseCameraConfig, *, enable_depth: bool, enable_imu: bool):
+    def fake_open(_cls, config: common.BaseCameraConfig, *, enable_depth: bool, enable_imu: bool):
         state["open_calls"].append((config.identifier, enable_depth, enable_imu))
         return state["opened"][config.identifier]
 
@@ -69,6 +76,7 @@ def test_zed_frame_mapping_depth_scaling_and_imu_downgrade(patch_zed):
     )
     camera_set.open()
     frame = camera_set.poll_frame("wrist")
+    assert frame.camera.color.intrinsics is not None
 
     assert patch_zed["open_calls"] == [("123", True, False)]
     assert np.array_equal(frame.camera.color.data, color)

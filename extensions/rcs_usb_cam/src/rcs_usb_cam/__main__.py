@@ -40,7 +40,8 @@ def rgb_view(
     try:
         camera.open()
     except Exception as exc:
-        raise typer.BadParameter(f"Could not open USB camera {identifier}: {exc}") from exc
+        msg = f"Could not open USB camera {identifier}: {exc}"
+        raise typer.BadParameter(msg) from exc
 
     logger.info("Streaming RGB from %s. Press 'q' to quit.", identifier)
     try:

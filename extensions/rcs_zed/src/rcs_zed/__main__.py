@@ -43,9 +43,11 @@ def rgb_view(
         try:
             devices = ZEDCameraSet.enumerate_connected_devices()
         except RuntimeError as exc:
-            raise typer.BadParameter(str(exc)) from exc
+            msg = str(exc)
+            raise typer.BadParameter(msg) from exc
         if len(devices) == 0:
-            raise typer.BadParameter("No ZED devices connected.")
+            msg = "No ZED devices connected."
+            raise typer.BadParameter(msg)
         serial = next(iter(devices))
 
     camera = ZEDCameraSet(
@@ -64,7 +66,8 @@ def rgb_view(
     try:
         camera.open()
     except Exception as exc:
-        raise typer.BadParameter(f"Could not start ZED camera {serial}: {exc}") from exc
+        msg = f"Could not start ZED camera {serial}: {exc}"
+        raise typer.BadParameter(msg) from exc
 
     logger.info("Streaming RGB from ZED %s. Press 'q' to quit.", serial)
     try:

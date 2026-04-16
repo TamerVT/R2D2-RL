@@ -45,7 +45,8 @@ def rgb_view(
     if serial is None:
         devices = RealSenseCameraSet.enumerate_connected_devices(rs.context())
         if len(devices) == 0:
-            raise typer.BadParameter("No RealSense devices connected.")
+            msg = "No RealSense devices connected."
+            raise typer.BadParameter(msg)
         serial = next(iter(devices))
 
     camera = RealSenseCameraSet(
@@ -64,7 +65,8 @@ def rgb_view(
     try:
         camera.open()
     except Exception as exc:
-        raise typer.BadParameter(f"Could not start RealSense camera {serial}: {exc}") from exc
+        msg = f"Could not start RealSense camera {serial}: {exc}"
+        raise typer.BadParameter(msg) from exc
 
     logger.info("Streaming RGB from RealSense %s. Press 'q' to quit.", serial)
     try:
