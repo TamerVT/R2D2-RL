@@ -502,6 +502,8 @@ class EmptyWorldFR3(SimScene):
 
 class EmptyWorldFR3Duo(SimScene):
 
+    gripper_mesh_quaternion_offset = [0, 0, 0.7071068, 0.7071068]
+
     def __init__(self):
         super().__init__(
             "", robot_prefix_template="robot_{robot_name}_", gripper_prefix_template="gripper_{robot_name}_"
@@ -510,7 +512,6 @@ class EmptyWorldFR3Duo(SimScene):
     def load_config(self, key: str) -> SimSceneConfig:
         robot_cfg = SimRobotConfig(
             robot_type=RobotType.FR3,
-            tcp_offset=rcs.common.Pose(pose_matrix=FrankaHandTCPOffset()),
             attachment_site=rcs.ROBOTS[RobotType.FR3].attachment_site,
             kinematic_model_path=rcs.ROBOTS[RobotType.FR3].mjcf_model_path,
             joint_rotational_tolerance=0.05 * (np.pi / 180.0),
@@ -549,8 +550,9 @@ class EmptyWorldFR3Duo(SimScene):
             joint_limits=rcs.ROBOTS[RobotType.FR3].joint_limits,
             q_home=rcs.ROBOTS[RobotType.FR3].q_home,
         )
+        robot_cfg_right = copy.deepcopy(robot_cfg)
 
-        robot_cfgs: dict[str, SimRobotConfig] = {"left": robot_cfg, "right": robot_cfg}
+        robot_cfgs: dict[str, SimRobotConfig] = {"left": robot_cfg, "right": robot_cfg_right}
         sim_cfg: SimConfig = SimConfig(async_control=False, realtime=True, frequency=1, max_convergence_steps=500)
 
         control_mode: ControlMode = ControlMode.CARTESIAN_TQuat
@@ -561,17 +563,20 @@ class EmptyWorldFR3Duo(SimScene):
             epsilon_outer=0.005,
             seconds_between_callbacks=0.1,
             ignored_collision_geoms=[],
-            collision_geoms=["hand_c", "finger_0_left", "finger_0_right"],
-            collision_geoms_fingers=["finger_0_left", "finger_0_right"],
-            joints=["finger_joint1", "finger_joint2"],
-            max_joint_width=0.04,
-            min_joint_width=0.0,
-            actuator="hand_actuator",
-            max_actuator_width=255.0,
-            min_actuator_width=0.0,
+            collision_geoms=[],
+            collision_geoms_fingers=[],
+            joints=["right_driver_joint", "left_driver_joint"],
+            max_joint_width=0.005,
+            min_joint_width=1.0,
+            actuator="fingers_actuator",
+            max_actuator_width=0,
+            min_actuator_width=255,
             gripper_type=GripperType("Robotiq2F85"),
         )
-        gripper_cfgs: dict[str, SimGripperConfig] = {"left": gripper_cfg, "right": gripper_cfg}
+
+        gripper_cfg_right = copy.deepcopy(gripper_cfg)
+        gripper_cfgs: dict[str, SimGripperConfig] = {"left": gripper_cfg, "right": gripper_cfg_right}
+
         camera_cfgs: dict[str, SimCameraConfig] | None = {
             "bird_eye": SimCameraConfig(
                 identifier="bird_eye",
@@ -608,13 +613,13 @@ class EmptyWorldFR3Duo(SimScene):
             "left": {
                 "left_d405_mount": (
                     OBJECT_PATHS["robotiq_d405_mount"],
-                    Pose(translation=[0, 0, 0], quaternion=[0, 0, 0, 1]),
+                    Pose(translation=[0, 0, 0], quaternion=self.gripper_mesh_quaternion_offset),
                 )
             },
             "right": {
                 "right_d405_mount": (
                     OBJECT_PATHS["robotiq_d405_mount"],
-                    Pose(translation=[0, 0, 0], quaternion=[0, 0, 0, 1]),
+                    Pose(translation=[0, 0, 0], quaternion=self.gripper_mesh_quaternion_offset),
                 )
             },
         }
@@ -632,6 +637,7 @@ class EmptyWorldFR3Duo(SimScene):
                 robot_name="left",
             ),
         }
+        gripper_offset= rcs.common.Pose(quaternion=self.gripper_mesh_quaternion_offset, translation=[0, 0, 0])
         return SimSceneConfig(
             robot_cfgs=robot_cfgs,
             sim_cfg=sim_cfg,
@@ -653,6 +659,7 @@ class EmptyWorldFR3Duo(SimScene):
             root_frame_objects=root_frame_objects,
             robot_frame_objects=robot_frame_objects,
             camera_adds=add_camera_adds,
+            gripper_offsets={"left": gripper_offset, "right": gripper_offset},
         )
 
 
@@ -708,16 +715,33 @@ if __name__ == "__main__":
     env = scene.create()
     obs, info = env.reset()
     print(obs)
+    # Duo
     for _ in range(100):
         for _ in range(10):
             # move 1cm in x direction (forward) and close gripper
-            act = {"robot": {"tquat": [0.01, 0, 0, 0, 0, 0, 1], "gripper": [0]}}
+            act = {"left": {"tquat": [0.01, 0, 0, 0, 0, 0, 1], "gripper": [0]},
+                   "right": {"tquat": [0.01, 0, 0, 0, 0, 0, 1], "gripper": [0]}}
             obs, reward, terminated, truncated, info = env.step(act)
             print(obs)
             time.sleep(1.0)
         for _ in range(10):
             # move 1cm in negative x direction (backward) and open gripper
-            act = {"robot": {"tquat": [-0.01, 0, 0, 0, 0, 0, 1], "gripper": [1]}}
+            act = {"left": {"tquat": [-0.01, 0, 0, 0, 0, 0, 1], "gripper": [1]},
+                   "right": {"tquat": [-0.01, 0, 0, 0, 0, 0, 1], "gripper": [1]}}
             obs, reward, terminated, truncated, info = env.step(act)
             print(obs)
             time.sleep(1.0)
+    # # Single arm
+    # for _ in range(100):
+    #     for _ in range(10):
+    #         # move 1cm in x direction (forward) and close gripper
+    #         act = {"robot": {"tquat": [0.01, 0, 0, 0, 0, 0, 1], "gripper": [0]}}
+    #         obs, reward, terminated, truncated, info = env.step(act)
+    #         print(obs)
+    #         time.sleep(1.0)
+    #     for _ in range(10):
+    #         # move 1cm in negative x direction (backward) and open gripper
+    #         act = {"robot": {"tquat": [-0.01, 0, 0, 0, 0, 0, 1], "gripper": [1]}}
+    #         obs, reward, terminated, truncated, info = env.step(act)
+    #         print(obs)
+    #         time.sleep(1.0)
