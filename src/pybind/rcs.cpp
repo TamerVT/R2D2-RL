@@ -622,7 +622,8 @@ PYBIND11_MODULE(_core, m) {
                        std::vector<std::string> collision_geoms_fingers,
                        std::vector<std::string> joints, double max_joint_width,
                        double min_joint_width, std::string actuator,
-                       double max_actuator_width, double min_actuator_width, rcs::common::GripperType gripper_type) {
+                       double max_actuator_width, double min_actuator_width,
+                       rcs::common::GripperType gripper_type) {
              rcs::sim::SimGripperConfig config;
              config.epsilon_inner = epsilon_inner;
              config.epsilon_outer = epsilon_outer;
@@ -878,10 +879,9 @@ PYBIND11_MODULE(_core, m) {
            [](const rcs::sim::SimCameraConfig& self) {
              return rcs::sim::SimCameraConfig(self);
            })
-      .def("__deepcopy__",
-           [](const rcs::sim::SimCameraConfig& self, py::dict) {
-             return rcs::sim::SimCameraConfig(self);
-           });
+      .def("__deepcopy__", [](const rcs::sim::SimCameraConfig& self, py::dict) {
+        return rcs::sim::SimCameraConfig(self);
+      });
   py::class_<rcs::sim::FrameSet>(sim, "FrameSet")
       .def(py::init(
                [](const std::unordered_map<std::string, rcs::sim::ColorFrame>&
