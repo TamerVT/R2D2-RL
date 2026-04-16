@@ -119,7 +119,7 @@ class SimCameraSet:
 
 class SimConfig:
     async_control: bool
-    frequency: int
+    frequency: float
     max_convergence_steps: int
     realtime: bool
     def __copy__(self) -> SimConfig: ...
@@ -128,7 +128,7 @@ class SimConfig:
         self,
         async_control: bool = False,
         realtime: bool = False,
-        frequency: float = 30,
+        frequency: float = 30.0,
         max_convergence_steps: int = 500,
     ) -> None: ...
 

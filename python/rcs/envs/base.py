@@ -204,7 +204,7 @@ class SimEnv(BaseEnv):
     def __init__(self, sim: simulation.Sim) -> None:
         self.sim = sim
         cfg = self.sim.get_config()
-        self.frame_rate = SimpleFrameRate(1 / cfg.frequency, "MoJoCo Simulation Loop")
+        self.frame_rate = SimpleFrameRate(cfg.frequency, "MoJoCo Simulation Loop")
         self.main_greenlet: greenlet | None = None
 
     def step(self, action: dict[str, Any]) -> tuple[dict[str, Any], float, bool, bool, dict]:
@@ -219,7 +219,7 @@ class SimEnv(BaseEnv):
         if cfg.async_control:
             self.sim.step(round(1 / cfg.frequency / self.sim.model.opt.timestep))
             if cfg.realtime:
-                self.frame_rate.frame_rate = 1 / cfg.frequency
+                self.frame_rate.frame_rate = cfg.frequency
                 self.frame_rate()
         else:
             self.sim.step_until_convergence()
