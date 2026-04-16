@@ -56,6 +56,12 @@ class ModelComposer:
         except ValueError:
             return None
 
+    def _find_camera(self, name: str) -> Optional[mujoco._specs.MjsCamera]:
+        try:
+            return self.spec.find_camera(name)
+        except ValueError:
+            return None
+
     def _apply_pose(self, body: mujoco._specs.MjsBody, pose: Pose):
         body.pos = list(pose.translation())
         quat_list = list(pose.rotation_q())
@@ -70,7 +76,7 @@ class ModelComposer:
         robot_prefix: str | None = None,
         attachment_site_name: str = "attachment_site",
     ) -> mujoco._specs.MjsCamera:
-        """Adds a fixed camera to the world body or to a robot attachment site."""
+        """Adds a fixed camera to the world frame or to a robot attachment site."""
         if pose is None:
             pose = Pose()
         if robot_prefix is None:
@@ -94,6 +100,65 @@ class ModelComposer:
         camera.name = name
         camera.resolution = resolution
         camera.fovy = fovy
+
+        return camera
+
+    def add_camera_xml(
+        self,
+        xml_path: str,
+        name: str,
+        pose: Pose | None = None,
+        robot_prefix: str | None = None,
+        attachment_site_name: str = "attachment_site",
+    ) -> mujoco._specs.MjsCamera:
+        """Attaches a camera MJCF to the world frame or to a robot attachment site."""
+        if pose is None:
+            pose = Pose()
+        if not os.path.exists(xml_path):
+            msg = f"Camera MJCF not found: {xml_path}"
+            raise FileNotFoundError(msg)
+
+        camera_spec = mujoco.MjSpec.from_file(xml_path)
+        self._resolve_asset_paths(camera_spec, xml_path)
+
+        root_body = camera_spec.worldbody.first_body()
+        if root_body is None:
+            msg = f"Camera MJCF '{xml_path}' must contain a root body."
+            raise ValueError(msg)
+
+        camera_names = [camera.name for camera in camera_spec.cameras]
+        if len(camera_names) != 1 or camera_names[0] is None:
+            msg = f"Camera MJCF '{xml_path}' must contain exactly one named camera."
+            raise ValueError(msg)
+        original_camera_name = camera_names[0]
+        prefix = f"{name}_"
+
+        if robot_prefix is None:
+            attach_frame = self.spec.worldbody.add_frame()
+            attach_frame.attach(camera_spec, prefix, "")
+            attached_root_name = f"{prefix}{root_body.name}"
+            attached_root = self._find_body(attached_root_name)
+            if attached_root is None:
+                msg = f"Could not find camera root body '{attached_root_name}' after attachment."
+                raise ValueError(msg)
+        else:
+            site_name = robot_prefix + attachment_site_name
+            attachment_site = self._find_site(site_name)
+
+            if not attachment_site:
+                msg = f"Attachment site '{site_name}' not found."
+                raise ValueError(msg)
+
+            attached_root = attachment_site.attach(root_body, prefix, "")
+
+        self._apply_pose(attached_root, pose)
+
+        attached_camera_name = f"{prefix}{original_camera_name}"
+        camera = self._find_camera(attached_camera_name)
+        if camera is None:
+            msg = f"Could not find camera '{attached_camera_name}' after attachment."
+            raise ValueError(msg)
+        camera.name = name
 
         return camera
 

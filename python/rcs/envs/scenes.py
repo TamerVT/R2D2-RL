@@ -59,9 +59,14 @@ class WrapperConfig:
 
 @dataclass(kw_only=True)
 class CameraAdderConfig:
+    xml_path: str | None = None
+    """path to where the camera xml is, should have world frame, geoms and one camera defined in it, 
+    if None, a camera will be added according to the camera_cfgs provided in the scene config and the other parameters in this config"""
     fovy: float = 60.0
+    """only used if no xml_path is provided and a camera is added to the model"""
     offset: rcs.common.Pose = field(default_factory=rcs.common.Pose)
     attachment_site: str = "attachment_site"
+    """only used when a robot name to attach the camera to is provided"""
     robot_name: str | None = None
 
 
@@ -220,6 +225,29 @@ class SimScene(BaseScene):
         # camera adds
         if self._cfg.camera_adds is not None:
             for camera_name, camera_add_cfg in self._cfg.camera_adds.items():
+                camera_pose = (
+                    camera_add_cfg.offset * self._cfg.root_frame_to_world
+                    if camera_add_cfg.robot_name is None
+                    else camera_add_cfg.offset
+                )
+                if camera_add_cfg.xml_path is not None:
+                    composer.add_camera_xml(
+                        xml_path=camera_add_cfg.xml_path,
+                        name=camera_name,
+                        pose=camera_pose,
+                        robot_prefix=(
+                            self.robot_prefix_template.format(robot_name=camera_add_cfg.robot_name)
+                            if camera_add_cfg.robot_name is not None
+                            else None
+                        ),
+                        attachment_site_name=(
+                            self._cfg.robot_cfgs[camera_add_cfg.robot_name].attachment_site
+                            if camera_add_cfg.robot_name is not None
+                            else camera_add_cfg.attachment_site
+                        ),
+                    )
+                    continue
+
                 assert self._cfg.camera_cfgs is not None, "Camera configs must be provided to add cameras."
                 assert (
                     camera_name in self._cfg.camera_cfgs
@@ -231,7 +259,7 @@ class SimScene(BaseScene):
                     ),
                     fovy=camera_add_cfg.fovy,
                     name=camera_name,
-                    pose=camera_add_cfg.offset,
+                    pose=camera_pose,
                     robot_prefix=(
                         self.robot_prefix_template.format(robot_name=camera_add_cfg.robot_name)
                         if camera_add_cfg.robot_name is not None
