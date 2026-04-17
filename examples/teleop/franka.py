@@ -8,13 +8,15 @@ from rcs._core.sim import SimConfig
 from rcs.camera.hw import HardwareCameraSet
 from rcs.envs.base import ControlMode
 from rcs.envs.creators import SimMultiEnvCreator
+from rcs.envs.scenes import EmptyWorldFR3Duo
 from rcs.envs.utils import default_digit, default_sim_gripper_cfg, default_sim_robot_cfg
 from rcs.operator.gello import GelloConfig, GelloOperator
 from rcs.operator.interface import TeleopLoop
 from rcs.operator.quest import QuestConfig, QuestOperator
-from rcs_fr3.creators import RCSFR3MultiEnvCreator
-from rcs_fr3.utils import default_fr3_hw_gripper_cfg, default_fr3_hw_robot_cfg
-from rcs_realsense.utils import default_realsense
+
+# from rcs_fr3.creators import RCSFR3MultiEnvCreator
+# from rcs_fr3.utils import default_fr3_hw_gripper_cfg, default_fr3_hw_robot_cfg
+# from rcs_realsense.utils import default_realsense
 from simpub.sim.mj_publisher import MujocoPublisher
 
 import rcs
@@ -32,8 +34,8 @@ ROBOT2ID = {
 }
 
 
-# ROBOT_INSTANCE = RobotPlatform.SIMULATION
-ROBOT_INSTANCE = RobotPlatform.HARDWARE
+ROBOT_INSTANCE = RobotPlatform.SIMULATION
+# ROBOT_INSTANCE = RobotPlatform.HARDWARE
 
 RECORD_FPS = 30
 # set camera dict to none disable cameras
@@ -44,7 +46,7 @@ RECORD_FPS = 30
 #     "bird_eye": "243522070364",
 # }
 CAMERA_DICT = None
-MQ3_ADDR = "10.42.0.1"
+MQ3_ADDR = "192.168.1.20"
 
 # DIGIT_DICT = {
 #     "digit_right_left": "D21182",
@@ -66,7 +68,7 @@ robot2world = {
 }
 
 config: QuestConfig | GelloConfig
-config = QuestConfig(mq3_addr=MQ3_ADDR, simulation=ROBOT_INSTANCE == RobotPlatform.SIMULATION)
+config = QuestConfig(mq3_addr=MQ3_ADDR, simulation=ROBOT_INSTANCE == RobotPlatform.SIMULATION, switched_left_right=True)
 # config = GelloConfig(
 #     arms={
 #         "right": GelloArmConfig(com_port="/dev/serial/by-id/usb-ROBOTIS_OpenRB-150_E505008B503059384C2E3120FF07332D-if00"),
@@ -105,44 +107,17 @@ def get_env():
         operator = GelloOperator(config) if isinstance(config, GelloConfig) else QuestOperator(config)
     else:
         # FR3
-        rcs.scenes["duo"] = rcs.Scene(
-            mjcf_scene="/ssd_data/juelg/rcs_modern/rcs_models/output/fr3_duo_flexible.xml",
-            mjcf_robot=rcs.scenes["fr3_simple_pick_up"].mjcf_robot,
-            robot_type=common.RobotType.FR3,
-        )
 
-        robot_cfg = default_sim_robot_cfg("duo", idx="")
+        scene = EmptyWorldFR3Duo()
+        env_rel = scene.create()
+        # env_rel = StorageWrapper(
+        #     env_rel, DATASET_PATH, INSTRUCTION, batch_size=32, max_rows_per_group=100, max_rows_per_file=1000
+        # )
 
-        # resolution = (256, 256)
-        # cameras = {
-        #     cam: SimCameraConfig(
-        #         identifier=cam,
-        #         type=CameraType.fixed,
-        #         resolution_height=resolution[1],
-        #         resolution_width=resolution[0],
-        #         frame_rate=0,
-        #     )
-        #     for cam in ["side", "wrist"]
-        # }
-
-        sim_cfg = SimConfig()
-        sim_cfg.async_control = True
-        env_rel = SimMultiEnvCreator()(
-            name2id=ROBOT2ID,
-            robot_cfg=robot_cfg,
-            control_mode=GelloOperator.control_mode[0],
-            gripper_cfg=default_sim_gripper_cfg(),
-            # cameras=default_mujoco_cameraset_cfg(),
-            max_relative_movement=0.5,
-            relative_to=GelloOperator.control_mode[1],
-            sim_cfg=sim_cfg,
-            robot2world=robot2world,
-        )
-        # sim = env_rel.unwrapped.envs[ROBOT2IP.keys().__iter__().__next__()].sim  # type: ignore
         sim = env_rel.get_wrapper_attr("sim")
+        MujocoPublisher(sim.model, sim.data, MQ3_ADDR, visible_geoms_groups=list(range(1, 3)))
         operator = GelloOperator(config, sim) if isinstance(config, GelloConfig) else QuestOperator(config, sim)
         sim.open_gui()
-        MujocoPublisher(sim.model, sim.data, MQ3_ADDR, visible_geoms_groups=list(range(1, 3)))
     return env_rel, operator
 
 
