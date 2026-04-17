@@ -34,7 +34,7 @@ from rcs.sim.composer import ModelComposer
 from rcs.sim.sim import Sim
 
 import rcs
-from rcs import CAMERA_PATHS, GRIPPER_PATHS, OBJECT_PATHS, SCENE_PATHS
+from rcs import CAMERA_PATHS, GRIPPER_PATHS, OBJECT_PATHS, SCENE_PATHS, TASKS
 
 RCSEnvCreatorConfig = typing.TypeVar("RCSEnvCreatorConfig")
 
@@ -60,6 +60,30 @@ class WrapperConfig:
     home_on_reset: bool = True
 
 
+#### SIM SPECIFIC ####
+
+
+@dataclass(kw_only=True)
+class BaseTaskConfig:
+    task_id: str
+
+
+TaskConfig = typing.TypeVar("TaskConfig", bound=BaseTaskConfig)
+
+
+class Task(typing.Generic[TaskConfig]):
+
+    @staticmethod
+    def add_task_mujoco(cfg: TaskConfig, composer: ModelComposer):
+        """Add task-specific elements to the Mujoco scene."""
+        pass
+
+    @staticmethod
+    def add_task_env(cfg: TaskConfig, env: gym.Env, simulation: Sim) -> gym.Env:
+        """Add task-specific wrappers to the environment."""
+        return env
+
+
 @dataclass(kw_only=True)
 class CameraAdderConfig:
     xml_path: str | None = None
@@ -74,11 +98,11 @@ class CameraAdderConfig:
 
 
 @dataclass(kw_only=True)
-class SimEnvCreatorConfig:
+class SimEnvCreatorConfig(typing.Generic[TaskConfig]):
     robot_cfgs: dict[str, SimRobotConfig]
     sim_cfg: SimConfig
     control_mode: ControlMode
-    task: str | None = None
+    task_cfg: TaskConfig | None = None
     scene: str = SCENE_PATHS["empty_world"]
     """path or key to load the mujoco scene, e.g. from SCENE_PATHS, will be passed to load_scene()"""
     gripper_cfgs: dict[str, SimGripperConfig] | None = None
@@ -123,7 +147,7 @@ class SimEnvCreatorConfig:
 MjModel = ModelComposer | str | PathLike
 
 
-class SimEnvCreator(RCSEnvCreator[SimEnvCreatorConfig]):
+class SimEnvCreator(RCSEnvCreator[SimEnvCreatorConfig], typing.Generic[TaskConfig]):
     robot_prefix_template: str = "robot{robot_name}_"
     gripper_prefix_template: str = "gripper{robot_name}_"
 
@@ -185,7 +209,7 @@ class SimEnvCreator(RCSEnvCreator[SimEnvCreatorConfig]):
         )
         composer.load_base_scene(cfg.scene)
 
-        self.add_task_mujoco(cfg.task, composer)
+        self.add_task_mujoco(cfg.task_cfg, composer)
 
         if cfg.alternative_combined_robot_mjcf is not None:
             # robot is in one mjcf
@@ -339,16 +363,20 @@ class SimEnvCreator(RCSEnvCreator[SimEnvCreatorConfig]):
                 SimCameraSet(simulation, prefixed_cfg.camera_cfgs, physical_units=True, render_on_demand=True),
             )
             env = CameraSetWrapper(env, camera_set, include_depth=True)
-        env = self.add_task_env(prefixed_cfg.task, env, simulation)
+        env = self.add_task_env(prefixed_cfg.task_cfg, env, simulation)
         if not prefixed_cfg.headless:
             env.get_wrapper_attr("sim").open_gui()
         return CoverWrapper(env)
 
-    def add_task_mujoco(self, task: str | None, composer: ModelComposer):
+    def add_task_mujoco(self, task_cfg: TaskConfig | None, composer: ModelComposer):
         """Add task-specific elements to the Mujoco scene."""
+        if task_cfg is not None:
+            TASKS[task_cfg.task_id].add_task_mujoco(task_cfg, composer)
 
-    def add_task_env(self, task: str | None, env: gym.Env, simulation: Sim) -> gym.Env:
+    def add_task_env(self, task_cfg: TaskConfig | None, env: gym.Env, simulation: Sim) -> gym.Env:
         """Add task-specific wrappers to the environment."""
+        if task_cfg is not None:
+            return TASKS[task_cfg.task_id].add_task_env(task_cfg, env, simulation)
         return env
 
     def add_object_mujoco(
@@ -487,7 +515,7 @@ class EmptyWorldFR3(SimEnvCreator):
         sim_cfg: SimConfig = SimConfig(async_control=False, realtime=True, frequency=1, max_convergence_steps=500)
 
         control_mode: ControlMode = ControlMode.CARTESIAN_TQuat
-        task: str | None = None
+        task_cfg = None
         scene: str = SCENE_PATHS["empty_world"]
         gripper_cfg = SimGripperConfig(
             epsilon_inner=0.005,
@@ -558,7 +586,7 @@ class EmptyWorldFR3(SimEnvCreator):
             robot_cfgs=robot_cfgs,
             sim_cfg=sim_cfg,
             control_mode=control_mode,
-            task=task,
+            task_cfg=task_cfg,
             scene=scene,
             gripper_cfgs=gripper_cfgs,
             camera_cfgs=camera_cfgs,
@@ -629,7 +657,7 @@ class EmptyWorldFR3Duo(SimEnvCreator):
         sim_cfg: SimConfig = SimConfig(async_control=False, realtime=True, frequency=1, max_convergence_steps=500)
 
         control_mode: ControlMode = ControlMode.CARTESIAN_TQuat
-        task: str | None = None
+        task_cfg = None
         scene: str = SCENE_PATHS["empty_world"]
         gripper_cfg = SimGripperConfig(
             epsilon_inner=0.005,
@@ -736,7 +764,7 @@ class EmptyWorldFR3Duo(SimEnvCreator):
             robot_cfgs=robot_cfgs,
             sim_cfg=sim_cfg,
             control_mode=control_mode,
-            task=task,
+            task_cfg=task_cfg,
             scene=scene,
             gripper_cfgs=gripper_cfgs,
             camera_cfgs=camera_cfgs,

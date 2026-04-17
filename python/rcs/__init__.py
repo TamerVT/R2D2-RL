@@ -8,7 +8,7 @@ from rcs._core import __version__, common
 from rcs import camera, envs, hand, sim
 
 
-# TODO: assets must be "installed" with cmake
+# TODO: assets must be "downloaded" first time this is imported
 @dataclass(kw_only=True)
 class RobotMetaConfig:
 
@@ -125,6 +125,10 @@ CAMERA_PATHS = {
     "zed_mini": "assets/cameras/zed_mini/zed_mini.xml",
 }
 
+# we add our task classes here
+# type: dict[str, Task]
+TASKS = {}
+
 # make submodules available
 __all__ = [
     "__doc__",
@@ -137,4 +141,7 @@ __all__ = [
     "ROBOTS",
     "GRIPPER_PATHS",
     "SCENE_PATHS",
+    "OBJECT_PATHS",
+    "CAMERA_PATHS",
+    "TASKS",
 ]
