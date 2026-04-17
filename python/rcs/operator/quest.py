@@ -112,6 +112,11 @@ class QuestOperator(BaseOperator):
         with self._cmd_lock:
             cmds = copy.copy(self._commands)
             self._commands = TeleopCommands()
+            if self.config.switched_left_right:
+                if "left" in cmds.reset_origin_to_current:
+                    cmds.reset_origin_to_current = {"right": cmds.reset_origin_to_current["left"]}
+                elif "right" in cmds.reset_origin_to_current:
+                    cmds.reset_origin_to_current = {"left": cmds.reset_origin_to_current["right"]}
             return cmds
 
     def reset_operator_state(self):
@@ -142,11 +147,15 @@ class QuestOperator(BaseOperator):
                     tquat=np.concatenate([transform.translation(), transform.rotation_q()]),
                     gripper=np.array([self._grp_pos[controller]]),
                 )
-        return transforms
+        return (
+            {"left": transforms["right"], "right": transforms["left"]}
+            if self.config.switched_left_right
+            else transforms
+        )
 
     def close(self):
         self._reader.disconnect()
-        self._publisher.shutdown()
+        # self._publisher.shutdown()
         self._exit_requested = True
         self.join()
 
@@ -235,3 +244,4 @@ class QuestConfig(BaseOperatorConfig):
     operator_class: type[BaseOperator] = field(default=QuestOperator)
     include_rotation: bool = True
     mq3_addr: str = "10.42.0.1"
+    switched_left_right: bool = False
