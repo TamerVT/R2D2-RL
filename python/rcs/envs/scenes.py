@@ -412,6 +412,8 @@ class EmptyWorldFR3(SimScene):
         super().__init__("", robot_prefix_template="robot", gripper_prefix_template="gripper")
 
     def load_config(self, key: str) -> SimSceneConfig:
+        q_home = rcs.ROBOTS[RobotType.FR3].q_home
+        q_home[-1] = np.pi / 4
         robot_cfg = SimRobotConfig(
             robot_type=RobotType.FR3,
             tcp_offset=rcs.common.Pose(pose_matrix=FrankaHandTCPOffset()),
@@ -451,7 +453,7 @@ class EmptyWorldFR3(SimScene):
             base="base",
             dof=rcs.ROBOTS[RobotType.FR3].dof,
             joint_limits=rcs.ROBOTS[RobotType.FR3].joint_limits,
-            q_home=rcs.ROBOTS[RobotType.FR3].q_home,
+            q_home=q_home,
         )
 
         robot_cfgs: dict[str, SimRobotConfig] = {"robot": robot_cfg}
