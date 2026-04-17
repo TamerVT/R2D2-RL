@@ -117,6 +117,7 @@ SCENE_PATHS = {"empty_world": "assets/scenes/empty_world/scene.xml"}
 OBJECT_PATHS = {
     "fr3_duo_mount": "assets/objects/fr3_duo_mount/fr3_duo_mount.xml",
     "robotiq_d405_mount": "assets/objects/robotiq_d405_mount/robotiq_d405_mount.xml",
+    "green_cube": "assets/objects/green_cube/green_cube.xml",
 }
 
 CAMERA_PATHS = {
