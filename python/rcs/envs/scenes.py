@@ -629,8 +629,15 @@ class EmptyWorldFR3Duo(SimScene):
                 resolution_height=720,
                 frame_rate=30,
             ),
-            "wrist": SimCameraConfig(
-                identifier="wrist",
+            "left_wrist": SimCameraConfig(
+                identifier="left_wrist",
+                type=CameraType.fixed,
+                resolution_width=1280,
+                resolution_height=720,
+                frame_rate=30,
+            ),
+            "right_wrist": SimCameraConfig(
+                identifier="right_wrist",
                 type=CameraType.fixed,
                 resolution_width=1280,
                 resolution_height=720,
@@ -675,12 +682,17 @@ class EmptyWorldFR3Duo(SimScene):
                     translation=[0.271, -0.000, 2.080], quaternion=[0.0060, -0.0060, -0.7067, 0.7074]
                 ),
             ),
-            "wrist": CameraAdderConfig(
+            "left_wrist": CameraAdderConfig(
                 xml_path=CAMERA_PATHS["d405"],
                 fovy=60.0,
-                offset=rcs.common.Pose(translation=[0, 0, 0], quaternion=[0, 0, -0.3826834, 0.9238795])
-                * rcs.common.Pose(translation=[0.062, -0.009, 0.05245], rpy_vector=[0, np.pi, -np.pi / 2]),
+                offset=rcs.common.Pose(translation=[0.060, 0, 0.0665], rpy_vector=[-np.pi/2, -np.pi*11/18, 0]), # 20deg offset from normal
                 robot_name="left",
+            ),
+            "right_wrist": CameraAdderConfig(
+                xml_path=CAMERA_PATHS["d405"],
+                fovy=60.0,
+                offset=rcs.common.Pose(translation=[0.060, 0, 0.0665], rpy_vector=[-np.pi/2, -np.pi*11/18, 0]), # 20deg offset from normal
+                robot_name="right",
             ),
         }
         gripper_offset = rcs.common.Pose(quaternion=self.gripper_mesh_quaternion_offset, translation=[0, 0, 0])
