@@ -19,6 +19,7 @@ class ModelComposer:
         self.spec.modelname = model_name
         self.spec.compiler.autolimits = True
         self.add_gravcomp = add_gravcomp
+        self._gravcomp_prefixes: set[str] = set()
 
     def _resolve_asset_paths(self, spec: mujoco.MjSpec, xml_path: str):
         """Resolves relative paths to absolute ones."""
@@ -190,6 +191,8 @@ class ModelComposer:
 
         # 3. Apply the pose directly to the body
         self._apply_pose(robot_root, pose)
+        if prefix:
+            self._gravcomp_prefixes.add(prefix)
 
         return robot_root
 
@@ -217,6 +220,8 @@ class ModelComposer:
         gripper_root = gripper_spec.worldbody.first_body()
         gripper_root = attachment_site.attach(gripper_root, gripper_prefix, "")
         self._apply_pose(gripper_root, pose)
+        if gripper_prefix:
+            self._gravcomp_prefixes.add(gripper_prefix)
         return gripper_root
 
     def add_object_robot_frame(
@@ -293,11 +298,13 @@ class ModelComposer:
         return self.spec.compile()
 
     def _apply_gravcomp(self):
-        if not self.add_gravcomp:
+        if not self.add_gravcomp or not self._gravcomp_prefixes:
             return
 
         for body in self.spec.bodies:
-            body.gravcomp = 1
+            if body.name and any(body.name.startswith(prefix) for prefix in self._gravcomp_prefixes):
+                body.gravcomp = 1
 
         for joint in self.spec.joints:
-            joint.actgravcomp = True
+            if joint.name and any(joint.name.startswith(prefix) for prefix in self._gravcomp_prefixes):
+                joint.actgravcomp = True
