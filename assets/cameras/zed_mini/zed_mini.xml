@@ -6,8 +6,8 @@
   <asset>
     <material name="gray" rgba="0.8 0.8 0.8 1"/>
     <material name="black" rgba="0.1 0.1 0.1 1"/>
-
     <mesh name="zed_mini" file="zed_mini.obj"/>
+    <mesh name="zed_mini_coll" file="zed_mini.stl"/>
   </asset>
 
   <default>
@@ -23,9 +23,10 @@
 
   <worldbody>
     <body name="zed_mini" childclass="zed_mini">
-      <geom mesh="zed_mini" euler="1.5708 0 1.5708" material="black" class="visual"/>
-      <geom mesh="zed_mini"  material="black" class="collision"/>
-      <camera name="camera" pos="0 0 0" quat="0 0 1 0"/>
+      <geom mesh="zed_mini" quat="1 0 0 0" material="black" class="visual"/>
+      <geom mesh="zed_mini_coll" quat="1 0 0 0" material="black" class="collision"/>
+
+      <camera name="camera" pos="0 0.0255 0" quat="0.5 0.5 -0.5 -0.5"/>  
     </body>
   </worldbody>
 

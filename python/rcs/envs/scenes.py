@@ -622,8 +622,8 @@ class EmptyWorldFR3Duo(SimScene):
         gripper_cfgs: dict[str, SimGripperConfig] = {"left": gripper_cfg, "right": gripper_cfg_right}
 
         camera_cfgs: dict[str, SimCameraConfig] | None = {
-            "bird_eye": SimCameraConfig(
-                identifier="bird_eye",
+            "head": SimCameraConfig(
+                identifier="head",
                 type=CameraType.fixed,
                 resolution_width=1280,
                 resolution_height=720,
@@ -675,11 +675,12 @@ class EmptyWorldFR3Duo(SimScene):
             },
         }
         add_camera_adds: dict[str, CameraAdderConfig] | None = {
-            "bird_eye": CameraAdderConfig(
+            "head": CameraAdderConfig(
                 xml_path=CAMERA_PATHS["zed_mini"],
                 fovy=60.0,
                 offset=rcs.common.Pose(
-                    translation=[0.271, -0.000, 2.080], quaternion=[0.0060, -0.0060, -0.7067, 0.7074]
+                    # if duo_mount is spawned at [0, 0, 0.342], these are the offsets
+                    translation=[0.0113, -0.0245, 0.695], rpy_vector=[0, np.pi*41/180, 0]
                 ),
             ),
             "left_wrist": CameraAdderConfig(
