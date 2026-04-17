@@ -41,17 +41,21 @@ FR3_IP = "192.168.101.1"
 def main():
     if ROBOT_INSTANCE == RobotPlatform.SIMULATION:
         scene = EmptyWorldFR3()
-        fr3 = next(iter(scene.config.robot_cfgs))
-        robot_cfg = scene.config.robot_cfgs[fr3]
-        gripper_cfg = next(iter(scene.config.gripper_cfgs.values()))
-        camera_cfgs = scene.config.camera_cfgs
+        cfg = scene.prefixed_cfg(scene.config())
+        fr3 = scene.lead_robot_name(cfg)
+
+        robot_cfg = cfg.robot_cfgs[fr3]
+        gripper_cfg = cfg.gripper_cfgs[fr3]  # type: ignore
+        camera_cfgs = cfg.camera_cfgs
         sim_cfg = SimConfig(
             realtime=False,
             async_control=False,
         )
 
-        simulation = sim.Sim(scene.load_scene(), sim_cfg)
-        kinematic_model_path, attachment_site = scene.kinematics_cfg[fr3]
+        mjmodel = scene.create_model(cfg)
+        simulation = sim.Sim(mjmodel, sim_cfg)
+
+        kinematic_model_path, attachment_site = scene.kinematics_cfg(cfg)[fr3]
         ik = rcs.common.Pin(
             kinematic_model_path,
             attachment_site,
@@ -67,7 +71,7 @@ def main():
         env_rel = RobotSimWrapper(env_rel)
         env_rel = GripperWrapperSim(env_rel)
 
-        camera_set = SimCameraSet(simulation, camera_cfgs, physical_units=True, render_on_demand=True)
+        camera_set = SimCameraSet(simulation, camera_cfgs, physical_units=True, render_on_demand=True)  # type: ignore
         env_rel = CameraSetWrapper(env_rel, camera_set, include_depth=True)  # type: ignore[arg-type]
 
         env_rel = RelativeActionSpace(env_rel, max_mov=0.5, relative_to=RelativeTo.LAST_STEP)

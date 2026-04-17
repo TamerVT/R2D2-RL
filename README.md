@@ -64,22 +64,24 @@ from rcs import sim
 if __name__ == "__main__":
     # default configs
     scene = EmptyWorldFR3()
-    robot_cfg = next(iter(scene.prefixed_cfg.robot_cfgs.values()))
-    gripper_cfg = next(iter(scene.prefixed_cfg.gripper_cfgs.values()))
-    camera_cfgs = scene.prefixed_cfg.camera_cfgs
+    cfg = scene.prefixed_cfg(scene.config())
+    fr3 = scene.lead_robot_name(cfg)
+
+    robot_cfg = cfg.robot_cfgs[fr3]
+    gripper_cfg = cfg.gripper_cfgs[fr3]  # type: ignore
+    camera_cfgs = cfg.camera_cfgs
     sim_cfg = SimConfig(
         realtime=True,
         async_control=True,
         frequency=1,  # in Hz (1 sec delay)
     )
+    mjmodel = scene.create_model(cfg)
+    kinematic_model_path, attachment_site = scene.kinematics_cfg(cfg)[fr3]
 
-    s = scene.load_scene()
-    s.save_mjcf("scene.xml")
-    simulation = sim.Sim(s, sim_cfg)
-    ik_robot_cfg = next(iter(scene.cfg.robot_cfgs.values()))
+    simulation = sim.Sim(mjmodel, sim_cfg)
     ik = rcs.common.Pin(
-        ik_robot_cfg.kinematic_model_path,
-        ik_robot_cfg.attachment_site,
+        kinematic_model_path,
+        attachment_site,
     )
 
     # base env
@@ -95,7 +97,7 @@ if __name__ == "__main__":
     env = GripperWrapperSim(env)
 
     # camera
-    camera_set = SimCameraSet(simulation, camera_cfgs, physical_units=True, render_on_demand=True)
+    camera_set = SimCameraSet(simulation, camera_cfgs, physical_units=True, render_on_demand=True)  # type: ignore
     env = CameraSetWrapper(env, camera_set, include_depth=True)  # type: ignore
 
     # relative actions bounded by 10cm translation and 10 degree rotation

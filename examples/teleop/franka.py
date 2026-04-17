@@ -112,8 +112,9 @@ def get_env():
         cfg = scene.load_config("")
         cfg.sim_cfg = SimConfig(async_control=True, realtime=True, frequency=30, max_convergence_steps=500)
         cfg.relative_to = RelativeTo.CONFIGURED_ORIGIN
-        cfg.root_frame_objects["green_cube"] = (rcs.OBJECT_PATHS["green_cube"], Pose(translation=[0.5, 0, 0.5], quaternion=[0, 0, 0, 1])),
-
+        cfg.root_frame_objects["green_cube"] = (
+            (rcs.OBJECT_PATHS["green_cube"], Pose(translation=[0.5, 0, 0.5], quaternion=[0, 0, 0, 1])),
+        )
 
         env_rel = scene.create()
         # env_rel = StorageWrapper(

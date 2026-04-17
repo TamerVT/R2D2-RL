@@ -1,12 +1,13 @@
 import copy
 import time
 import typing
-from abc import ABC
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from os import PathLike
 
 import gymnasium as gym
 import numpy as np
+from gymnasium.envs.registration import EnvCreator
 from rcs._core.common import FrankaHandTCPOffset, GripperType, Pose, RobotType
 from rcs._core.sim import (
     CameraType,
@@ -35,20 +36,22 @@ from rcs.sim.sim import Sim
 import rcs
 from rcs import CAMERA_PATHS, GRIPPER_PATHS, OBJECT_PATHS, SCENE_PATHS
 
-
-class BaseSceneConfig:
-    pass
+RCSEnvCreatorConfig = typing.TypeVar("RCSEnvCreatorConfig")
 
 
-class BaseScene(ABC):
-    config_type: typing.Type
+class RCSEnvCreator(ABC, EnvCreator, typing.Generic[RCSEnvCreatorConfig]):
 
-    def create(self) -> gym.Env:
+    @abstractmethod
+    def create_env(self, cfg: RCSEnvCreatorConfig) -> gym.Env:
         raise NotImplementedError
 
-    def load_config(self, key: str) -> BaseSceneConfig:
-        # TODO: load type form yaml with type checking
+    @abstractmethod
+    def config(self) -> RCSEnvCreatorConfig:
         raise NotImplementedError
+
+    def __call__(self, **kwargs) -> gym.Env:
+        cfg = kwargs.get("cfg", self.config())
+        return self.create_env(cfg)
 
 
 @dataclass(kw_only=True)
@@ -71,7 +74,7 @@ class CameraAdderConfig:
 
 
 @dataclass(kw_only=True)
-class SimSceneConfig(BaseSceneConfig):
+class SimEnvCreatorConfig:
     robot_cfgs: dict[str, SimRobotConfig]
     sim_cfg: SimConfig
     control_mode: ControlMode
@@ -87,7 +90,7 @@ class SimSceneConfig(BaseSceneConfig):
     thus this transformation defines the offset of each robot's base to this shared base frame."""
     add_gravcomp: bool = False
     wrapper_cfg: WrapperConfig = field(default_factory=WrapperConfig)
-    open_gui_on_create: bool = True
+    headless: bool = False
     shared_base_frame_to_root_frame: rcs.common.Pose = field(default_factory=rcs.common.Pose)
     """shared base frame is a common reference frame for all robots in the scene and the origin for all actions and observations, e.g. the middle of franka duo
     root_frame defines the origin where the parent of the robot assets are placed"""
@@ -112,106 +115,124 @@ class SimSceneConfig(BaseSceneConfig):
     """dict of camera_name to CameraAdderConfig, cameras will be added to the scene according to the config, camera_name must be unique across all cameras in the scene"""
     gripper_offsets: dict[str, rcs.common.Pose] | None = None
     """optional offsets for the gripper from the robot's attachment site"""
+    _original_cfg: typing.Any = None
+    """this will hold the original config in case this config has been prefixed"""
 
 
-class SimScene(BaseScene):
+# MjScene = typing.TypeVar("MjScene", ModelComposer, str, Path)
+MjModel = ModelComposer | str | PathLike
 
-    def __init__(
-        self,
-        config_key: str,
-        robot_prefix_template: str = "robot{robot_name}_",
-        gripper_prefix_template: str = "gripper{robot_name}_",
-    ) -> None:
-        super().__init__()
-        self.config_key = config_key
-        self._cfg = self.load_config(config_key)
-        self.robots_names = list(self._cfg.robot_cfgs.keys())
-        self.lead_robot_name = next(iter(self.robots_names))
-        self.robot_prefix_template = robot_prefix_template
-        self.gripper_prefix_template = gripper_prefix_template
-        self._prefixed_cfg = self._get_prefixed_cfg()
 
-    @property
-    def config(self) -> SimSceneConfig:
-        """Returns the configuration for the scene (prefixes applied)."""
-        return self._prefixed_cfg
+class SimEnvCreator(RCSEnvCreator[SimEnvCreatorConfig]):
+    robot_prefix_template: str = "robot{robot_name}_"
+    gripper_prefix_template: str = "gripper{robot_name}_"
 
-    @property
-    def kinematics_cfg(self) -> dict[str, tuple[str, str]]:
+    def is_prefixed(self, cfg: SimEnvCreatorConfig) -> bool:
+        return cfg._original_cfg is not None
+
+    def prefixed_cfg(self, cfg: SimEnvCreatorConfig) -> SimEnvCreatorConfig:
+        """Adds prefixing to geom, joint, actuators names etc"""
+        if cfg._original_cfg is not None:
+            return cfg
+        prefixed_cfg = copy.deepcopy(cfg)
+        prefixed_cfg._original_cfg = cfg
+        for robot_name in self.robot_names(prefixed_cfg):
+            prefixed_cfg.robot_cfgs[robot_name].add_prefix(self.robot_prefix_template.format(robot_name=robot_name))
+            if prefixed_cfg.gripper_cfgs is not None:
+                prefixed_cfg.gripper_cfgs[robot_name].add_prefix(
+                    self.gripper_prefix_template.format(robot_name=robot_name)
+                )
+        return prefixed_cfg
+
+    def kinematics_cfg(self, cfg: SimEnvCreatorConfig) -> dict[str, tuple[str, str]]:
         """
         Returns the kinematic configuration for each robot in the scene.
         Returns:
             dict[str, tuple[str, str]]: A dictionary mapping robot names to a tuple of (kinematic_model_path, attachment_site).
         """
+        if cfg._original_cfg is None:
+            o_cfg = cfg
+        else:
+            o_cfg = cfg._original_cfg
 
         return {
-            robot_name: (cfg.kinematic_model_path, cfg.attachment_site)
-            for robot_name, cfg in self._cfg.robot_cfgs.items()
+            robot_name: (rcfg.kinematic_model_path, rcfg.attachment_site)
+            for robot_name, rcfg in o_cfg.robot_cfgs.items()
         }
 
-    def load_config(self, key: str) -> SimSceneConfig:
-        raise NotImplementedError
+    def robot_names(self, cfg: SimEnvCreatorConfig) -> list[str]:
+        return list(cfg.robot_cfgs)
 
-    def load_scene(self) -> ModelComposer | str | PathLike:
+    def lead_robot_name(self, cfg: SimEnvCreatorConfig) -> str:
+        return next(iter(cfg.robot_cfgs))
+
+    def create_env(self, cfg: SimEnvCreatorConfig) -> gym.Env:
+        mjmodel = self.create_model(cfg)
+        return self.create_env_from_model(cfg, mjmodel)
+
+    def create_model(self, cfg: SimEnvCreatorConfig) -> MjModel:
         """Loads the mujoco scene from the given config
 
         Returns:
-            ModelComposer | str | PathLike: path to scene file (mjcf or mjb), or composer object
+            MjModel: path to scene file (mjcf or mjb), or composer object
         """
+        # ensure unprefixed config
+        if cfg._original_cfg is not None:
+            cfg = cfg._original_cfg
         composer = ModelComposer(
             model_name="RCS Scene",
-            add_gravcomp=self._cfg.add_gravcomp,
+            add_gravcomp=cfg.add_gravcomp,
         )
-        composer.load_base_scene(self._cfg.scene)
+        composer.load_base_scene(cfg.scene)
 
-        self.add_task_mujoco(self._cfg.task, composer)
-        if self._cfg.alternative_combined_robot_mjcf is not None:
+        self.add_task_mujoco(cfg.task, composer)
+
+        if cfg.alternative_combined_robot_mjcf is not None:
             # robot is in one mjcf
             self.add_robot_mujoco(
                 composer,
-                robot_name=self.lead_robot_name,
-                robot_xml=self._cfg.alternative_combined_robot_mjcf,
-                robot2world=self._cfg.root_frame_to_world,
+                robot_name=self.lead_robot_name(cfg),
+                robot_xml=cfg.alternative_combined_robot_mjcf,
+                robot2world=cfg.root_frame_to_world,
             )
         else:
             # robot is composed by composer
-            for robot_name in self.robots_names:
+            for robot_name in self.robot_names(cfg):
                 robot_to_shared_frame = (
-                    self._cfg.robot_to_shared_base_frame[robot_name]
-                    if self._cfg.robot_to_shared_base_frame is not None
+                    cfg.robot_to_shared_base_frame[robot_name]
+                    if cfg.robot_to_shared_base_frame is not None
                     else rcs.common.Pose()
                 )
-                robot2world = (
-                    robot_to_shared_frame * self._cfg.shared_base_frame_to_root_frame * self._cfg.root_frame_to_world
-                )
+                robot2world = robot_to_shared_frame * cfg.shared_base_frame_to_root_frame * cfg.root_frame_to_world
                 self.add_robot_mujoco(
-                    composer, robot_name, self._cfg.robot_cfgs[robot_name].kinematic_model_path, robot2world
+                    composer, robot_name, cfg.robot_cfgs[robot_name].kinematic_model_path, robot2world
                 )
 
-        if self._cfg.gripper_cfgs is not None:
+        if cfg.gripper_cfgs is not None:
             # add gripper to each robot
-            for robot_name in self.robots_names:
-                gripper_xml = GRIPPER_PATHS[self._cfg.gripper_cfgs[robot_name].gripper_type]
+            for robot_name in self.robot_names(cfg):
+                gripper_xml = GRIPPER_PATHS[cfg.gripper_cfgs[robot_name].gripper_type]
                 self.add_gripper_mujoco(
+                    cfg,
                     composer,
                     robot_name,
                     gripper_xml,
-                    self._cfg.robot_cfgs[robot_name].attachment_site,
+                    cfg.robot_cfgs[robot_name].attachment_site,
                 )
 
         # add robot-specific objects
-        if self._cfg.root_frame_objects is not None:
-            for object_id, (object_xml, object2root_frame) in self._cfg.root_frame_objects.items():
-                object2world = object2root_frame * self._cfg.root_frame_to_world
+        if cfg.root_frame_objects is not None:
+            for object_id, (object_xml, object2root_frame) in cfg.root_frame_objects.items():
+                object2world = object2root_frame * cfg.root_frame_to_world
                 self.add_object_mujoco(composer, object_id, object_xml, object2world)
         # add external objects
-        if self._cfg.world_frame_objects is not None:
-            for object_id, (object_xml, object2world) in self._cfg.world_frame_objects.items():
+        if cfg.world_frame_objects is not None:
+            for object_id, (object_xml, object2world) in cfg.world_frame_objects.items():
                 self.add_object_mujoco(composer, object_id, object_xml, object2world)
         # add robot-frame objects
-        if self._cfg.robot_frame_objects is not None:
-            for robot_name, robot_objects in self._cfg.robot_frame_objects.items():
-                attachment_site = self._cfg.robot_cfgs[robot_name].attachment_site
+        if cfg.robot_frame_objects is not None:
+            for robot_name, robot_objects in cfg.robot_frame_objects.items():
+                attachment_site = cfg.robot_cfgs[robot_name].attachment_site
                 for object_id, (object_xml, object2robot_frame) in robot_objects.items():
                     self.add_object_robot_frame_mujoco(
                         composer,
@@ -223,10 +244,10 @@ class SimScene(BaseScene):
                     )
 
         # camera adds
-        if self._cfg.camera_adds is not None:
-            for camera_name, camera_add_cfg in self._cfg.camera_adds.items():
+        if cfg.camera_adds is not None:
+            for camera_name, camera_add_cfg in cfg.camera_adds.items():
                 camera_pose = (
-                    camera_add_cfg.offset * self._cfg.root_frame_to_world
+                    camera_add_cfg.offset * cfg.root_frame_to_world
                     if camera_add_cfg.robot_name is None
                     else camera_add_cfg.offset
                 )
@@ -241,21 +262,21 @@ class SimScene(BaseScene):
                             else None
                         ),
                         attachment_site_name=(
-                            self._cfg.robot_cfgs[camera_add_cfg.robot_name].attachment_site
+                            cfg.robot_cfgs[camera_add_cfg.robot_name].attachment_site
                             if camera_add_cfg.robot_name is not None
                             else camera_add_cfg.attachment_site
                         ),
                     )
                     continue
 
-                assert self._cfg.camera_cfgs is not None, "Camera configs must be provided to add cameras."
+                assert cfg.camera_cfgs is not None, "Camera configs must be provided to add cameras."
                 assert (
-                    camera_name in self._cfg.camera_cfgs
+                    camera_name in cfg.camera_cfgs
                 ), f"Camera config for camera {camera_name} must be provided to add camera {camera_name} to the scene"
                 composer.add_camera(
                     resolution=(
-                        self._cfg.camera_cfgs[camera_name].resolution_width,
-                        self._cfg.camera_cfgs[camera_name].resolution_height,
+                        cfg.camera_cfgs[camera_name].resolution_width,
+                        cfg.camera_cfgs[camera_name].resolution_height,
                     ),
                     fovy=camera_add_cfg.fovy,
                     name=camera_name,
@@ -266,7 +287,7 @@ class SimScene(BaseScene):
                         else None
                     ),
                     attachment_site_name=(
-                        self._cfg.robot_cfgs[camera_add_cfg.robot_name].attachment_site
+                        cfg.robot_cfgs[camera_add_cfg.robot_name].attachment_site
                         if camera_add_cfg.robot_name is not None
                         else camera_add_cfg.attachment_site
                     ),
@@ -274,10 +295,59 @@ class SimScene(BaseScene):
 
         return composer
 
-    def add_task_mujoco(self, key: str | None, composer: ModelComposer):
+    def create_env_from_model(self, cfg: SimEnvCreatorConfig, mjmodel: MjModel) -> gym.Env:
+        # save the composed scene for debugging
+        # mjmodel.save_mjcf("scene.xml")
+        # you can also apply a scene path e.g. the saved one
+        # mjmodel = "scene.xml"
+
+        # ensure we have prefixed and original config
+        if cfg._original_cfg is not None:
+            prefixed_cfg = cfg
+            cfg = cfg._original_cfg
+        else:
+            prefixed_cfg = self.prefixed_cfg(cfg)
+
+        simulation = Sim(mjmodel, prefixed_cfg.sim_cfg)
+
+        envs: dict[str, gym.Env] = {}
+        env: gym.Env
+        kinematics_cfg = self.kinematics_cfg(cfg)
+        for robot_name in self.robot_names(cfg):
+            env = SimEnv(simulation)
+            kinematic_model_path, attachment_site = kinematics_cfg[robot_name]
+            ik = rcs.common.Pin(
+                kinematic_model_path,
+                attachment_site,
+            )
+            # ik = rcs_robotics_library._core.rl.RoboticsLibraryIK(cfg.robot_cfgs[lead_robot_name].kinematic_model_path)
+
+            env = self.add_robot_env(prefixed_cfg, robot_name, env, simulation, ik)
+            if prefixed_cfg.gripper_cfgs is not None:
+                env = self.add_gripper_env(prefixed_cfg, robot_name, simulation, env)
+
+            if prefixed_cfg.relative_to != RelativeTo.NONE:
+                env = RelativeActionSpace(
+                    env, max_mov=prefixed_cfg.max_relative_movement, relative_to=prefixed_cfg.relative_to
+                )
+            envs[robot_name] = env
+
+        env = MultiRobotWrapper(envs, prefixed_cfg.robot_to_shared_base_frame)
+        if prefixed_cfg.camera_cfgs is not None:
+            camera_set = typing.cast(
+                BaseCameraSet,
+                SimCameraSet(simulation, prefixed_cfg.camera_cfgs, physical_units=True, render_on_demand=True),
+            )
+            env = CameraSetWrapper(env, camera_set, include_depth=True)
+        env = self.add_task_env(prefixed_cfg.task, env, simulation)
+        if not prefixed_cfg.headless:
+            env.get_wrapper_attr("sim").open_gui()
+        return CoverWrapper(env)
+
+    def add_task_mujoco(self, task: str | None, composer: ModelComposer):
         """Add task-specific elements to the Mujoco scene."""
 
-    def add_task_env(self, key: str | None, env: gym.Env, simulation: Sim) -> gym.Env:
+    def add_task_env(self, task: str | None, env: gym.Env, simulation: Sim) -> gym.Env:
         """Add task-specific wrappers to the environment."""
         return env
 
@@ -325,18 +395,27 @@ class SimScene(BaseScene):
             pose=robot2world,
         )
 
-    def add_robot_env(self, robot_name: str, env: gym.Env, simulation: Sim, ik: rcs.common.Kinematics):
+    def add_robot_env(
+        self,
+        prefixed_cfg: SimEnvCreatorConfig,
+        robot_name: str,
+        env: gym.Env,
+        simulation: Sim,
+        ik: rcs.common.Kinematics,
+    ):
         # rcs wrapper composition
-        robot = rcs.sim.SimRobot(sim=simulation, ik=ik, cfg=self.config.robot_cfgs[robot_name])
-        env = RobotWrapper(env, robot, self.config.control_mode, home_on_reset=self.config.wrapper_cfg.home_on_reset)
+        robot = rcs.sim.SimRobot(sim=simulation, ik=ik, cfg=prefixed_cfg.robot_cfgs[robot_name])
+        env = RobotWrapper(env, robot, prefixed_cfg.control_mode, home_on_reset=prefixed_cfg.wrapper_cfg.home_on_reset)
         return RobotSimWrapper(env)
 
-    def add_gripper_mujoco(self, composer: ModelComposer, robot_name: str, gripper_xml: str, attachment_site: str):
+    def add_gripper_mujoco(
+        self, cfg: SimEnvCreatorConfig, composer: ModelComposer, robot_name: str, gripper_xml: str, attachment_site: str
+    ):
         # mujoco scene composition
-        assert self._cfg.gripper_cfgs is not None, "Gripper configs must be provided to add grippers."
+        assert cfg.gripper_cfgs is not None, "Gripper configs must be provided to add grippers."
         gripper_offset = (
-            self._cfg.gripper_offsets[robot_name]
-            if self._cfg.gripper_offsets is not None and robot_name in self._cfg.gripper_offsets
+            cfg.gripper_offsets[robot_name]
+            if cfg.gripper_offsets is not None and robot_name in cfg.gripper_offsets
             else rcs.common.Pose()
         )
         composer.add_gripper(
@@ -347,71 +426,19 @@ class SimScene(BaseScene):
             pose=gripper_offset,
         )
 
-    def add_gripper_env(self, robot_name: str, simulation: Sim, env: gym.Env):
+    def add_gripper_env(self, prefixed_cfg: SimEnvCreatorConfig, robot_name: str, simulation: Sim, env: gym.Env):
         # rcs wrapper composition
-        assert self._cfg.gripper_cfgs is not None, "Gripper configs must be provided to add grippers."
-        gripper = rcs.sim.SimGripper(simulation, self.config.gripper_cfgs[robot_name])
-        env = GripperWrapper(env, gripper, binary=self.config.wrapper_cfg.binary_gripper)
+        assert prefixed_cfg.gripper_cfgs is not None, "Gripper configs must be provided to add grippers."
+        gripper = rcs.sim.SimGripper(simulation, prefixed_cfg.gripper_cfgs[robot_name])
+        env = GripperWrapper(env, gripper, binary=prefixed_cfg.wrapper_cfg.binary_gripper)
         return GripperWrapperSim(env)
 
-    def _get_prefixed_cfg(self) -> SimSceneConfig:
-        cfg = copy.deepcopy(self._cfg)
-        for robot_name in self.robots_names:
-            cfg.robot_cfgs[robot_name].add_prefix(self.robot_prefix_template.format(robot_name=robot_name))
-            if cfg.gripper_cfgs is not None:
-                cfg.gripper_cfgs[robot_name].add_prefix(self.gripper_prefix_template.format(robot_name=robot_name))
-        return cfg
 
-    def create(self, mjcf: ModelComposer | str | PathLike | None = None) -> gym.Env:
+class EmptyWorldFR3(SimEnvCreator):
+    robot_prefix_template = "robot"
+    gripper_prefix_template = "gripper"
 
-        mjcf = self.load_scene() if mjcf is None else mjcf
-        # save the composed scene for debugging
-        # mjcf.save_mjcf("scene.xml")
-        # you can also apply a scene path e.g. the saved one
-        # mjcf = "scene.xml"
-
-        simulation = Sim(mjcf, self.config.sim_cfg)
-
-        envs: dict[str, gym.Env] = {}
-        env: gym.Env
-        for robot_name in self.robots_names:
-            env = SimEnv(simulation)
-            kinematic_model_path, attachment_site = self.kinematics_cfg[robot_name]
-            ik = rcs.common.Pin(
-                kinematic_model_path,
-                attachment_site,
-            )
-            # ik = rcs_robotics_library._core.rl.RoboticsLibraryIK(cfg.robot_cfgs[lead_robot_name].kinematic_model_path)
-
-            env = self.add_robot_env(robot_name, env, simulation, ik)
-            if self.config.gripper_cfgs is not None:
-                env = self.add_gripper_env(robot_name, simulation, env)
-
-            if self.config.relative_to != RelativeTo.NONE:
-                env = RelativeActionSpace(
-                    env, max_mov=self.config.max_relative_movement, relative_to=self.config.relative_to
-                )
-            envs[robot_name] = env
-
-        env = MultiRobotWrapper(envs, self.config.robot_to_shared_base_frame)
-        if self.config.camera_cfgs is not None:
-            camera_set = typing.cast(
-                BaseCameraSet,
-                SimCameraSet(simulation, self.config.camera_cfgs, physical_units=True, render_on_demand=True),
-            )
-            env = CameraSetWrapper(env, camera_set, include_depth=True)
-        env = self.add_task_env(self.config.task, env, simulation)
-        if self.config.open_gui_on_create:
-            env.get_wrapper_attr("sim").open_gui()
-        return CoverWrapper(env)
-
-
-class EmptyWorldFR3(SimScene):
-
-    def __init__(self):
-        super().__init__("", robot_prefix_template="robot", gripper_prefix_template="gripper")
-
-    def load_config(self, key: str) -> SimSceneConfig:
+    def config(self) -> SimEnvCreatorConfig:
         q_home = rcs.ROBOTS[RobotType.FR3].q_home
         q_home[-1] = np.pi / 4
         robot_cfg = SimRobotConfig(
@@ -496,15 +523,20 @@ class EmptyWorldFR3(SimScene):
         }
         max_relative_movement: float | tuple[float, float] | None = None
         relative_to: RelativeTo = RelativeTo.LAST_STEP
+
         robot_to_shared_base_frame: dict[str, rcs.common.Pose] | None = {"robot": rcs.common.Pose()}
         wrapper_cfg: WrapperConfig = WrapperConfig(binary_gripper=True, home_on_reset=True)
-        open_gui_on_create = True
+        headless = False
         add_gravcomp = True
+
         shared_base_frame_to_root_frame = rcs.common.Pose()
         root_frame_to_world = rcs.common.Pose()
+
         alternative_combined_robot_mjcf: str | None = None
+
         world_frame_objects: dict[str, tuple[str, rcs.common.Pose]] | None = None
         root_frame_objects: dict[str, tuple[str, rcs.common.Pose]] | None = None
+
         add_camera_adds: dict[str, CameraAdderConfig] | None = {
             "bird_eye": CameraAdderConfig(
                 fovy=60.0,
@@ -522,7 +554,7 @@ class EmptyWorldFR3(SimScene):
         gripper_offsets: dict[str, rcs.common.Pose] | None = {
             "robot": rcs.common.Pose(rotation=FrankaHandTCPOffset()[:3, :3], translation=[0, 0, 0])
         }
-        return SimSceneConfig(
+        return SimEnvCreatorConfig(
             robot_cfgs=robot_cfgs,
             sim_cfg=sim_cfg,
             control_mode=control_mode,
@@ -534,7 +566,7 @@ class EmptyWorldFR3(SimScene):
             relative_to=relative_to,
             robot_to_shared_base_frame=robot_to_shared_base_frame,
             wrapper_cfg=wrapper_cfg,
-            open_gui_on_create=open_gui_on_create,
+            headless=headless,
             add_gravcomp=add_gravcomp,
             shared_base_frame_to_root_frame=shared_base_frame_to_root_frame,
             root_frame_to_world=root_frame_to_world,
@@ -546,16 +578,11 @@ class EmptyWorldFR3(SimScene):
         )
 
 
-class EmptyWorldFR3Duo(SimScene):
+class EmptyWorldFR3Duo(SimEnvCreator):
 
     gripper_mesh_quaternion_offset = [0, 0, 0.7071068, 0.7071068]
 
-    def __init__(self):
-        super().__init__(
-            "", robot_prefix_template="robot_{robot_name}_", gripper_prefix_template="gripper_{robot_name}_"
-        )
-
-    def load_config(self, key: str) -> SimSceneConfig:
+    def config(self) -> SimEnvCreatorConfig:
         robot_cfg = SimRobotConfig(
             robot_type=RobotType.FR3,
             attachment_site=rcs.ROBOTS[RobotType.FR3].attachment_site,
@@ -653,14 +680,15 @@ class EmptyWorldFR3Duo(SimScene):
             "right": Pose(translation=[0, -0.05018, 0.342], quaternion=[0.436978, 0.0225312, 0.243326, 0.865641]),
         }
         wrapper_cfg: WrapperConfig = WrapperConfig(binary_gripper=True, home_on_reset=True)
-        open_gui_on_create = True
+        headless = False
         add_gravcomp = True
         shared_base_frame_to_root_frame = rcs.common.Pose()
         root_frame_to_world = rcs.common.Pose()
         alternative_combined_robot_mjcf: str | None = None
         world_frame_objects: dict[str, tuple[str, rcs.common.Pose]] | None = None
         root_frame_objects: dict[str, tuple[str, rcs.common.Pose]] | None = {
-            "duo_mount": (OBJECT_PATHS["fr3_duo_mount"], Pose(translation=[0, 0, 0.342], quaternion=[0, 0, 0, 1]))
+            "duo_mount": (OBJECT_PATHS["fr3_duo_mount"], Pose(translation=[0, 0, 0.342], quaternion=[0, 0, 0, 1])),
+            "green_cube": (OBJECT_PATHS["green_cube"], Pose(translation=[0.5, 0, 0.5], quaternion=[0, 0, 0, 1])),
         }
         robot_frame_objects: dict[str, dict[str, tuple[str, rcs.common.Pose]]] | None = {
             "left": {
@@ -682,24 +710,29 @@ class EmptyWorldFR3Duo(SimScene):
                 fovy=60.0,
                 offset=rcs.common.Pose(
                     # if duo_mount is spawned at [0, 0, 0.342], these are the offsets
-                    translation=[0.0113, -0.0245, 0.695], rpy_vector=[0, np.pi*41/180, 0]
+                    translation=[0.0113, -0.0245, 0.695],
+                    rpy_vector=[0, np.pi * 41 / 180, 0],
                 ),
             ),
             "left_wrist": CameraAdderConfig(
                 xml_path=CAMERA_PATHS["d405"],
                 fovy=60.0,
-                offset=rcs.common.Pose(translation=[0.060, 0, 0.0665], rpy_vector=[-np.pi/2, -np.pi*11/18, 0]), # 20deg offset from normal
+                offset=rcs.common.Pose(
+                    translation=[0.060, 0, 0.0665], rpy_vector=[-np.pi / 2, -np.pi * 11 / 18, 0]
+                ),  # 20deg offset from normal
                 robot_name="left",
             ),
             "right_wrist": CameraAdderConfig(
                 xml_path=CAMERA_PATHS["d405"],
                 fovy=60.0,
-                offset=rcs.common.Pose(translation=[0.060, 0, 0.0665], rpy_vector=[-np.pi/2, -np.pi*11/18, 0]), # 20deg offset from normal
+                offset=rcs.common.Pose(
+                    translation=[0.060, 0, 0.0665], rpy_vector=[-np.pi / 2, -np.pi * 11 / 18, 0]
+                ),  # 20deg offset from normal
                 robot_name="right",
             ),
         }
         gripper_offset = rcs.common.Pose(quaternion=self.gripper_mesh_quaternion_offset, translation=[0, 0, 0])
-        return SimSceneConfig(
+        return SimEnvCreatorConfig(
             robot_cfgs=robot_cfgs,
             sim_cfg=sim_cfg,
             control_mode=control_mode,
@@ -711,7 +744,7 @@ class EmptyWorldFR3Duo(SimScene):
             relative_to=relative_to,
             robot_to_shared_base_frame=robot_to_shared_base_frame,
             wrapper_cfg=wrapper_cfg,
-            open_gui_on_create=open_gui_on_create,
+            headless=headless,
             add_gravcomp=add_gravcomp,
             shared_base_frame_to_root_frame=shared_base_frame_to_root_frame,
             root_frame_to_world=root_frame_to_world,
@@ -726,10 +759,10 @@ class EmptyWorldFR3Duo(SimScene):
 
 class EmptyWorldUR5e(EmptyWorldFR3):
 
-    def load_config(self, key: str) -> SimSceneConfig:
+    def config(self) -> SimEnvCreatorConfig:
         rt = RobotType("UR5e")
-        cfg = super().load_config(key)
-        lead_robot_name = next(iter(cfg.robot_cfgs))
+        cfg = super().config()
+        lead_robot_name = self.lead_robot_name(cfg)
 
         robot_cfg = cfg.robot_cfgs[lead_robot_name]
         robot_cfg.tcp_offset = rcs.common.Pose()
@@ -750,6 +783,7 @@ class EmptyWorldUR5e(EmptyWorldFR3):
         robot_cfg.q_home = rcs.ROBOTS[rt].q_home
         robot_cfg.base = "base"
 
+        assert cfg.gripper_cfgs is not None
         gripper_cfg = cfg.gripper_cfgs[lead_robot_name]
 
         gripper_cfg.actuator = "fingers_actuator"
@@ -773,7 +807,7 @@ if __name__ == "__main__":
     scene = EmptyWorldFR3Duo()
     # scene = EmptyWorldFR3()
     # scene = EmptyWorldUR5e()
-    env = scene.create()
+    env = scene.create_env(scene.config())
     obs, info = env.reset()
     print(obs)
     # Duo
