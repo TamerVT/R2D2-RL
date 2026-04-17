@@ -3,10 +3,10 @@ from typing import Any
 
 import numpy as np
 from rcs._core import common
-from rcs._core.common import RobotPlatform
+from rcs._core.common import Pose, RobotPlatform
 from rcs._core.sim import SimConfig
 from rcs.camera.hw import HardwareCameraSet
-from rcs.envs.base import ControlMode
+from rcs.envs.base import ControlMode, RelativeTo
 from rcs.envs.creators import SimMultiEnvCreator
 from rcs.envs.scenes import EmptyWorldFR3Duo
 from rcs.envs.utils import default_digit, default_sim_gripper_cfg, default_sim_robot_cfg
@@ -109,6 +109,12 @@ def get_env():
         # FR3
 
         scene = EmptyWorldFR3Duo()
+        cfg = scene.load_config("")
+        cfg.sim_cfg = SimConfig(async_control=True, realtime=True, frequency=30, max_convergence_steps=500)
+        cfg.relative_to = RelativeTo.CONFIGURED_ORIGIN
+        cfg.root_frame_objects["green_cube"] = (rcs.OBJECT_PATHS["green_cube"], Pose(translation=[0.5, 0, 0.5], quaternion=[0, 0, 0, 1])),
+
+
         env_rel = scene.create()
         # env_rel = StorageWrapper(
         #     env_rel, DATASET_PATH, INSTRUCTION, batch_size=32, max_rows_per_group=100, max_rows_per_file=1000

@@ -362,11 +362,11 @@ class SimScene(BaseScene):
                 cfg.gripper_cfgs[robot_name].add_prefix(self.gripper_prefix_template.format(robot_name=robot_name))
         return cfg
 
-    def create(self) -> gym.Env:
+    def create(self, mjcf: ModelComposer | str | PathLike | None = None) -> gym.Env:
 
-        mjcf = self.load_scene()
+        mjcf = self.load_scene() if mjcf is None else mjcf
         # save the composed scene for debugging
-        mjcf.save_mjcf("scene.xml")
+        # mjcf.save_mjcf("scene.xml")
         # you can also apply a scene path e.g. the saved one
         # mjcf = "scene.xml"
 
