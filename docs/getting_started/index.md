@@ -129,8 +129,8 @@ for _ in range(100):
 ## Examples
 
 Check out the python examples in the `examples` folder of the repository.
-- `fr3_direct_control.py`: Direct robot control with RCS's python bindings.
-- `fr3_env_joint_control.py`: Gymnasium interface with joint control.
-- `fr3_env_cartesian_control.py`: Gymnasium interface with Cartesian control.
+- `examples/fr3/fr3_direct_control.py`: Direct robot control with RCS's python bindings.
+- `examples/fr3/fr3_env_joint_control.py`: Gymnasium interface with joint control.
+- `examples/fr3/fr3_env_cartesian_control.py`: Gymnasium interface with Cartesian control.
 
 Most examples work both in the MuJoCo simulation as well as on hardware (with appropriate extensions installed).

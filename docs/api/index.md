@@ -1,10 +1,5 @@
-# API
+# API Reference
 
-```{toctree}
-:maxdepth: 2
+The API reference is automatically generated from the source code.
 
-../getting_started/index
-../user_guide/architecture
-../user_guide/gym_interface
-../user_guide/low_level_api
-```
+(Coming soon)
