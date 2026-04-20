@@ -40,6 +40,7 @@ dependencies = [
   "mujoco==3.2.6",
   "pin==3.7.0",
   "greenlet",
+  "duckdb",
 ]
 readme = "README.md"
 maintainers = [{ name = "Tobias Jülg", email = "tobias.juelg@utn.de" }]

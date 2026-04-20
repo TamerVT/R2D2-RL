@@ -10,6 +10,7 @@ from typing import Optional
 
 import mujoco as mj
 import mujoco.viewer
+import numpy as np
 from rcs._core.sim import GuiClient as _GuiClient
 from rcs._core.sim import Sim as _Sim
 from rcs.sim import SimConfig, egl_bootstrap
@@ -42,6 +43,8 @@ def gui_loop(gui_uuid: str, close_event):
 
 
 class Sim(_Sim):
+    STATE_SPEC = mj.mjtState.mjSTATE_INTEGRATION
+
     def __init__(self, mjmdl: str | PathLike, cfg: SimConfig | None = None):
         mjmdl = Path(mjmdl)
         if mjmdl.suffix == ".xml":
@@ -60,6 +63,32 @@ class Sim(_Sim):
         self._stop_event: Optional[EventClass] = None
         if cfg is not None:
             self.set_config(cfg)
+
+    def get_state_spec(self) -> int:
+        return int(self.STATE_SPEC)
+
+    def get_state_size(self, spec: int | None = None) -> int:
+        state_spec = self.STATE_SPEC if spec is None else mj.mjtState(spec)
+        return mj.mj_stateSize(self.model, state_spec)
+
+    def get_state(self, spec: int | None = None) -> np.ndarray:
+        state_spec = self.STATE_SPEC if spec is None else mj.mjtState(spec)
+        state = np.empty(self.get_state_size(int(state_spec)), dtype=np.float64)
+        mj.mj_getState(self.model, self.data, state, state_spec)
+        return state
+
+    def set_state(self, state: np.ndarray, spec: int | None = None):
+        state_spec = self.STATE_SPEC if spec is None else mj.mjtState(spec)
+        state_array = np.asarray(state, dtype=np.float64)
+        expected_size = self.get_state_size(int(state_spec))
+        if state_array.shape != (expected_size,):
+            msg = (
+                f"Expected MuJoCo state with shape ({expected_size},), "
+                f"got {state_array.shape} for spec {int(state_spec)}."
+            )
+            raise ValueError(msg)
+        mj.mj_setState(self.model, self.data, state_array, state_spec)
+        mj.mj_forward(self.model, self.data)
 
     def close_gui(self):
         if self._stop_event is not None:
