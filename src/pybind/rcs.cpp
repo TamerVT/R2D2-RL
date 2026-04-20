@@ -335,6 +335,7 @@ PYBIND11_MODULE(_core, m) {
       .def("translation", &rcs::common::Pose::translation)
       .def("rotation_m", &rcs::common::Pose::rotation_m)
       .def("rotation_q", &rcs::common::Pose::rotation_q)
+      .def("rotation_q_wxyz", &rcs::common::Pose::rotation_q_wxyz)
       .def("pose_matrix", &rcs::common::Pose::pose_matrix)
       .def("rotation_rpy", &rcs::common::Pose::rotation_rpy)
       .def("xyzrpy", &rcs::common::Pose::xyzrpy)
