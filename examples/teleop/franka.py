@@ -9,6 +9,7 @@ from rcs.camera.hw import HardwareCameraSet
 from rcs.envs.base import ControlMode, RelativeTo
 from rcs.envs.configs import EmptyWorldFR3Duo
 from rcs.envs.creators import SimMultiEnvCreator
+from rcs.envs.storage_wrapper import StorageWrapper
 from rcs.envs.tasks import PickTaskConfig
 from rcs.envs.utils import default_digit, default_sim_gripper_cfg, default_sim_robot_cfg
 from rcs.operator.gello import GelloConfig, GelloOperator
@@ -47,7 +48,7 @@ RECORD_FPS = 30
 #     "bird_eye": "243522070364",
 # }
 CAMERA_DICT = None
-MQ3_ADDR = "192.168.1.20"
+MQ3_ADDR = "192.168.1.233"
 
 # DIGIT_DICT = {
 #     "digit_right_left": "D21182",
@@ -56,8 +57,8 @@ MQ3_ADDR = "192.168.1.20"
 DIGIT_DICT = None
 
 
-DATASET_PATH = "test_data_iris_dual_arm14"
-INSTRUCTION = "build a tower with the blocks in front of you"
+DATASET_PATH = "test_iris"
+INSTRUCTION = "pick up cube"
 
 robot2world = {
     "right": rcs.common.Pose(
@@ -119,14 +120,13 @@ def get_env():
         cfg.task_cfg = PickTaskConfig(robot_name="left")
 
         env_rel = scene.create_env(cfg)
-        # env_rel = StorageWrapper(
-        #     env_rel, DATASET_PATH, INSTRUCTION, batch_size=32, max_rows_per_group=100, max_rows_per_file=1000
-        # )
+        env_rel = StorageWrapper(
+            env_rel, DATASET_PATH, INSTRUCTION, batch_size=32, max_rows_per_group=100, max_rows_per_file=1000
+        )
 
         sim = env_rel.get_wrapper_attr("sim")
         MujocoPublisher(sim.model, sim.data, MQ3_ADDR, visible_geoms_groups=list(range(1, 3)))
         operator = GelloOperator(config, sim) if isinstance(config, GelloConfig) else QuestOperator(config, sim)
-        sim.open_gui()
     return env_rel, operator
 
 

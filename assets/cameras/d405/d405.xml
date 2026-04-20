@@ -28,7 +28,7 @@
       <geom mesh="d405_shell"  quat="0.5 0.5 0.5 0.5" material="gray" class="visual"/>
       <geom mesh="d405_glass"  quat="0.5 0.5 0.5 0.5" material="black" class="visual"/>
       <geom mesh="d405_coll"  quat="0.5 0.5 0.5 0.5" class="collision"/>
-      <camera name="camera" pos="0.0038 0.009 0" quat="0.5 0.5 -0.5 -0.5"/> 
+      <camera name="camera" pos="0.0038 0.009 0" quat="0.5 0.5 -0.5 -0.5" fovy="58"/> 
     </body>
   </worldbody>
 
