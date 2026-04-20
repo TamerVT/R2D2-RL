@@ -129,6 +129,25 @@ CAMERA_PATHS = {
 # type: dict[str, Task]
 TASKS = {}
 
+DEFAULT_TRANSFORMS = {
+    "FR3_ROBOTIQ_GRIPPER": common.Pose(translation=[0, 0, 0], quaternion=[0, 0, 0.7071068, 0.7071068]),
+    "FR3_ROBOTIQ_WRIST_D405_MOUNT": common.Pose(translation=[0, 0, 0], quaternion=[0, 0, 0.7071068, 0.7071068]),
+    "FR3_ROBOTIQ_WRIST_D405_CAMERA": common.Pose(
+        translation=[0.060, 0, 0.0665], rpy_vector=[-np.pi / 2, -np.pi * 11 / 18, 0]
+    ),
+    "FR3_DUOMOUNT_BASE": common.Pose(translation=[0, 0, 0.342], quaternion=[0, 0, 0, 1]),
+    "FR3_DUOMOUNT_LEFT_ROBOT": common.Pose(
+        translation=[0, 0.05018, 0.342], quaternion=[-0.436978, 0.0225312, -0.243326, 0.865641]
+    ),
+    "FR3_DUOMOUNT_RIGHT_ROBOT": common.Pose(
+        translation=[0, -0.05018, 0.342], quaternion=[0.436978, 0.0225312, 0.243326, 0.865641]
+    ),
+    "FR3_DUOMOUNT_ZEDMINI_CAMERA": common.Pose(
+        translation=[0.0113, -0.0245, 0.695],
+        rpy_vector=[0, np.pi * 41 / 180, 0],
+    ),
+}
+
 # make submodules available
 __all__ = [
     "__doc__",

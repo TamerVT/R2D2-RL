@@ -34,7 +34,14 @@ from rcs.sim.composer import ModelComposer
 from rcs.sim.sim import Sim
 
 import rcs
-from rcs import CAMERA_PATHS, GRIPPER_PATHS, OBJECT_PATHS, SCENE_PATHS, TASKS
+from rcs import (
+    CAMERA_PATHS,
+    DEFAULT_TRANSFORMS,
+    GRIPPER_PATHS,
+    OBJECT_PATHS,
+    SCENE_PATHS,
+    TASKS,
+)
 
 RCSEnvCreatorConfig = typing.TypeVar("RCSEnvCreatorConfig")
 
@@ -704,8 +711,8 @@ class EmptyWorldFR3Duo(SimEnvCreator):
         max_relative_movement: float | tuple[float, float] | None = None
         relative_to: RelativeTo = RelativeTo.LAST_STEP
         robot_to_shared_base_frame: dict[str, rcs.common.Pose] | None = {
-            "left": Pose(translation=[0, 0.05018, 0.342], quaternion=[-0.436978, 0.0225312, -0.243326, 0.865641]),
-            "right": Pose(translation=[0, -0.05018, 0.342], quaternion=[0.436978, 0.0225312, 0.243326, 0.865641]),
+            "left": DEFAULT_TRANSFORMS["FR3_DUOMOUNT_LEFT_ROBOT"],
+            "right": DEFAULT_TRANSFORMS["FR3_DUOMOUNT_RIGHT_ROBOT"],
         }
         wrapper_cfg: WrapperConfig = WrapperConfig(binary_gripper=True, home_on_reset=True)
         headless = False
@@ -715,20 +722,20 @@ class EmptyWorldFR3Duo(SimEnvCreator):
         alternative_combined_robot_mjcf: str | None = None
         world_frame_objects: dict[str, tuple[str, rcs.common.Pose]] | None = None
         root_frame_objects: dict[str, tuple[str, rcs.common.Pose]] | None = {
-            "duo_mount": (OBJECT_PATHS["fr3_duo_mount"], Pose(translation=[0, 0, 0.342], quaternion=[0, 0, 0, 1])),
+            "duo_mount": (OBJECT_PATHS["fr3_duo_mount"], DEFAULT_TRANSFORMS["FR3_DUOMOUNT_BASE"]),
             "green_cube": (OBJECT_PATHS["green_cube"], Pose(translation=[0.5, 0, 0.5], quaternion=[0, 0, 0, 1])),
         }
         robot_frame_objects: dict[str, dict[str, tuple[str, rcs.common.Pose]]] | None = {
             "left": {
                 "left_d405_mount": (
                     OBJECT_PATHS["robotiq_d405_mount"],
-                    Pose(translation=[0, 0, 0], quaternion=self.gripper_mesh_quaternion_offset),
+                    DEFAULT_TRANSFORMS["FR3_ROBOTIQ_WRIST_D405_MOUNT"],
                 )
             },
             "right": {
                 "right_d405_mount": (
                     OBJECT_PATHS["robotiq_d405_mount"],
-                    Pose(translation=[0, 0, 0], quaternion=self.gripper_mesh_quaternion_offset),
+                    DEFAULT_TRANSFORMS["FR3_ROBOTIQ_WRIST_D405_MOUNT"],
                 )
             },
         }
@@ -738,24 +745,19 @@ class EmptyWorldFR3Duo(SimEnvCreator):
                 fovy=60.0,
                 offset=rcs.common.Pose(
                     # if duo_mount is spawned at [0, 0, 0.342], these are the offsets
-                    translation=[0.0113, -0.0245, 0.695],
-                    rpy_vector=[0, np.pi * 41 / 180, 0],
+                    DEFAULT_TRANSFORMS["FR3_DUOMOUNT_ZEDMINI_CAMERA"]
                 ),
             ),
             "left_wrist": CameraAdderConfig(
                 xml_path=CAMERA_PATHS["d405"],
                 fovy=60.0,
-                offset=rcs.common.Pose(
-                    translation=[0.060, 0, 0.0665], rpy_vector=[-np.pi / 2, -np.pi * 11 / 18, 0]
-                ),  # 20deg offset from normal
+                offset=rcs.common.Pose(DEFAULT_TRANSFORMS["FR3_ROBOTIQ_WRIST_D405_CAMERA"]),  # 20deg offset from normal
                 robot_name="left",
             ),
             "right_wrist": CameraAdderConfig(
                 xml_path=CAMERA_PATHS["d405"],
                 fovy=60.0,
-                offset=rcs.common.Pose(
-                    translation=[0.060, 0, 0.0665], rpy_vector=[-np.pi / 2, -np.pi * 11 / 18, 0]
-                ),  # 20deg offset from normal
+                offset=rcs.common.Pose(DEFAULT_TRANSFORMS["FR3_ROBOTIQ_WRIST_D405_CAMERA"]),  # 20deg offset from normal
                 robot_name="right",
             ),
         }
