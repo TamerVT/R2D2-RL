@@ -904,9 +904,10 @@ PYBIND11_MODULE(_core, m) {
   py::class_<rcs::sim::SimCameraSet>(sim, "SimCameraSet")
       .def(py::init<std::shared_ptr<rcs::sim::Sim>,
                     std::unordered_map<std::string, rcs::sim::SimCameraConfig>,
-                    bool>(),
+                    bool, int>(),
            py::arg("sim"), py::arg("cameras"),
-           py::arg("render_on_demand") = true)
+           py::arg("render_on_demand") = true,
+           py::arg("max_buffer_frames") = 100)
       .def("buffer_size", &rcs::sim::SimCameraSet::buffer_size)
       .def("clear_buffer", &rcs::sim::SimCameraSet::clear_buffer)
       .def("get_latest_frameset", &rcs::sim::SimCameraSet::get_latest_frameset)
