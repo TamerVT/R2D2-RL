@@ -5,12 +5,7 @@ import gymnasium as gym
 import numpy as np
 from rcs._core import sim
 from rcs.envs.base import GripperWrapper
-<<<<<<< HEAD
-from rcs.envs.scenes import BaseTaskConfig, Task, TaskConfig
-from rcs.envs.sim import PickCubeSuccessWrapper
-=======
 from rcs.envs.scenes import BaseTaskConfig, SimEnvCreatorConfig, Task, TaskConfig
->>>>>>> d74212257895209eccadc1adb0c9d8a5e85756b3
 from rcs.sim.composer import ModelComposer
 from rcs.sim.sim import Sim
 
@@ -70,7 +65,7 @@ class PickObjSuccessWrapper(gym.Wrapper):
             and obs[self.robot_name]["gripper"] == GripperWrapper.BINARY_GRIPPER_CLOSED  # command is still close
             and tcp_to_obj_dist <= 0.01  # tcp to cube center is max 1cm
         )
-        success = obj_to_goal_dist <= 0.022 and info["is_grasped"]
+        success = obj_to_goal_dist <= 0.022 and info[self.robot_name]["is_grasped"]
         movement = np.linalg.norm(self.sim.data.qvel)
 
         reaching_reward = 1 - np.tanh(5 * tcp_to_obj_dist)
@@ -153,11 +148,9 @@ class PickTaskConfig(BaseTaskConfig):
         )
     )
     object_xml = rcs.OBJECT_PATHS["green_cube"]
-    # object_body: str = "box_body"
     object_joint: str = "box_joint"
     prefix: str = "PickTask_"
     include_rotation: bool = True
-    # shared2world: rcs.common.Pose
     task_id: str = "pick"
 
 
