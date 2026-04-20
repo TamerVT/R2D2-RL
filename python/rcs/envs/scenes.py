@@ -73,6 +73,7 @@ class WrapperConfig:
 @dataclass(kw_only=True)
 class BaseTaskConfig:
     task_id: str
+    root_frame_to_world: rcs.common.Pose = field(default_factory=rcs.common.Pose)
 
 
 TaskConfig = typing.TypeVar("TaskConfig", bound=BaseTaskConfig)
