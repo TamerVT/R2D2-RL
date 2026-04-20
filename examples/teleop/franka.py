@@ -7,8 +7,9 @@ from rcs._core.common import Pose, RobotPlatform
 from rcs._core.sim import SimConfig
 from rcs.camera.hw import HardwareCameraSet
 from rcs.envs.base import ControlMode, RelativeTo
+from rcs.envs.configs import EmptyWorldFR3Duo
 from rcs.envs.creators import SimMultiEnvCreator
-from rcs.envs.scenes import EmptyWorldFR3Duo
+from rcs.envs.tasks import PickTaskConfig
 from rcs.envs.utils import default_digit, default_sim_gripper_cfg, default_sim_robot_cfg
 from rcs.operator.gello import GelloConfig, GelloOperator
 from rcs.operator.interface import TeleopLoop
@@ -109,14 +110,15 @@ def get_env():
         # FR3
 
         scene = EmptyWorldFR3Duo()
-        cfg = scene.load_config("")
+        cfg = scene.config()
         cfg.sim_cfg = SimConfig(async_control=True, realtime=True, frequency=30, max_convergence_steps=500)
         cfg.relative_to = RelativeTo.CONFIGURED_ORIGIN
-        cfg.root_frame_objects["green_cube"] = (
-            (rcs.OBJECT_PATHS["green_cube"], Pose(translation=[0.5, 0, 0.5], quaternion=[0, 0, 0, 1])),
-        )
+        if cfg.root_frame_objects is None:
+            cfg.root_frame_objects = {}
+        # cfg.root_frame_objects["green_cube"] = (rcs.OBJECT_PATHS["green_cube"], Pose(translation=[0.5, 0, 0.5], quaternion=[0, 0, 0, 1]))
+        cfg.task_cfg = PickTaskConfig(robot_name="left")
 
-        env_rel = scene.create()
+        env_rel = scene.create_env(cfg)
         # env_rel = StorageWrapper(
         #     env_rel, DATASET_PATH, INSTRUCTION, batch_size=32, max_rows_per_group=100, max_rows_per_file=1000
         # )

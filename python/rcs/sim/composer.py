@@ -65,8 +65,7 @@ class ModelComposer:
 
     def _apply_pose(self, body: mujoco._specs.MjsBody, pose: Pose):
         body.pos = list(pose.translation())
-        quat_list = list(pose.rotation_q())
-        body.quat = quat_list[3:4] + quat_list[0:3]
+        body.quat = list(pose.rotation_q_wxyz())
 
     def add_camera(
         self,
