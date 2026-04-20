@@ -225,7 +225,7 @@ class SimEnv(BaseEnv):
             self.sim.step_until_convergence()
 
     def apply_sim_state(self):
-        self.sim.step(1)
+        self.sim.step(2)
 
     def reset(
         self, *, seed: int | None = None, options: dict[str, Any] | None = None

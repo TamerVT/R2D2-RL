@@ -1,16 +1,20 @@
-
 from dataclasses import dataclass, field
 from typing import Any, cast
 
+import gymnasium as gym
 import numpy as np
-import rcs
 from rcs._core import sim
 from rcs.envs.base import GripperWrapper
+<<<<<<< HEAD
 from rcs.envs.scenes import BaseTaskConfig, Task, TaskConfig
 from rcs.envs.sim import PickCubeSuccessWrapper
+=======
+from rcs.envs.scenes import BaseTaskConfig, SimEnvCreatorConfig, Task, TaskConfig
+>>>>>>> d74212257895209eccadc1adb0c9d8a5e85756b3
 from rcs.sim.composer import ModelComposer
 from rcs.sim.sim import Sim
-import gymnasium as gym
+
+import rcs
 
 
 class PickObjSuccessWrapper(gym.Wrapper):
@@ -23,20 +27,18 @@ class PickObjSuccessWrapper(gym.Wrapper):
     - whether the arm is standing still once the task is solved.
     """
 
-    def __init__(self, env, robot_name: str, shared2world: rcs.common.Pose, obj_joint_name="box_body"):
+    def __init__(self, env, robot_name: str, shared2world: rcs.common.Pose, obj_joint_name="box_joint"):
         super().__init__(env)
-        assert isinstance(self.get_wrapper_attr("robot"), sim.SimRobot), "Robot must be a sim.SimRobot instance."
+        # assert isinstance(self.get_wrapper_attr("robot"), sim.SimRobot), "Robot must be a sim.SimRobot instance."
         # self._robot = cast(sim.SimRobot, self.get_wrapper_attr("robot"))
         self.sim = self.env.get_wrapper_attr("sim")
-        self.cube_joint = obj_joint_name
+        self.obj_joint_name = obj_joint_name
 
         # self.home_pose = self._robot.get_cartesian_position()
         self._gripper_closing = 0
-        self._gripper = self.get_wrapper_attr("gripper")
-        self.shared2world = shared2world
         self.robot_name = robot_name
-
-
+        self._gripper = self.get_wrapper_attr("gripper")[self.robot_name]
+        self.shared2world = shared2world
 
     def step(self, action: dict[str, Any]):  # type: ignore
         obs, reward, _, truncated, info = super().step(action)
@@ -44,34 +46,28 @@ class PickObjSuccessWrapper(gym.Wrapper):
         if (
             self._gripper.get_normalized_width() > 0.01
             and self._gripper.get_normalized_width() < 0.99
-            and obs["gripper"] == GripperWrapper.BINARY_GRIPPER_CLOSED
+            and obs[self.robot_name]["gripper"] == GripperWrapper.BINARY_GRIPPER_CLOSED
         ):
             self._gripper_closing += 1
         else:
             self._gripper_closing = 0
 
-        cube_pose = rcs.common.Pose(translation=self.sim.data.joint(self.cube_joint_name).qpos[:3])
+        obj_pose_in_world = rcs.common.Pose(translation=self.sim.data.joint(self.obj_joint_name).qpos[:3])
 
+        # obj_pose = self._robot.to_pose_in_robot_coordinates(obj_pose)
 
+        obj_pose_in_shared = self.shared2world.inverse() * obj_pose_in_world
 
-        # cube_pose = self._robot.to_pose_in_robot_coordinates(cube_pose)
+        # tcp_to_obj_dist = np.linalg.norm(obj_pose.translation() - self._robot.get_cartesian_position().translation())
+        tcp_to_obj_dist = np.linalg.norm(obj_pose_in_shared.translation() - obs[self.robot_name]["tquat"][:3])
 
-        # TODO: bring pose in shared frame
-        cube_pose *= self.shared2world.inverse()
-
-
-        # tcp_to_obj_dist = np.linalg.norm(cube_pose.translation() - self._robot.get_cartesian_position().translation())
-        tcp_to_obj_dist = np.linalg.norm(cube_pose.translation() - obs[self.robot_name]["tquat"][:3])
-
-
-        obj_to_goal_dist = 0.10 - min(cube_pose.translation()[-1], 0.10)
+        obj_to_goal_dist = 0.10 - min(obj_pose_in_shared.translation()[-1], 0.10)
         # obj_to_goal_dist = np.linalg.norm(cube_pose.translation() - self.home_pose.translation())
-
 
         # NOTE: 4 depends on the time passing between each step.
         is_grasped = (
             self._gripper_closing >= 4  # gripper is closing since more than 4 steps
-            and obs["gripper"] == GripperWrapper.BINARY_GRIPPER_CLOSED  # command is still close
+            and obs[self.robot_name]["gripper"] == GripperWrapper.BINARY_GRIPPER_CLOSED  # command is still close
             and tcp_to_obj_dist <= 0.01  # tcp to cube center is max 1cm
         )
         success = obj_to_goal_dist <= 0.022 and info["is_grasped"]
@@ -98,40 +94,34 @@ class RandomSquareObjPos(gym.Wrapper):
     Works only for single robot
     """
 
-    def __init__(self,
-                 env: gym.Env,
-                 center_pose: rcs.common.Pose,
-                 include_rotation: bool = True,
-                 obj_joint_name: str = "box_joint",
-                 x_width: float = 0.2,
-                 y_width: float = 0.2,
+    def __init__(
+        self,
+        env: gym.Env,
+        center2world: rcs.common.Pose,
+        include_rotation: bool = True,
+        obj_joint_name: str = "box_joint",
+        x_width: float = 0.2,
+        y_width: float = 0.2,
     ):
         super().__init__(env)
         self.include_rotation = include_rotation
         self.obj_joint_name = obj_joint_name
-        self.center_pose = center_pose
+        self.center2world = center2world
         self.x_width = x_width
         self.y_width = y_width
 
     def reset(
         self, *, seed: int | None = None, options: dict[str, Any] | None = None
     ) -> tuple[dict[str, Any], dict[str, Any]]:
-        obs, info = super().reset(seed=seed, options=options)
-
-
-        # TODO this needs frame transformation
-        pos_x = self.center_pose.translation[0]
-        pos_y = self.center_pose.translation[1]
-        pos_z = self.center_pose.translation[3]
 
         # place randomly in square
-        pos_x = np.random.uniform(pos_x -self.x_width/2, pos_x + self.x_width/2)
-        pos_y = np.random.uniform(pos_y -self.y_width/2, pos_y + self.y_width/2)
+        pos_x = np.random.uniform(-self.x_width / 2, self.x_width / 2)
+        pos_y = np.random.uniform(-self.y_width / 2, self.y_width / 2)
 
         if self.include_rotation:
             # 1. Sample a random angle between 0 and 2*pi (360 degrees)
             theta = np.random.uniform(0, 2 * np.pi)
-            
+
             # 2. Convert the angle to a unit quaternion for the Z-axis
             qw = np.cos(theta / 2)
             qz = np.sin(theta / 2)
@@ -140,44 +130,62 @@ class RandomSquareObjPos(gym.Wrapper):
             qw = 1.0
             qz = 0.0
 
+        pose_in_center_frame = rcs.common.Pose(
+            translation=np.array([pos_x, pos_y, 0]), quaternion=np.array([0, 0, qz, qw])
+        )
+        pose_in_world_frame = self.center2world * pose_in_center_frame
+
         # qpos array format for a free joint: [x, y, z, qw, qx, qy, qz]
-        self.get_wrapper_attr("sim").data.joint(self.obj_joint_name).qpos = [pos_x, pos_y, pos_z, qw, 0, 0, qz]
+        self.get_wrapper_attr("sim").data.joint(self.obj_joint_name).qpos = np.append(
+            pose_in_world_frame.translation(), pose_in_world_frame.rotation_q_wxyz()
+        )
 
-        return obs, info
-
+        # reset of remaining stack, must happen after our reset!
+        return super().reset(seed=seed, options=options)
 
 
 @dataclass(kw_only=True)
 class PickTaskConfig(BaseTaskConfig):
-    shared2world: rcs.common.Pose
-    object2root_frame: rcs.common.Pose = field(default_factory=lambda: rcs.common.Pose(translation=np.array([0.5, 0., 0.05]), quaternion=np.array([0, 0, 0, 1])))
+    robot_name: str
+    object_center_to_root_frame: rcs.common.Pose = field(
+        default_factory=lambda: rcs.common.Pose(
+            translation=np.array([0.5, 0.0, 0.05]), quaternion=np.array([0, 0, 0, 1])
+        )
+    )
     object_xml = rcs.OBJECT_PATHS["green_cube"]
-    object_body: str = "box_body"
+    # object_body: str = "box_body"
     object_joint: str = "box_joint"
+    prefix: str = "PickTask_"
     include_rotation: bool = True
-
-
+    # shared2world: rcs.common.Pose
+    task_id: str = "pick"
 
 
 class PickTask(Task[PickTaskConfig]):
     # TODO: for the reset it should be possible to access the composer and move things!
 
     @staticmethod
-    def add_task_mujoco(cfg: PickTaskConfig, composer: ModelComposer):
+    def add_task_mujoco(cfg: PickTaskConfig, composer: ModelComposer, env_cfg: SimEnvCreatorConfig):
         """Add task-specific elements to the Mujoco scene."""
-        object2world = cfg.object2root_frame * cfg.root_frame_to_world
+        object2world = cfg.object_center_to_root_frame * env_cfg.root_frame_to_world
 
         composer.add_object_world_frame(
             cfg.object_xml,
-            object_prefix=cfg.object_body + "_",
+            object_prefix=cfg.prefix,
             pose=object2world,
         )
-        # "green_cube": (OBJECT_PATHS["green_cube"], Pose(translation=[0.5, 0, 0.5], quaternion=[0, 0, 0, 1])),
 
     @staticmethod
-    def add_task_env(cfg: PickTaskConfig, env: gym.Env, simulation: Sim) -> gym.Env:
+    def add_task_env(cfg: PickTaskConfig, env: gym.Env, simulation: Sim, env_cfg: SimEnvCreatorConfig) -> gym.Env:
         """Add task-specific wrappers to the environment."""
-        object2world = cfg.object2root_frame * cfg.root_frame_to_world
-        env = PickCubeSuccessWrapper(env)
-        env = RandomSquareObjPos(env, center_pose=object2world, include_rotation=cfg.include_rotation, obj_joint_name=cfg.object_joint)
+        object2world = cfg.object_center_to_root_frame * env_cfg.root_frame_to_world
+        shared2world = env_cfg.shared_base_frame_to_root_frame * env_cfg.root_frame_to_world
+        object_joint = cfg.prefix + cfg.object_joint
+        env = PickObjSuccessWrapper(env, cfg.robot_name, shared2world, object_joint)
+        env = RandomSquareObjPos(
+            env, center2world=object2world, include_rotation=cfg.include_rotation, obj_joint_name=object_joint
+        )
         return env
+
+
+rcs.TASKS["pick"] = PickTask
