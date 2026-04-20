@@ -7,6 +7,7 @@ import rcs
 from rcs._core import sim
 from rcs.envs.base import GripperWrapper
 from rcs.envs.scenes import BaseTaskConfig, Task, TaskConfig
+from rcs.envs.sim import PickCubeSuccessWrapper
 from rcs.sim.composer import ModelComposer
 from rcs.sim.sim import Sim
 import gymnasium as gym
