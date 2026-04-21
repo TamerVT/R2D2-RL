@@ -418,6 +418,50 @@ class EmptyWorldUR5e(EmptyWorldFR3):
         return cfg
 
 
+class EmptyWorldXArm7(EmptyWorldFR3):
+
+    def config(self) -> SimEnvCreatorConfig:
+        rt = RobotType("XArm7")
+        cfg = super().config()
+        lead_robot_name = self.lead_robot_name(cfg)
+
+        robot_cfg = cfg.robot_cfgs[lead_robot_name]
+        robot_cfg.robot_type = rt
+        robot_cfg.tcp_offset = rcs.common.Pose()
+        robot_cfg.attachment_site = rcs.ROBOTS[rt].attachment_site
+        robot_cfg.kinematic_model_path = rcs.ROBOTS[rt].mjcf_model_path
+        robot_cfg.arm_collision_geoms = []
+        robot_cfg.joints = [
+            "joint1",
+            "joint2",
+            "joint3",
+            "joint4",
+            "joint5",
+            "joint6",
+            "joint7",
+        ]
+        robot_cfg.actuators = [
+            "act1",
+            "act2",
+            "act3",
+            "act4",
+            "act5",
+            "act6",
+            "act7",
+        ]
+        robot_cfg.dof = rcs.ROBOTS[rt].dof
+        robot_cfg.joint_limits = rcs.ROBOTS[rt].joint_limits
+        robot_cfg.q_home = rcs.ROBOTS[rt].q_home
+        robot_cfg.base = "base"
+
+        cfg.gripper_cfgs = None
+        cfg.camera_cfgs = None
+        cfg.camera_adds = None
+        cfg.gripper_offsets = None
+
+        return cfg
+
+
 if __name__ == "__main__":
     scene = EmptyWorldFR3Duo()
     # scene = EmptyWorldFR3()
