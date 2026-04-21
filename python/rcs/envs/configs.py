@@ -462,6 +462,46 @@ class EmptyWorldXArm7(EmptyWorldFR3):
         return cfg
 
 
+class EmptyWorldSO101(EmptyWorldFR3):
+    gripper_prefix_template = "robot"
+
+    def config(self) -> SimEnvCreatorConfig:
+        rt = RobotType("SO101")
+        cfg = super().config()
+        lead_robot_name = self.lead_robot_name(cfg)
+
+        robot_cfg = cfg.robot_cfgs[lead_robot_name]
+        robot_cfg.robot_type = rt
+        robot_cfg.tcp_offset = rcs.common.Pose()
+        robot_cfg.attachment_site = "gripper"
+        robot_cfg.kinematic_model_path = rcs.ROBOTS[rt].mjcf_model_path
+        robot_cfg.arm_collision_geoms = []
+        robot_cfg.joints = ["1", "2", "3", "4", "5"]
+        robot_cfg.actuators = ["1", "2", "3", "4", "5"]
+        robot_cfg.dof = rcs.ROBOTS[rt].dof
+        robot_cfg.joint_limits = rcs.ROBOTS[rt].joint_limits
+        robot_cfg.q_home = rcs.ROBOTS[rt].q_home
+        robot_cfg.base = "base"
+
+        assert cfg.gripper_cfgs is not None
+        gripper_cfg = cfg.gripper_cfgs[lead_robot_name]
+        gripper_cfg.min_actuator_width = -0.17453292519943295
+        gripper_cfg.max_actuator_width = 1.7453292519943295
+        gripper_cfg.min_joint_width = -0.17453292519943295
+        gripper_cfg.max_joint_width = 1.7453292519943295
+        gripper_cfg.actuator = "6"
+        gripper_cfg.joints = ["6"]
+        gripper_cfg.collision_geoms = []
+        gripper_cfg.collision_geoms_fingers = []
+        gripper_cfg.gripper_type = GripperType("SO101")
+
+        cfg.camera_cfgs = None
+        cfg.camera_adds = None
+        cfg.gripper_offsets = None
+
+        return cfg
+
+
 if __name__ == "__main__":
     scene = EmptyWorldFR3Duo()
     # scene = EmptyWorldFR3()
