@@ -233,7 +233,9 @@ class SimEnvCreator(RCSEnvCreator[SimEnvCreatorConfig], typing.Generic[TaskConfi
         if cfg.gripper_cfgs is not None:
             # add gripper to each robot
             for robot_name in self.robot_names(cfg):
-                gripper_xml = GRIPPER_PATHS[cfg.gripper_cfgs[robot_name].gripper_type]
+                gripper_xml = GRIPPER_PATHS.get(cfg.gripper_cfgs[robot_name].gripper_type)
+                if gripper_xml is None:
+                    continue
                 self.add_gripper_mujoco(
                     cfg,
                     composer,
