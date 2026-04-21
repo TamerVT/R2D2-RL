@@ -118,6 +118,19 @@ OBJECT_PATHS = {
     "fr3_duo_mount": "assets/objects/fr3_duo_mount/fr3_duo_mount.xml",
     "robotiq_d405_mount": "assets/objects/robotiq_d405_mount/robotiq_d405_mount.xml",
     "green_cube": "assets/objects/green_cube/green_cube.xml",
+    # Parallel pick task objects
+    "white_bowl": "assets/objects/parallel_pick/white_bowl.xml",
+    "black_bowl": "assets/objects/parallel_pick/black_bowl.xml",
+    "blue_tri_cylinder": "assets/objects/parallel_pick/blue_tri_cylinder.xml",
+    "blue_box": "assets/objects/parallel_pick/blue_box.xml",
+    "blue_pent_cylinder": "assets/objects/parallel_pick/blue_pent_cylinder.xml",
+    "blue_hex_cylinder": "assets/objects/parallel_pick/blue_hex_cylinder.xml",
+    "blue_cylinder": "assets/objects/parallel_pick/blue_cylinder.xml",
+    "green_tri_cylinder": "assets/objects/parallel_pick/green_tri_cylinder.xml",
+    "green_box": "assets/objects/parallel_pick/green_box.xml",
+    "green_pent_cylinder": "assets/objects/parallel_pick/green_pent_cylinder.xml",
+    "green_hex_cylinder": "assets/objects/parallel_pick/green_hex_cylinder.xml",
+    "green_cylinder": "assets/objects/parallel_pick/green_cylinder.xml",
 }
 
 CAMERA_PATHS = {

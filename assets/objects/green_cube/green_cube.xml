@@ -1,4 +1,4 @@
-<mujoco model="robotiq_d405_mount">
+<mujoco model="green_cube">
   <compiler angle="radian" meshdir="assets" autolimits="true"/>
 
   <option cone="elliptic" impratio="10"/>

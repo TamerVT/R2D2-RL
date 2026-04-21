@@ -1,0 +1,18 @@
+<mujoco model="white_bowl">
+  <compiler angle="radian" meshdir="assets" autolimits="true"/>
+
+  <option cone="elliptic" impratio="10"/>
+
+  <asset>
+    <material name="white" rgba="1 1 1 1"/>
+    <mesh name="white_bowl" file="bowl.obj"/>
+  </asset>
+  
+  <worldbody>
+    <body name="white_bowl_body">
+        <geom type="mesh" mesh="white_bowl" material="white" name="white_bowl_geom" friction="1 0.3 0.1" density="50" group="1" />
+        <joint type="free" name="white_bowl_joint" />
+    </body>
+  </worldbody>  
+
+</mujoco>

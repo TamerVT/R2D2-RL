@@ -1,0 +1,18 @@
+<mujoco model="black_bowl">
+  <compiler angle="radian" meshdir="assets" autolimits="true"/>
+
+  <option cone="elliptic" impratio="10"/>
+
+  <asset>
+    <material name="black" rgba="0 0 0 1"/>
+    <mesh name="black_bowl" file="bowl.obj"/>
+  </asset>
+  
+  <worldbody>
+    <body name="black_bowl_body">
+        <geom type="mesh" mesh="black_bowl" material="black" name="black_bowl_geom" friction="1 0.3 0.1" density="50" group="1" />
+        <joint type="free" name="black_bowl_joint" />
+    </body>
+  </worldbody>  
+
+</mujoco>
