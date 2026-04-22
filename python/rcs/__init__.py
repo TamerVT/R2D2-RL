@@ -1,14 +1,15 @@
 """Robot control stack python bindings."""
 
+import os
 from dataclasses import dataclass
 
 import numpy as np
 from rcs._core import __version__, common
 
 from rcs import camera, envs, hand, sim
-import os
 
 RCS_PREFIX = os.path.join(os.path.dirname(__file__), "../../")
+
 
 # TODO: assets must be "downloaded" first time this is imported
 @dataclass(kw_only=True)

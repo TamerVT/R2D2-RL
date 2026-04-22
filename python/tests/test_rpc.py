@@ -11,7 +11,13 @@ from typing import Optional, Type, Union
 
 import gymnasium as gym
 import pytest
-from rcs.envs.base import ControlMode, RelativeActionSpace, RelativeTo, RobotWrapper, SimEnv
+from rcs.envs.base import (
+    ControlMode,
+    RelativeActionSpace,
+    RelativeTo,
+    RobotWrapper,
+    SimEnv,
+)
 from rcs.envs.configs import EmptyWorldFR3
 from rcs.envs.sim import RobotSimWrapper
 from rcs.rpc.client import RcsClient
