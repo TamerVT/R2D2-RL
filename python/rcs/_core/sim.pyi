@@ -109,9 +109,7 @@ class SimCameraConfig(rcs._core.common.BaseCameraConfig):
     ) -> None: ...
 
 class SimCameraSet:
-    def __init__(
-        self, sim: Sim, cameras: dict[str, SimCameraConfig], render_on_demand: bool = True, max_buffer_frames: int = 100
-    ) -> None: ...
+    def __init__(self, sim: Sim, cameras: dict[str, SimCameraConfig], render_on_demand: bool = True) -> None: ...
     def buffer_size(self) -> int: ...
     def clear_buffer(self) -> None: ...
     def get_latest_frameset(self) -> FrameSet | None: ...
@@ -201,7 +199,7 @@ class SimRobotConfig(rcs._core.common.RobotConfig):
     arm_collision_geoms: list[str]
     base: str
     dof: int
-    joint_limits: numpy.ndarray[tuple[typing.Literal[2], N], numpy.dtype[numpy.float64]]
+    joint_limits: numpy.ndarray[tuple[typing.Literal[2], typing.Any], numpy.dtype[numpy.float64]]
     joint_rotational_tolerance: float
     joints: list[str]
     seconds_between_callbacks: float
@@ -248,7 +246,7 @@ class SimRobotConfig(rcs._core.common.RobotConfig):
         ],
         base: str = "base",
         dof: int = 7,
-        joint_limits: numpy.ndarray[tuple[typing.Literal[2], N], numpy.dtype[numpy.float64]] = ...,
+        joint_limits: numpy.ndarray[tuple[typing.Literal[2], typing.Any], numpy.dtype[numpy.float64]] = ...,
     ) -> None: ...
     def add_prefix(self, id: str) -> None: ...
 

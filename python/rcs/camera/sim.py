@@ -26,18 +26,12 @@ class SimCameraSet(_SimCameraSet):
         cameras: dict[str, SimCameraConfig],
         physical_units: bool = False,
         render_on_demand: bool = True,
-        max_buffer_frames: int = 100,
     ):
         self._logger = logging.getLogger(__name__)
         self.cameras = cameras
         self.physical_units = physical_units
 
-        super().__init__(
-            simulation,
-            cameras,
-            render_on_demand=render_on_demand,
-            max_buffer_frames=max_buffer_frames,
-        )
+        super().__init__(simulation, cameras, render_on_demand=render_on_demand)
         self._sim: sim.Sim
 
     def get_latest_frames(self) -> FrameSet | None:

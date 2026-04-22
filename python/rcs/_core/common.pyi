@@ -197,7 +197,6 @@ class Pose:
     def pose_matrix(self) -> numpy.ndarray[tuple[typing.Literal[4], typing.Literal[4]], numpy.dtype[numpy.float64]]: ...
     def rotation_m(self) -> numpy.ndarray[tuple[typing.Literal[3], typing.Literal[3]], numpy.dtype[numpy.float64]]: ...
     def rotation_q(self) -> numpy.ndarray[tuple[typing.Literal[4]], numpy.dtype[numpy.float64]]: ...
-    def rotation_q_wxyz(self) -> numpy.ndarray[tuple[typing.Literal[4]], numpy.dtype[numpy.float64]]: ...
     def rotation_rpy(self) -> RPY: ...
     def rotvec(self) -> numpy.ndarray[tuple[typing.Literal[6]], numpy.dtype[numpy.float64]]: ...
     def total_angle(self) -> float: ...
@@ -242,7 +241,7 @@ class Robot:
 class RobotConfig:
     attachment_site: str
     dof: int
-    joint_limits: numpy.ndarray[tuple[typing.Literal[2], N], numpy.dtype[numpy.float64]]
+    joint_limits: numpy.ndarray[tuple[typing.Literal[2], typing.Any], numpy.dtype[numpy.float64]]
     kinematic_model_path: str
     q_home: numpy.ndarray | None
     robot_platform: RobotPlatform
@@ -252,7 +251,7 @@ class RobotConfig:
         self,
         robot_type: RobotType = ...,
         dof: int = 7,
-        joint_limits: numpy.ndarray[tuple[typing.Literal[2], N], numpy.dtype[numpy.float64]] = ...,
+        joint_limits: numpy.ndarray[tuple[typing.Literal[2], typing.Any], numpy.dtype[numpy.float64]] = ...,
         robot_platform: RobotPlatform = ...,
         tcp_offset: Pose = ...,
         attachment_site: str = "attachment_site",
