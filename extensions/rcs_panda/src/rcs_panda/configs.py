@@ -3,7 +3,7 @@ import copy
 import numpy as np
 from rcs._core.common import RobotType
 from rcs.envs.base import ControlMode, RelativeTo
-from rcs_panda import hw
+from rcs_panda._core import hw
 from rcs_panda.creators import (
     PandaHardwareEnvCreatorConfig,
     PandaMultiHardwareEnvCreatorConfig,

@@ -636,9 +636,8 @@ void Franka::move_home() {
     std::cerr << "Home position is not defined in the config." << std::endl;
     return;
   }
-  FrankaMotionGenerator motion_generator(
-      this->m_cfg.speed_factor,
-      this->m_cfg.q_home.value());
+  FrankaMotionGenerator motion_generator(this->m_cfg.speed_factor,
+                                         this->m_cfg.q_home.value());
   this->robot.control(motion_generator);
 }
 

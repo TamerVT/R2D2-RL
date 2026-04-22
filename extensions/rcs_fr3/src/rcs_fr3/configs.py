@@ -2,7 +2,7 @@ import copy
 
 import numpy as np
 from rcs.envs.base import ControlMode, RelativeTo
-from rcs_fr3 import hw
+from rcs_fr3._core import hw
 from rcs_fr3.creators import (
     FR3HardwareEnvCreatorConfig,
     FR3MultiHardwareEnvCreatorConfig,

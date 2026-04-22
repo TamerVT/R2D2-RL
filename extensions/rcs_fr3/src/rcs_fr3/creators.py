@@ -22,7 +22,7 @@ from rcs.envs.base import (
 )
 from rcs.envs.scenes import RCSEnvCreator, WrapperConfig
 from rcs.hand.tilburg_hand import TilburgHand
-from rcs_fr3 import hw
+from rcs_fr3._core import hw
 from rcs_fr3.envs import FR3HW
 
 import rcs

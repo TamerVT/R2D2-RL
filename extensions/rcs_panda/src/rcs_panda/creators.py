@@ -20,7 +20,7 @@ from rcs.envs.base import (
 )
 from rcs.envs.scenes import RCSEnvCreator, WrapperConfig
 from rcs.hand.tilburg_hand import TilburgHand
-from rcs_panda import hw
+from rcs_panda._core import hw
 from rcs_panda.envs import PandaHW
 
 import rcs
