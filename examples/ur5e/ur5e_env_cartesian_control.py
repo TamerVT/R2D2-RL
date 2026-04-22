@@ -1,10 +1,23 @@
 import logging
 from time import sleep
 
+import gymnasium as gym
 import numpy as np
 from rcs._core.common import RobotPlatform
-from rcs.envs.base import ControlMode, RelativeTo
-from rcs.envs.creators import SimEnvCreator
+from rcs._core.sim import SimConfig
+from rcs.camera.sim import SimCameraSet
+from rcs.envs.base import (
+    CameraSetWrapper,
+    ControlMode,
+    CoverWrapper,
+    GripperWrapper,
+    RelativeActionSpace,
+    RelativeTo,
+    RobotWrapper,
+    SimEnv,
+)
+from rcs.envs.configs import EmptyWorldUR5e
+from rcs.envs.sim import GripperWrapperSim, RobotSimWrapper
 from rcs_ur5e.creators import RCSUR5eEnvCreator
 from rcs_ur5e.hw import UR5eConfig
 
@@ -30,41 +43,47 @@ def main():
             relative_to=RelativeTo.LAST_STEP,
         )
     else:
-        robot_sim_cfg = sim.SimRobotConfig()
-        robot_sim_cfg.actuators = ["shoulder_pan", "shoulder_lift", "elbow", "wrist_1", "wrist_2", "wrist_3"]
-        robot_sim_cfg.joints = [
-            "shoulder_pan_joint",
-            "shoulder_lift_joint",
-            "elbow_joint",
-            "wrist_1_joint",
-            "wrist_2_joint",
-            "wrist_3_joint",
-        ]
-        robot_sim_cfg.robot_type = rcs.common.RobotType.UR5e
-        robot_sim_cfg.attachment_site = "attachment_site"
-        robot_sim_cfg.arm_collision_geoms = []
-        scene = rcs.scenes["ur5e_empty_world"]
-        robot_sim_cfg.kinematic_model_path = rcs.scenes["ur5e_empty_world"].mjcf_robot
-        robot_sim_cfg.base = "base"
-        robot_sim_cfg.tcp_offset = rcs.common.Pose()
+        scene = EmptyWorldUR5e()
+        cfg = scene.prefixed_cfg(scene.config())
+        ur5e = scene.lead_robot_name(cfg)
 
-        gripper_config = sim.SimGripperConfig()
-        gripper_config.actuator = "fingers_actuator"
-        gripper_config.joints = ["right_driver_joint"]
-        gripper_config.collision_geoms = []
-        gripper_config.collision_geoms_fingers = []
-        gripper_config.max_actuator_width = 0
-        gripper_config.min_actuator_width = 1
-        gripper_config.max_joint_width = 0.0
-        gripper_config.min_joint_width = 0.8
+        robot_cfg = cfg.robot_cfgs[ur5e]
+        gripper_cfg = cfg.gripper_cfgs[ur5e]  # type: ignore[index]
+        camera_cfgs = cfg.camera_cfgs
+        sim_cfg = SimConfig(
+            realtime=False,
+            async_control=False,
+        )
 
-        env_rel = SimEnvCreator()(
-            control_mode=ControlMode.CARTESIAN_TQuat,
-            robot_cfg=robot_sim_cfg,
-            gripper_cfg=gripper_config,
-            max_relative_movement=(0.1, np.deg2rad(5)),
+        mjmodel = scene.create_model(cfg)
+        simulation = sim.Sim(mjmodel, sim_cfg)
+
+        kinematic_model_path, attachment_site = scene.kinematics_cfg(cfg)[ur5e]
+        ik = rcs.common.Pin(
+            kinematic_model_path,
+            attachment_site,
+        )
+
+        robot = rcs.sim.SimRobot(simulation, ik, robot_cfg)
+        env_rel: gym.Env = SimEnv(simulation)
+        env_rel = RobotWrapper(env_rel, robot, ControlMode.CARTESIAN_TQuat)
+
+        gripper = sim.SimGripper(simulation, gripper_cfg)
+        env_rel = GripperWrapper(env_rel, gripper)
+
+        env_rel = RobotSimWrapper(env_rel)
+        env_rel = GripperWrapperSim(env_rel)
+
+        if camera_cfgs is not None:
+            camera_set = SimCameraSet(simulation, camera_cfgs, physical_units=True, render_on_demand=True)
+            env_rel = CameraSetWrapper(env_rel, camera_set, include_depth=True)  # type: ignore[arg-type]
+
+        env_rel = RelativeActionSpace(
+            env_rel,
+            max_mov=(0.1, np.deg2rad(5)),
             relative_to=RelativeTo.LAST_STEP,
         )
+        env_rel = CoverWrapper(env_rel)
         env_rel.get_wrapper_attr("sim").open_gui()
 
     obs, info = env_rel.reset()

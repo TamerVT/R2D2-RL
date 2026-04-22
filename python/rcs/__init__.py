@@ -105,6 +105,7 @@ ROBOTS: dict[common.RobotType, RobotMetaConfig] = {
                 [1.9198621771937616, 1.9198621771937634, 1.5707963267948966, 1.6580627969561903, 2.7925268969992407],
             ]
         ),
+        attachment_site="gripper",
     ),
 }
 
