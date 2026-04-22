@@ -6,7 +6,9 @@ import numpy as np
 from rcs._core import __version__, common
 
 from rcs import camera, envs, hand, sim
+import os
 
+RCS_PREFIX = os.path.join(os.path.dirname(__file__), "../../")
 
 # TODO: assets must be "downloaded" first time this is imported
 @dataclass(kw_only=True)
@@ -118,19 +120,6 @@ OBJECT_PATHS = {
     "fr3_duo_mount": "assets/objects/fr3_duo_mount/fr3_duo_mount.xml",
     "robotiq_d405_mount": "assets/objects/robotiq_d405_mount/robotiq_d405_mount.xml",
     "green_cube": "assets/objects/green_cube/green_cube.xml",
-    # Parallel pick task objects
-    "white_bowl": "assets/objects/parallel_pick/white_bowl.xml",
-    "black_bowl": "assets/objects/parallel_pick/black_bowl.xml",
-    "blue_tri_cylinder": "assets/objects/parallel_pick/blue_tri_cylinder.xml",
-    "blue_box": "assets/objects/parallel_pick/blue_box.xml",
-    "blue_pent_cylinder": "assets/objects/parallel_pick/blue_pent_cylinder.xml",
-    "blue_hex_cylinder": "assets/objects/parallel_pick/blue_hex_cylinder.xml",
-    "blue_cylinder": "assets/objects/parallel_pick/blue_cylinder.xml",
-    "green_tri_cylinder": "assets/objects/parallel_pick/green_tri_cylinder.xml",
-    "green_box": "assets/objects/parallel_pick/green_box.xml",
-    "green_pent_cylinder": "assets/objects/parallel_pick/green_pent_cylinder.xml",
-    "green_hex_cylinder": "assets/objects/parallel_pick/green_hex_cylinder.xml",
-    "green_cylinder": "assets/objects/parallel_pick/green_cylinder.xml",
 }
 
 CAMERA_PATHS = {
@@ -148,18 +137,36 @@ DEFAULT_TRANSFORMS = {
     "FR3_ROBOTIQ_WRIST_D405_CAMERA": common.Pose(
         translation=[0.060, 0, 0.0665], rpy_vector=[-np.pi / 2, -np.pi * 11 / 18, 0]
     ),
-    "FR3_DUOMOUNT_BASE": common.Pose(translation=[0, 0, 0.342], quaternion=[0, 0, 0, 1]),
+    "FR3_DUOMOUNT_HEIGHT_OFFSET": common.Pose(translation=[0, 0, 0.342], quaternion=[0, 0, 0, 1]),
+    "FR3_DUOMOUNT_BASE": common.Pose(translation=[0, 0, 0], quaternion=[0, 0, 0, 1]),
     "FR3_DUOMOUNT_LEFT_ROBOT": common.Pose(
-        translation=[0, 0.05018, 0.342], quaternion=[-0.436978, 0.0225312, -0.243326, 0.865641]
+        translation=[0, 0.05018, 0], quaternion=[-0.436978, 0.0225312, -0.243326, 0.865641]
     ),
     "FR3_DUOMOUNT_RIGHT_ROBOT": common.Pose(
-        translation=[0, -0.05018, 0.342], quaternion=[0.436978, 0.0225312, 0.243326, 0.865641]
+        translation=[0, -0.05018, 0], quaternion=[0.436978, 0.0225312, 0.243326, 0.865641]
     ),
     "FR3_DUOMOUNT_ZEDMINI_CAMERA": common.Pose(
         translation=[0.0113, -0.0245, 0.695],
         rpy_vector=[0, np.pi * 41 / 180, 0],
     ),
 }
+
+# Append RCS package prefix to all asset paths
+for path_dict in (GRIPPER_PATHS, SCENE_PATHS, OBJECT_PATHS, CAMERA_PATHS):
+    for name, path in path_dict.items():
+        abs_path = os.path.join(RCS_PREFIX, path)
+        if not os.path.isfile(abs_path):
+            error_msg = f"Asset {name} not found at path: {abs_path}. Please make sure to download the assets."
+            raise FileNotFoundError(error_msg)
+        else:
+            path_dict[name] = abs_path
+for robot_name, robot_cfg in ROBOTS.items():
+    abs_path = os.path.join(RCS_PREFIX, robot_cfg.mjcf_model_path)
+    if not os.path.isfile(abs_path):
+        error_msg = f"Robot model {robot_name} not found at path: {abs_path}. Please make sure to download the assets."
+        raise FileNotFoundError(error_msg)
+    else:
+        robot_cfg.mjcf_model_path = abs_path
 
 # make submodules available
 __all__ = [
