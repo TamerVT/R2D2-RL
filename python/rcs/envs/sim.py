@@ -1,10 +1,10 @@
 import logging
+import random as py_random
 from typing import Any, cast
 
 import gymnasium as gym
 import mujoco
 import numpy as np
-from numpy.random import random
 from rcs._core.common import RobotPlatform
 from rcs.envs.base import GripperWrapper
 from rcs.envs.space_utils import ActObsInfoWrapper
@@ -310,7 +310,7 @@ class MazeTaskWrapper(gym.Wrapper):
 
         # get concat pairs
         contacts = []
-        reward = 0
+        reward = 0.0
 
         for i in range(self.sim.data.ncon):
             c = self.sim.data.contact[i]
@@ -370,7 +370,7 @@ class MazeTaskWrapper(gym.Wrapper):
         z_t = 0.1
 
         # randmoise the board position
-        random.seed(seed)
+        py_random.seed(seed)
         x_min = x_min_t
         x_max = x_max_t
         y_min = y_max_t
@@ -378,7 +378,7 @@ class MazeTaskWrapper(gym.Wrapper):
         z = z_t
 
         old_pos = self.simdata.body(self.board_name).xpos
-        pos = random_position_in_bounds(old_pos, x_min, x_max, y_min, y_max, z, random)
+        pos = random_position_in_bounds(old_pos, x_min, x_max, y_min, y_max, z, py_random)
         joint_id = self.sim.model.joint(self.board_joint).id
         qpos_adr = self.sim.model.jnt_qposadr[joint_id]
 
@@ -437,7 +437,7 @@ class JoinBlocksTaskWrapper(gym.Wrapper):
     def calculate_reward(self):
 
         contacts = []
-        reward = 0
+        reward = 0.0
 
         # get all contact pairs
         for i in range(self.sim.data.ncon):
@@ -468,7 +468,7 @@ class JoinBlocksTaskWrapper(gym.Wrapper):
         # check block connect phase
         diff_block = abs(block_peg_pos - block_marker_pos)
 
-        reward_block = 0
+        reward_block = 0.0
         if diff_block[0] < 0.005 and diff_block[1] < 0.005 and diff_block[2] < 0.05:
 
             reward_block = 0.5
@@ -479,7 +479,7 @@ class JoinBlocksTaskWrapper(gym.Wrapper):
         # check wall connect phase
 
         diff_wall = abs(wall_peg_pos - wall_marker_pos)
-        reward_wall = 0
+        reward_wall = 0.0
         if diff_wall[0] < 0.005 and diff_wall[1] < 0.005 and diff_wall[2] < 0.01:
             reward_wall = 0.5
             self.phase = [False, False, False]
@@ -501,8 +501,8 @@ class JoinBlocksTaskWrapper(gym.Wrapper):
             success = True
         return obs, reward, success, truncated, info
 
-    def reset(self, scene_dict, seed: int | None = None, options: dict[str, Any] | None = None):
-        obs, info = super().reset()
+    def reset(self, *, seed: int | None = None, options: dict[str, Any] | None = None):
+        obs, info = super().reset(seed=seed, options=options)
 
         # TODO move to somewhere where it fits
         x_max_t = 1
@@ -511,7 +511,7 @@ class JoinBlocksTaskWrapper(gym.Wrapper):
         z_t = 0.1
 
         # randmoise the board position
-        random.seed(seed)
+        py_random.seed(seed)
         x_min = x_min_t
         x_max = x_max_t
         y_min = y_max_t
@@ -521,7 +521,7 @@ class JoinBlocksTaskWrapper(gym.Wrapper):
         # randmoise_p_block
 
         old_p_block_pos = self.sim.data.body(self.p_block).xpos
-        pos = random_position_in_bounds(old_p_block_pos, x_min, x_max, y_min, y_max, z, random)
+        pos = random_position_in_bounds(old_p_block_pos, x_min, x_max, y_min, y_max, z, py_random)
         joint_id = self.sim.model.joint(self.p_block_joint).id
         qpos_adr = self.sim.model.jnt_qposadr[joint_id]
 
@@ -530,7 +530,7 @@ class JoinBlocksTaskWrapper(gym.Wrapper):
 
         # randmosie h_block
         old_h_block_pos = self.sim.data.body(self.h_block).xpos
-        pos = random_position_in_bounds(old_h_block_pos, x_min, x_max, y_min, y_max, z, random)
+        pos = random_position_in_bounds(old_h_block_pos, x_min, x_max, y_min, y_max, z, py_random)
         joint_id = self.sim.model.joint(self.h_block_joint).id
         qpos_adr = self.sim.model.jnt_qposadr[joint_id]
 
@@ -540,7 +540,7 @@ class JoinBlocksTaskWrapper(gym.Wrapper):
         # randmise_wall
 
         old_wall_pos = self.sim.data.body(self.wall).xpos
-        pos = random_position_in_bounds(old_wall_pos, x_min, x_max, y_min, y_max, z, random)
+        pos = random_position_in_bounds(old_wall_pos, x_min, x_max, y_min, y_max, z, py_random)
         body_id = mujoco.mj_name2id(self.sim.model, mujoco.mjtObj.mjOBJ_BODY, self.wall)
         self.sim.model.body_pos[body_id] = pos
         mujoco.mj_forward(self.sim.model, self.sim.data)

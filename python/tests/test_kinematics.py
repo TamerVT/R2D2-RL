@@ -40,7 +40,7 @@ def test_kinematics_identity(robot_name):
 
     # Test 2: IK at home pose should return a solution (ideally close to q_home, but IK is redundant)
     # We use q_home as initial guess
-    q_sol = pin.inverse(pose_home, q_home, tcp_offset)
+    q_sol: np.ndarray | None = pin.inverse(pose_home, q_home, tcp_offset)
 
     assert q_sol is not None, "IK failed for home pose"
 
@@ -59,7 +59,7 @@ def test_kinematics_identity(robot_name):
     q_perturbed = q_home + np.random.uniform(-0.1, 0.1, size=q_home.shape)
 
     pose_perturbed = pin.forward(q_perturbed, tcp_offset)  # type: ignore
-    q_sol_perturbed = pin.inverse(pose_perturbed, q_home, tcp_offset)  # Use q_home as seed
+    q_sol_perturbed: np.ndarray | None = pin.inverse(pose_perturbed, q_home, tcp_offset)  # Use q_home as seed
 
     assert q_sol_perturbed is not None, "IK failed for perturbed pose"
 

@@ -1,7 +1,6 @@
 import logging
 from time import sleep
 
-import gymnasium as gym
 import numpy as np
 from rcs._core.common import RobotPlatform
 from rcs._core.sim import SimConfig
@@ -42,32 +41,32 @@ def main():
     if ROBOT_INSTANCE == RobotPlatform.HARDWARE:
         env_creator = DefaultXArm7HardwareEnv()
         env_creator.ip = ROBOT_IP
-        cfg = env_creator.config()
-        cfg.control_mode = ControlMode.JOINTS
-        cfg.max_relative_movement = np.deg2rad(5)
-        cfg.relative_to = RelativeTo.LAST_STEP
-        env_rel = env_creator.create_env(cfg)
+        hw_cfg = env_creator.config()
+        hw_cfg.control_mode = ControlMode.JOINTS
+        hw_cfg.max_relative_movement = np.deg2rad(5)
+        hw_cfg.relative_to = RelativeTo.LAST_STEP
+        env_rel = env_creator.create_env(hw_cfg)
     else:
         scene = EmptyWorldXArm7()
-        cfg = scene.prefixed_cfg(scene.config())
-        xarm7 = scene.lead_robot_name(cfg)
+        sim_cfg_data = scene.prefixed_cfg(scene.config())
+        xarm7 = scene.lead_robot_name(sim_cfg_data)
 
-        robot_cfg = cfg.robot_cfgs[xarm7]
+        robot_cfg = sim_cfg_data.robot_cfgs[xarm7]
         sim_cfg = SimConfig(
             realtime=False,
             async_control=False,
         )
 
-        kinematic_model_path, attachment_site = scene.kinematics_cfg(cfg)[xarm7]
+        kinematic_model_path, attachment_site = scene.kinematics_cfg(sim_cfg_data)[xarm7]
         ik = rcs.common.Pin(
             kinematic_model_path,
             attachment_site,
         )
-        mjmodel = scene.create_model(cfg)
+        mjmodel = scene.create_model(sim_cfg_data)
         simulation = sim.Sim(mjmodel, sim_cfg)
 
         robot = rcs.sim.SimRobot(simulation, ik, robot_cfg)
-        env_rel: gym.Env = SimEnv(simulation)
+        env_rel = SimEnv(simulation)
         env_rel = RobotWrapper(env_rel, robot, ControlMode.JOINTS)
         env_rel = RobotSimWrapper(env_rel)
         env_rel = RelativeActionSpace(

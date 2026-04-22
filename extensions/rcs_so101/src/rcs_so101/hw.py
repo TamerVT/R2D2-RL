@@ -183,7 +183,7 @@ class SO101Gripper(common.Gripper):
         super().__init__()
         self._hf_robot = hf_robot
         self._robot = robot
-        self._cfg = common.GripperConfig(binary=False)
+        self._cfg = common.GripperConfig()
 
     def get_normalized_width(self) -> float:
         obs = self._robot.obs

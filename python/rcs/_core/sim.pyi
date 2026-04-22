@@ -201,7 +201,7 @@ class SimRobotConfig(rcs._core.common.RobotConfig):
     arm_collision_geoms: list[str]
     base: str
     dof: int
-    joint_limits: numpy.ndarray[tuple[typing.Literal[2], N], numpy.dtype[numpy.float64]]
+    joint_limits: numpy.ndarray
     joint_rotational_tolerance: float
     joints: list[str]
     seconds_between_callbacks: float

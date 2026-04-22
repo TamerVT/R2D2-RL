@@ -10,6 +10,7 @@ class DefaultUR5eHardwareEnv(RCSUR5eConfigEnvCreator):
     ip = "192.168.1.15"
 
     def config(self) -> UR5eHardwareEnvCreatorConfig:
+        robot_type = RobotType("UR5e")
         robot_cfg = UR5eConfig(
             ip=self.ip,
             max_velocity=1.0,
@@ -19,12 +20,12 @@ class DefaultUR5eHardwareEnv(RCSUR5eConfigEnvCreator):
             max_servo_cartesian_step=0.01,
             lookahead_time=0.05,
             gain=500.0,
-            robot_type=RobotType.UR5e,
-            kinematic_model_path=rcs.ROBOTS[RobotType.UR5e].mjcf_model_path,
-            attachment_site=rcs.ROBOTS[RobotType.UR5e].attachment_site,
-            dof=rcs.ROBOTS[RobotType.UR5e].dof,
-            joint_limits=rcs.ROBOTS[RobotType.UR5e].joint_limits,
-            q_home=rcs.ROBOTS[RobotType.UR5e].q_home,
+            robot_type=robot_type,
+            kinematic_model_path=rcs.ROBOTS[robot_type].mjcf_model_path,
+            attachment_site=rcs.ROBOTS[robot_type].attachment_site,
+            dof=rcs.ROBOTS[robot_type].dof,
+            joint_limits=rcs.ROBOTS[robot_type].joint_limits,
+            q_home=rcs.ROBOTS[robot_type].q_home,
             tcp_offset=rcs.common.Pose(),
         )
 

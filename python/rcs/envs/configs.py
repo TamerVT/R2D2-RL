@@ -4,7 +4,13 @@ from typing import ClassVar
 
 import numpy as np
 from rcs._core.common import FrankaHandTCPOffset, GripperType, RobotType
-from rcs._core.sim import CameraType, SimCameraConfig, SimConfig, SimGripperConfig, SimRobotConfig
+from rcs._core.sim import (
+    CameraType,
+    SimCameraConfig,
+    SimConfig,
+    SimGripperConfig,
+    SimRobotConfig,
+)
 from rcs.envs.base import ControlMode, RelativeTo
 from rcs.envs.scenes import (
     CameraAdderConfig,
@@ -15,12 +21,7 @@ from rcs.envs.scenes import (
 from rcs.envs.tasks import PickTaskConfig
 
 import rcs
-from rcs import (
-    CAMERA_PATHS,
-    DEFAULT_TRANSFORMS,
-    OBJECT_PATHS,
-    SCENE_PATHS,
-)
+from rcs import CAMERA_PATHS, DEFAULT_TRANSFORMS, OBJECT_PATHS, SCENE_PATHS
 
 
 class EmptyWorldFR3(SimEnvCreator):
@@ -130,18 +131,24 @@ class EmptyWorldFR3(SimEnvCreator):
             "bird_eye": CameraAdderConfig(
                 fovy=60.0,
                 offset=rcs.common.Pose(
-                    translation=[0.271, -0.000, 2.080], quaternion=[0.0060, -0.0060, -0.7067, 0.7074]
+                    translation=np.array([0.271, -0.000, 2.080]), quaternion=np.array([0.0060, -0.0060, -0.7067, 0.7074])
                 ),
             ),
             "wrist": CameraAdderConfig(
                 fovy=60.0,
-                offset=rcs.common.Pose(translation=[0, 0, 0], quaternion=[0, 0, -0.3826834, 0.9238795])
-                * rcs.common.Pose(translation=[0.062, -0.009, 0.05245], rpy_vector=[0, np.pi, -np.pi / 2]),
+                offset=rcs.common.Pose(
+                    translation=np.array([0.0, 0.0, 0.0]), quaternion=np.array([0.0, 0.0, -0.3826834, 0.9238795])
+                )
+                * rcs.common.Pose(
+                    translation=np.array([0.062, -0.009, 0.05245]), rpy_vector=np.array([0.0, np.pi, -np.pi / 2])
+                ),
                 robot_name="robot",
             ),
         }
         gripper_offsets: dict[str, rcs.common.Pose] | None = {
-            "robot": rcs.common.Pose(rotation=FrankaHandTCPOffset()[:3, :3], translation=[0, 0, 0])
+            "robot": rcs.common.Pose(
+                rotation=FrankaHandTCPOffset()[:3, :3], translation=np.array([0.0, 0.0, 0.0])
+            )
         }
         return SimEnvCreatorConfig(
             robot_cfgs=robot_cfgs,
@@ -315,7 +322,9 @@ class EmptyWorldFR3Duo(SimEnvCreator):
                 robot_name="right",
             ),
         }
-        gripper_offset = rcs.common.Pose(quaternion=self.gripper_mesh_quaternion_offset, translation=[0, 0, 0])
+        gripper_offset = rcs.common.Pose(
+            quaternion=np.array(self.gripper_mesh_quaternion_offset), translation=np.array([0.0, 0.0, 0.0])
+        )
         return SimEnvCreatorConfig(
             robot_cfgs=robot_cfgs,
             sim_cfg=sim_cfg,

@@ -15,7 +15,7 @@ from rcs.envs.base import (
     RobotWrapper,
     SimEnv,
 )
-from rcs.envs.scenes import EmptyWorldFR3
+from rcs.envs.configs import EmptyWorldFR3
 from rcs.envs.sim import GripperWrapperSim, RobotSimWrapper
 
 import rcs
@@ -88,12 +88,12 @@ def main():
 
         env_creator = DefaultFR3HardwareEnv()
         env_creator.ip = FR3_IP
-        cfg = env_creator.config()
-        cfg.control_mode = ControlMode.JOINTS
-        cfg.camera_cfgs = None
-        cfg.max_relative_movement = np.deg2rad(5)
-        cfg.relative_to = RelativeTo.LAST_STEP
-        env_rel = env_creator.create_env(cfg)
+        hw_cfg = env_creator.config()
+        hw_cfg.control_mode = ControlMode.JOINTS
+        hw_cfg.camera_cfgs = None
+        hw_cfg.max_relative_movement = np.deg2rad(5)
+        hw_cfg.relative_to = RelativeTo.LAST_STEP
+        env_rel = env_creator.create_env(hw_cfg)
         input("the robot is going to move, press enter whenever you are ready")
 
     # access low level robot api to get current cartesian position

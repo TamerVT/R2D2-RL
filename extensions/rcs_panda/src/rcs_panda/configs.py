@@ -54,13 +54,13 @@ class DefaultPandaMultiHardwareEnv(RCSPandaMultiConfigEnvCreator):
         base.ip = self.left_ip
         left_env_cfg = base.config()
         left_env_cfg.robot_cfg.async_control = True
-        if left_env_cfg.gripper_cfg is not None:
+        if isinstance(left_env_cfg.gripper_cfg, hw.FHConfig):
             left_env_cfg.gripper_cfg.async_control = True
 
         base.ip = self.right_ip
         right_env_cfg = base.config()
         right_env_cfg.robot_cfg.async_control = True
-        if right_env_cfg.gripper_cfg is not None:
+        if isinstance(right_env_cfg.gripper_cfg, hw.FHConfig):
             right_env_cfg.gripper_cfg.async_control = True
 
         return PandaMultiHardwareEnvCreatorConfig(

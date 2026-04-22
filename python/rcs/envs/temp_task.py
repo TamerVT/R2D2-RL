@@ -1,9 +1,10 @@
 from dataclasses import dataclass, field
+import random
+from typing import Any
 
 import gymnasium as gym
 import numpy as np
-from numpy.random import random
-from rcs.envs.scenes import BaseTaskConfig, Task
+from rcs.envs.scenes import BaseTaskConfig, SimEnvCreatorConfig, Task
 from rcs.envs.sim import JoinBlocksTaskWrapper, MazeTaskWrapper
 from rcs.sim.composer import ModelComposer
 from rcs.sim.sim import Sim
@@ -19,7 +20,7 @@ class MazeTaskConfig(BaseTaskConfig):
             translation=np.array([0.5, 0.0, 0.05]), quaternion=np.array([0, 0, 0, 1])
         )
     )
-    task_dict = rcs.TASKS["balance_board"]
+    task_dict: dict[str, Any] = rcs.TASKS["balance_board"]
     object_body = "board"
     include_rotation: bool = True
     task_seed = 42  # used to randomise which board is used
@@ -31,9 +32,9 @@ class Maze_Task(Task[MazeTaskConfig]):
     random.seed(MazeTaskConfig.task_seed)
 
     @staticmethod
-    def add_task_mujoco(cfg: MazeTaskConfig, composer: ModelComposer):
+    def add_task_mujoco(cfg: MazeTaskConfig, composer: ModelComposer, env_cfg: SimEnvCreatorConfig) -> None:
         """Add task-specific elements to the Mujoco scene."""
-        object2world = cfg.object2root_frame * cfg.root_frame_to_world
+        object2world = cfg.object2root_frame * env_cfg.root_frame_to_world
 
         # select the board to use this time
         number_boards = MazeTaskConfig.task_dict["number_board"]
@@ -49,7 +50,9 @@ class Maze_Task(Task[MazeTaskConfig]):
         )
 
     @staticmethod
-    def add_task_env(_cfg: MazeTaskConfig, env: gym.Env, _simulation: Sim) -> gym.Env:
+    def add_task_env(
+        _cfg: MazeTaskConfig, env: gym.Env, _simulation: Sim, _env_cfg: SimEnvCreatorConfig
+    ) -> gym.Env:
         """Add task-specific wrappers to the environment."""
         return MazeTaskWrapper(env)
 
@@ -68,20 +71,20 @@ class JoinBlocksTaskConfig(BaseTaskConfig):
             translation=np.array([0.5, 0.0, 0.05]), quaternion=np.array([0, 0, 0, 1])
         )
     )
-    task_dict = rcs.TASKS["join_blocks"]
+    task_dict: dict[str, Any] = rcs.TASKS["join_blocks"]
     include_rotation: bool = True
     task_seed = 42  # used to randomise which board is used
     hard_reset = False
 
 
-class JoinBlocks_Task(Task[MazeTaskConfig]):
+class JoinBlocks_Task(Task[JoinBlocksTaskConfig]):
 
-    random.seed(MazeTaskConfig.task_seed)
+    random.seed(JoinBlocksTaskConfig.task_seed)
 
     @staticmethod
-    def add_task_mujoco(cfg: JoinBlocksTaskConfig, composer: ModelComposer):
+    def add_task_mujoco(cfg: JoinBlocksTaskConfig, composer: ModelComposer, env_cfg: SimEnvCreatorConfig) -> None:
         """Add task-specific elements to the Mujoco scene."""
-        object2world = cfg.object2root_frame * cfg.root_frame_to_world
+        object2world = cfg.object2root_frame * env_cfg.root_frame_to_world
 
         for o in JoinBlocksTaskConfig.task_dict["objects"]:
             name = o["name"]
@@ -94,12 +97,14 @@ class JoinBlocks_Task(Task[MazeTaskConfig]):
             )
 
     @staticmethod
-    def add_task_env(_cfg: MazeTaskConfig, env: gym.Env, _simulation: Sim) -> gym.Env:
+    def add_task_env(
+        _cfg: JoinBlocksTaskConfig, env: gym.Env, _simulation: Sim, _env_cfg: SimEnvCreatorConfig
+    ) -> gym.Env:
         """Add task-specific wrappers to the environment."""
         return JoinBlocksTaskWrapper(env)
 
     @staticmethod
-    def hard_reset(_cfg: MazeTaskConfig, _env: gym.Env, _simulation: Sim):
+    def hard_reset(_cfg: JoinBlocksTaskConfig, _env: gym.Env, _simulation: Sim):
 
         # TODO can be ignored for now
         pass

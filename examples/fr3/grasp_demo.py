@@ -32,9 +32,7 @@ class PickUpDemo:
         geom_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, geom_name)
         obj_pose_world_coordinates = Pose(
             translation=data.geom_xpos[geom_id], rotation=data.geom_xmat[geom_id].reshape(3, 3)
-        ) * Pose(
-            rpy_vector=np.array([0, 0, np.pi]), translation=[0, 0, 0]  # type: ignore
-        )
+        ) * Pose(rpy_vector=np.array([0, 0, np.pi]), translation=np.array([0.0, 0.0, 0.0]))
         return self._robot.to_pose_in_robot_coordinates(obj_pose_world_coordinates)
 
     def generate_waypoints(self, start_pose: Pose, end_pose: Pose, num_waypoints: int) -> list[Pose]:
@@ -92,7 +90,10 @@ def main():
     cfg.sim_cfg.async_control = True
     cfg.max_relative_movement = None
     cfg.root_frame_objects = {
-        "green_cube": (rcs.OBJECT_PATHS["green_cube"], Pose(translation=[0.5, 0.0, 0.05], quaternion=[0, 0, 0, 1]))
+        "green_cube": (
+            rcs.OBJECT_PATHS["green_cube"],
+            Pose(translation=np.array([0.5, 0.0, 0.05]), quaternion=np.array([0.0, 0.0, 0.0, 1.0])),
+        )
     }
     env = scene.create_env(cfg)
     env.get_wrapper_attr("sim").open_gui()

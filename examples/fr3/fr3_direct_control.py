@@ -4,7 +4,7 @@ import numpy as np
 from rcs._core.common import RobotPlatform
 from rcs._core.sim import CameraType, SimConfig
 from rcs.camera.sim import SimCameraConfig, SimCameraSet
-from rcs.envs.scenes import EmptyWorldFR3
+from rcs.envs.configs import EmptyWorldFR3
 from rcs_fr3._core import hw
 from rcs_fr3.configs import DefaultFR3HardwareEnv
 from rcs_fr3.desk import FCI, ContextManager, Desk, load_creds_franka_desk

@@ -6,12 +6,7 @@ from os import PathLike
 
 import gymnasium as gym
 from gymnasium.envs.registration import EnvCreator
-from rcs._core.sim import (
-    SimCameraConfig,
-    SimConfig,
-    SimGripperConfig,
-    SimRobotConfig,
-)
+from rcs._core.sim import SimCameraConfig, SimConfig, SimGripperConfig, SimRobotConfig
 from rcs.camera.interface import BaseCameraSet
 from rcs.camera.sim import SimCameraSet
 from rcs.envs.base import (
@@ -75,9 +70,7 @@ class Task(typing.Generic[TaskConfig]):
         """Add task-specific elements to the Mujoco scene."""
 
     @staticmethod
-    def add_task_env(
-        _cfg: TaskConfig, env: gym.Env, _simulation: Sim, _env_cfg: "SimEnvCreatorConfig"
-    ) -> gym.Env:
+    def add_task_env(_cfg: TaskConfig, env: gym.Env, _simulation: Sim, _env_cfg: "SimEnvCreatorConfig") -> gym.Env:
         """Add task-specific wrappers to the environment."""
         return env
 

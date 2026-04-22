@@ -1,7 +1,6 @@
 import logging
 from time import sleep
 
-import gymnasium as gym
 import numpy as np
 from rcs._core.common import RobotPlatform
 from rcs._core.sim import SimConfig
@@ -34,36 +33,36 @@ def main():
     if ROBOT_INSTANCE == RobotPlatform.HARDWARE:
         env_creator = DefaultUR5eHardwareEnv()
         env_creator.ip = ROBOT_IP
-        cfg = env_creator.config()
-        cfg.control_mode = ControlMode.CARTESIAN_TQuat
-        cfg.camera_cfgs = None
-        cfg.max_relative_movement = 0.2
-        cfg.relative_to = RelativeTo.LAST_STEP
-        env_rel = env_creator.create_env(cfg)
+        hw_cfg = env_creator.config()
+        hw_cfg.control_mode = ControlMode.CARTESIAN_TQuat
+        hw_cfg.camera_cfgs = None
+        hw_cfg.max_relative_movement = 0.2
+        hw_cfg.relative_to = RelativeTo.LAST_STEP
+        env_rel = env_creator.create_env(hw_cfg)
     else:
         scene = EmptyWorldUR5e()
-        cfg = scene.prefixed_cfg(scene.config())
-        ur5e = scene.lead_robot_name(cfg)
+        sim_cfg_data = scene.prefixed_cfg(scene.config())
+        ur5e = scene.lead_robot_name(sim_cfg_data)
 
-        robot_cfg = cfg.robot_cfgs[ur5e]
-        gripper_cfg = cfg.gripper_cfgs[ur5e]  # type: ignore[index]
-        camera_cfgs = cfg.camera_cfgs
+        robot_cfg = sim_cfg_data.robot_cfgs[ur5e]
+        gripper_cfg = sim_cfg_data.gripper_cfgs[ur5e]  # type: ignore[index]
+        camera_cfgs = sim_cfg_data.camera_cfgs
         sim_cfg = SimConfig(
             realtime=False,
             async_control=False,
         )
 
-        mjmodel = scene.create_model(cfg)
+        mjmodel = scene.create_model(sim_cfg_data)
         simulation = sim.Sim(mjmodel, sim_cfg)
 
-        kinematic_model_path, attachment_site = scene.kinematics_cfg(cfg)[ur5e]
+        kinematic_model_path, attachment_site = scene.kinematics_cfg(sim_cfg_data)[ur5e]
         ik = rcs.common.Pin(
             kinematic_model_path,
             attachment_site,
         )
 
         robot = rcs.sim.SimRobot(simulation, ik, robot_cfg)
-        env_rel: gym.Env = SimEnv(simulation)
+        env_rel = SimEnv(simulation)
         env_rel = RobotWrapper(env_rel, robot, ControlMode.CARTESIAN_TQuat)
 
         gripper = sim.SimGripper(simulation, gripper_cfg)

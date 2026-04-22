@@ -10,18 +10,19 @@ class DefaultXArm7HardwareEnv(RCSXArm7ConfigEnvCreator):
     ip = "192.168.1.245"
 
     def config(self) -> XArm7HardwareEnvCreatorConfig:
+        robot_type = RobotType("XArm7")
         robot_cfg = XArm7Config(
             ip=self.ip,
             payload_weight=0.624,
             payload_tcp=[-4.15, 5.24, 76.38],
             async_control=False,
             use_internal_ik=True,
-            robot_type=RobotType.XArm7,
-            kinematic_model_path=rcs.ROBOTS[RobotType.XArm7].mjcf_model_path,
-            attachment_site=rcs.ROBOTS[RobotType.XArm7].attachment_site,
-            dof=rcs.ROBOTS[RobotType.XArm7].dof,
-            joint_limits=rcs.ROBOTS[RobotType.XArm7].joint_limits,
-            q_home=rcs.ROBOTS[RobotType.XArm7].q_home,
+            robot_type=robot_type,
+            kinematic_model_path=rcs.ROBOTS[robot_type].mjcf_model_path,
+            attachment_site=rcs.ROBOTS[robot_type].attachment_site,
+            dof=rcs.ROBOTS[robot_type].dof,
+            joint_limits=rcs.ROBOTS[robot_type].joint_limits,
+            q_home=rcs.ROBOTS[robot_type].q_home,
             tcp_offset=rcs.common.Pose(),
         )
 

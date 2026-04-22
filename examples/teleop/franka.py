@@ -1,20 +1,17 @@
 import logging
-from typing import Any
 
 import numpy as np
-from rcs._core.common import RobotPlatform
+from rcs._core.common import BaseCameraConfig, RobotPlatform
 from rcs._core.sim import SimConfig
-from rcs.camera.hw import HardwareCameraSet
 from rcs.envs.base import ControlMode, RelativeTo
 from rcs.envs.configs import EmptyWorldFR3Duo
 from rcs.envs.storage_wrapper import StorageWrapper
 from rcs.envs.tasks import PickTaskConfig
-from rcs.envs.utils import default_digit
 from rcs.operator.gello import GelloConfig, GelloOperator
 from rcs.operator.interface import TeleopLoop
 from rcs.operator.quest import QuestConfig, QuestOperator
 from rcs_fr3.configs import DefaultFR3MultiHardwareEnv
-from rcs_realsense.utils import default_realsense
+from rcs_fr3.creators import HardwareCameraCreatorConfig
 from simpub.sim.mj_publisher import MujocoPublisher
 
 import rcs
@@ -78,29 +75,45 @@ config = QuestConfig(mq3_addr=MQ3_ADDR, simulation=ROBOT_INSTANCE == RobotPlatfo
 
 def get_env():
     if ROBOT_INSTANCE == RobotPlatform.HARDWARE:
-
-        cams: list[Any] = []
-        if CAMERA_DICT is not None:
-            cams.append(default_realsense(CAMERA_DICT))
-        if DIGIT_DICT is not None:
-            digit = default_digit(DIGIT_DICT)
-            if digit is not None:
-                cams.append(digit)
-
-        _camera_set = HardwareCameraSet(cams) if cams else None
-
         env_creator = DefaultFR3MultiHardwareEnv()
         env_creator.left_ip = ROBOT2IP["left"]
         env_creator.right_ip = ROBOT2IP["right"]
-        cfg = env_creator.config()
-        cfg.camera_cfgs = None
-        cfg.control_mode = config.operator_class.control_mode[0]
-        cfg.max_relative_movement = (
+        hw_cfg = env_creator.config()
+        camera_cfgs: dict[str, HardwareCameraCreatorConfig] = {}
+        if CAMERA_DICT is not None:
+            camera_cfgs["realsense"] = HardwareCameraCreatorConfig(
+                camera_type_id="realsense",
+                camera_cfgs={
+                    name: BaseCameraConfig(
+                        identifier=identifier,
+                        resolution_width=1280,
+                        resolution_height=720,
+                        frame_rate=30,
+                    )
+                    for name, identifier in CAMERA_DICT.items()
+                },
+            )
+        if DIGIT_DICT is not None:
+            camera_cfgs["digit"] = HardwareCameraCreatorConfig(
+                camera_type_id="digit",
+                camera_cfgs={
+                    name: BaseCameraConfig(
+                        identifier=identifier,
+                        resolution_width=320,
+                        resolution_height=240,
+                        frame_rate=30,
+                    )
+                    for name, identifier in DIGIT_DICT.items()
+                },
+            )
+        hw_cfg.camera_cfgs = camera_cfgs or None
+        hw_cfg.control_mode = config.operator_class.control_mode[0]
+        hw_cfg.max_relative_movement = (
             0.5 if config.operator_class.control_mode[0] == ControlMode.JOINTS else (0.5, np.deg2rad(90))
         )
-        cfg.relative_to = config.operator_class.control_mode[1]
-        cfg.robot_to_shared_base_frame = robot2world
-        env_rel = env_creator.create_env(cfg)
+        hw_cfg.relative_to = config.operator_class.control_mode[1]
+        hw_cfg.robot_to_shared_base_frame = robot2world
+        env_rel = env_creator.create_env(hw_cfg)
         # env_rel = StorageWrapper(
         #     env_rel, DATASET_PATH, INSTRUCTION, batch_size=32, max_rows_per_group=100, max_rows_per_file=1000
         # )
@@ -109,15 +122,15 @@ def get_env():
         # FR3
 
         scene = EmptyWorldFR3Duo()
-        cfg = scene.config()
-        cfg.sim_cfg = SimConfig(async_control=True, realtime=True, frequency=30, max_convergence_steps=500)
-        cfg.relative_to = RelativeTo.CONFIGURED_ORIGIN
-        if cfg.root_frame_objects is None:
-            cfg.root_frame_objects = {}
+        sim_cfg_data = scene.config()
+        sim_cfg_data.sim_cfg = SimConfig(async_control=True, realtime=True, frequency=30, max_convergence_steps=500)
+        sim_cfg_data.relative_to = RelativeTo.CONFIGURED_ORIGIN
+        if sim_cfg_data.root_frame_objects is None:
+            sim_cfg_data.root_frame_objects = {}
         # cfg.root_frame_objects["green_cube"] = (rcs.OBJECT_PATHS["green_cube"], Pose(translation=[0.5, 0, 0.5], quaternion=[0, 0, 0, 1]))
-        cfg.task_cfg = PickTaskConfig(robot_name="left")
+        sim_cfg_data.task_cfg = PickTaskConfig(robot_name="left")
 
-        env_rel = scene.create_env(cfg)
+        env_rel = scene.create_env(sim_cfg_data)
         env_rel = StorageWrapper(
             env_rel, DATASET_PATH, INSTRUCTION, batch_size=32, max_rows_per_group=100, max_rows_per_file=1000
         )

@@ -2,6 +2,7 @@
 
 import os
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 from rcs._core import __version__, common
@@ -111,49 +112,57 @@ ROBOTS: dict[common.RobotType, RobotMetaConfig] = {
 }
 
 
-GRIPPER_PATHS = {
+GRIPPER_PATHS: dict[common.GripperType, str] = {
     common.GripperType.FrankaHand: "assets/grippers/franka_hand/franka_hand.xml",
     common.GripperType("Robotiq2F85"): "assets/grippers/robotiq_2f85/robotiq_2f85.xml",
 }
 
-SCENE_PATHS = {"empty_world": "assets/scenes/empty_world/scene.xml"}
+SCENE_PATHS: dict[str, str] = {"empty_world": "assets/scenes/empty_world/scene.xml"}
 
-OBJECT_PATHS = {
+OBJECT_PATHS: dict[str, str] = {
     "fr3_duo_mount": "assets/objects/fr3_duo_mount/fr3_duo_mount.xml",
     "robotiq_d405_mount": "assets/objects/robotiq_d405_mount/robotiq_d405_mount.xml",
     "green_cube": "assets/objects/green_cube/green_cube.xml",
 }
 
-CAMERA_PATHS = {
+CAMERA_PATHS: dict[str, str] = {
     "d405": "assets/cameras/d405/d405.xml",
     "zed_mini": "assets/cameras/zed_mini/zed_mini.xml",
 }
 
 # we add our task classes here
-TASKS: dict[str, object] = {}
+TASKS: dict[str, Any] = {}
 
 DEFAULT_TRANSFORMS = {
-    "FR3_ROBOTIQ_GRIPPER": common.Pose(translation=[0, 0, 0], quaternion=[0, 0, 0.7071068, 0.7071068]),
-    "FR3_ROBOTIQ_WRIST_D405_MOUNT": common.Pose(translation=[0, 0, 0], quaternion=[0, 0, 0.7071068, 0.7071068]),
-    "FR3_ROBOTIQ_WRIST_D405_CAMERA": common.Pose(
-        translation=[0.060, 0, 0.0665], rpy_vector=[-np.pi / 2, -np.pi * 11 / 18, 0]
+    "FR3_ROBOTIQ_GRIPPER": common.Pose(
+        translation=np.array([0.0, 0.0, 0.0]), quaternion=np.array([0.0, 0.0, 0.7071068, 0.7071068])
     ),
-    "FR3_DUOMOUNT_HEIGHT_OFFSET": common.Pose(translation=[0, 0, 0.342], quaternion=[0, 0, 0, 1]),
-    "FR3_DUOMOUNT_BASE": common.Pose(translation=[0, 0, 0], quaternion=[0, 0, 0, 1]),
+    "FR3_ROBOTIQ_WRIST_D405_MOUNT": common.Pose(
+        translation=np.array([0.0, 0.0, 0.0]), quaternion=np.array([0.0, 0.0, 0.7071068, 0.7071068])
+    ),
+    "FR3_ROBOTIQ_WRIST_D405_CAMERA": common.Pose(
+        translation=np.array([0.060, 0.0, 0.0665]), rpy_vector=np.array([-np.pi / 2, -np.pi * 11 / 18, 0.0])
+    ),
+    "FR3_DUOMOUNT_HEIGHT_OFFSET": common.Pose(
+        translation=np.array([0.0, 0.0, 0.342]), quaternion=np.array([0.0, 0.0, 0.0, 1.0])
+    ),
+    "FR3_DUOMOUNT_BASE": common.Pose(
+        translation=np.array([0.0, 0.0, 0.0]), quaternion=np.array([0.0, 0.0, 0.0, 1.0])
+    ),
     "FR3_DUOMOUNT_LEFT_ROBOT": common.Pose(
-        translation=[0, 0.05018, 0], quaternion=[-0.436978, 0.0225312, -0.243326, 0.865641]
+        translation=np.array([0.0, 0.05018, 0.0]), quaternion=np.array([-0.436978, 0.0225312, -0.243326, 0.865641])
     ),
     "FR3_DUOMOUNT_RIGHT_ROBOT": common.Pose(
-        translation=[0, -0.05018, 0], quaternion=[0.436978, 0.0225312, 0.243326, 0.865641]
+        translation=np.array([0.0, -0.05018, 0.0]), quaternion=np.array([0.436978, 0.0225312, 0.243326, 0.865641])
     ),
     "FR3_DUOMOUNT_ZEDMINI_CAMERA": common.Pose(
-        translation=[0.0113, -0.0245, 0.695],
-        rpy_vector=[0, np.pi * 41 / 180, 0],
+        translation=np.array([0.0113, -0.0245, 0.695]),
+        rpy_vector=np.array([0.0, np.pi * 41 / 180, 0.0]),
     ),
 }
 
 # Append RCS package prefix to all asset paths
-for path_dict in (GRIPPER_PATHS, SCENE_PATHS, OBJECT_PATHS, CAMERA_PATHS):
+for path_dict in (SCENE_PATHS, OBJECT_PATHS, CAMERA_PATHS):
     for name, path in path_dict.items():
         abs_path = os.path.join(RCS_PREFIX, path)
         if not os.path.isfile(abs_path):
@@ -161,6 +170,12 @@ for path_dict in (GRIPPER_PATHS, SCENE_PATHS, OBJECT_PATHS, CAMERA_PATHS):
             raise FileNotFoundError(error_msg)
         else:
             path_dict[name] = abs_path
+for gripper_type, path in GRIPPER_PATHS.items():
+    abs_path = os.path.join(RCS_PREFIX, path)
+    if not os.path.isfile(abs_path):
+        error_msg = f"Asset {gripper_type} not found at path: {abs_path}. Please make sure to download the assets."
+        raise FileNotFoundError(error_msg)
+    GRIPPER_PATHS[gripper_type] = abs_path
 for robot_name, robot_cfg in ROBOTS.items():
     abs_path = os.path.join(RCS_PREFIX, robot_cfg.mjcf_model_path)
     if not os.path.isfile(abs_path):
