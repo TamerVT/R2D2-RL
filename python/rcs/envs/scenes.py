@@ -225,7 +225,8 @@ class SimEnvCreator(RCSEnvCreator[SimEnvCreatorConfig], typing.Generic[TaskConfi
                     if cfg.robot_to_shared_base_frame is not None
                     else rcs.common.Pose()
                 )
-                robot2world = robot_to_shared_frame * cfg.shared_base_frame_to_root_frame * cfg.root_frame_to_world
+                # robot2world = robot_to_shared_frame * cfg.shared_base_frame_to_root_frame * cfg.root_frame_to_world
+                robot2world = cfg.root_frame_to_world * cfg.shared_base_frame_to_root_frame * robot_to_shared_frame
                 self.add_robot_mujoco(
                     composer, robot_name, cfg.robot_cfgs[robot_name].kinematic_model_path, robot2world
                 )
@@ -245,7 +246,7 @@ class SimEnvCreator(RCSEnvCreator[SimEnvCreatorConfig], typing.Generic[TaskConfi
         # add robot-specific objects
         if cfg.root_frame_objects is not None:
             for object_id, (object_xml, object2root_frame) in cfg.root_frame_objects.items():
-                object2world = object2root_frame * cfg.root_frame_to_world
+                object2world = cfg.root_frame_to_world * object2root_frame
                 self.add_object_mujoco(composer, object_id, object_xml, object2world)
         # add external objects
         if cfg.world_frame_objects is not None:
@@ -269,7 +270,7 @@ class SimEnvCreator(RCSEnvCreator[SimEnvCreatorConfig], typing.Generic[TaskConfi
         if cfg.camera_adds is not None:
             for camera_name, camera_add_cfg in cfg.camera_adds.items():
                 camera_pose = (
-                    camera_add_cfg.offset * cfg.root_frame_to_world
+                    cfg.root_frame_to_world * camera_add_cfg.offset
                     if camera_add_cfg.robot_name is None
                     else camera_add_cfg.offset
                 )
