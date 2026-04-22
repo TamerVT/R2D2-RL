@@ -84,18 +84,16 @@ def main():
         env_rel = CoverWrapper(env_rel)
         env_rel.get_wrapper_attr("sim").open_gui()
     else:
-        from rcs_fr3.creators import RCSFR3EnvCreator
-        from rcs_fr3.utils import default_fr3_hw_gripper_cfg, default_fr3_hw_robot_cfg
+        from rcs_fr3.configs import DefaultFR3HardwareEnv
 
-        env_rel = RCSFR3EnvCreator()(
-            ip=FR3_IP,
-            control_mode=ControlMode.JOINTS,
-            robot_cfg=default_fr3_hw_robot_cfg(),
-            gripper_cfg=default_fr3_hw_gripper_cfg(),
-            camera_set=None,
-            max_relative_movement=np.deg2rad(5),
-            relative_to=RelativeTo.LAST_STEP,
-        )
+        env_creator = DefaultFR3HardwareEnv()
+        env_creator.ip = FR3_IP
+        cfg = env_creator.config()
+        cfg.control_mode = ControlMode.JOINTS
+        cfg.camera_cfgs = None
+        cfg.max_relative_movement = np.deg2rad(5)
+        cfg.relative_to = RelativeTo.LAST_STEP
+        env_rel = env_creator.create_env(cfg)
         input("the robot is going to move, press enter whenever you are ready")
 
     # access low level robot api to get current cartesian position

@@ -8,7 +8,9 @@ import numpy as np
 from rcs._core.common import Pose
 from rcs._core.sim import SimRobot
 from rcs.envs.base import GripperWrapper
-from rcs.envs.creators import FR3SimplePickUpSimEnvCreator
+from rcs.envs.configs import EmptyWorldFR3
+
+import rcs
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -84,10 +86,16 @@ class PickUpDemo:
 
 
 def main():
-    env = FR3SimplePickUpSimEnvCreator()(
-        render_mode="human",
-        delta_actions=False,
-    )
+    scene = EmptyWorldFR3()
+    cfg = scene.config()
+    cfg.sim_cfg.realtime = False
+    cfg.sim_cfg.async_control = True
+    cfg.max_relative_movement = None
+    cfg.root_frame_objects = {
+        "green_cube": (rcs.OBJECT_PATHS["green_cube"], Pose(translation=[0.5, 0.0, 0.05], quaternion=[0, 0, 0, 1]))
+    }
+    env = scene.create_env(cfg)
+    env.get_wrapper_attr("sim").open_gui()
     # wait for gui to open
     sleep(3)
     for _ in range(100):

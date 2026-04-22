@@ -8,17 +8,14 @@ from rcs._core.sim import SimConfig
 from rcs.camera.hw import HardwareCameraSet
 from rcs.envs.base import ControlMode, RelativeTo
 from rcs.envs.configs import EmptyWorldFR3Duo
-from rcs.envs.creators import SimMultiEnvCreator
 from rcs.envs.storage_wrapper import StorageWrapper
 from rcs.envs.tasks import PickTaskConfig
-from rcs.envs.utils import default_digit, default_sim_gripper_cfg, default_sim_robot_cfg
+from rcs.envs.utils import default_digit
 from rcs.operator.gello import GelloConfig, GelloOperator
 from rcs.operator.interface import TeleopLoop
 from rcs.operator.quest import QuestConfig, QuestOperator
-
-# from rcs_fr3.creators import RCSFR3MultiEnvCreator
-# from rcs_fr3.utils import default_fr3_hw_gripper_cfg, default_fr3_hw_robot_cfg
-# from rcs_realsense.utils import default_realsense
+from rcs_fr3.configs import DefaultFR3MultiHardwareEnv
+from rcs_realsense.utils import default_realsense
 from simpub.sim.mj_publisher import MujocoPublisher
 
 import rcs
@@ -48,7 +45,7 @@ RECORD_FPS = 30
 #     "bird_eye": "243522070364",
 # }
 CAMERA_DICT = None
-MQ3_ADDR = "192.168.1.233"
+MQ3_ADDR = "10.42.0.1"
 
 # DIGIT_DICT = {
 #     "digit_right_left": "D21182",
@@ -91,18 +88,18 @@ def get_env():
 
         camera_set = HardwareCameraSet(cams) if cams else None
 
-        env_rel = RCSFR3MultiEnvCreator()(
-            name2ip=ROBOT2IP,
-            camera_set=camera_set,
-            robot_cfg=default_fr3_hw_robot_cfg(async_control=True),
-            control_mode=config.operator_class.control_mode[0],
-            gripper_cfg=default_fr3_hw_gripper_cfg(async_control=True),
-            max_relative_movement=(
-                0.5 if config.operator_class.control_mode[0] == ControlMode.JOINTS else (0.5, np.deg2rad(90))
-            ),
-            relative_to=config.operator_class.control_mode[1],
-            robot2world=robot2world,
+        env_creator = DefaultFR3MultiHardwareEnv()
+        env_creator.left_ip = ROBOT2IP["left"]
+        env_creator.right_ip = ROBOT2IP["right"]
+        cfg = env_creator.config()
+        cfg.camera_cfgs = None
+        cfg.control_mode = config.operator_class.control_mode[0]
+        cfg.max_relative_movement = (
+            0.5 if config.operator_class.control_mode[0] == ControlMode.JOINTS else (0.5, np.deg2rad(90))
         )
+        cfg.relative_to = config.operator_class.control_mode[1]
+        cfg.robot_to_shared_base_frame = robot2world
+        env_rel = env_creator.create_env(cfg)
         # env_rel = StorageWrapper(
         #     env_rel, DATASET_PATH, INSTRUCTION, batch_size=32, max_rows_per_group=100, max_rows_per_file=1000
         # )

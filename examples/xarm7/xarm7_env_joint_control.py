@@ -15,8 +15,7 @@ from rcs.envs.base import (
 )
 from rcs.envs.configs import EmptyWorldXArm7
 from rcs.envs.sim import RobotSimWrapper
-from rcs_xarm7.creators import RCSXArm7EnvCreator
-from rcs_xarm7.hw import XArm7Config
+from rcs_xarm7.configs import DefaultXArm7HardwareEnv
 
 import rcs
 from rcs import sim
@@ -41,13 +40,13 @@ ROBOT_INSTANCE = RobotPlatform.SIMULATION
 
 def main():
     if ROBOT_INSTANCE == RobotPlatform.HARDWARE:
-        robot_cfg = XArm7Config(ip=ROBOT_IP)
-        env_rel = RCSXArm7EnvCreator()(
-            robot_cfg=robot_cfg,
-            control_mode=ControlMode.JOINTS,
-            relative_to=RelativeTo.LAST_STEP,
-            max_relative_movement=np.deg2rad(5),
-        )
+        env_creator = DefaultXArm7HardwareEnv()
+        env_creator.ip = ROBOT_IP
+        cfg = env_creator.config()
+        cfg.control_mode = ControlMode.JOINTS
+        cfg.max_relative_movement = np.deg2rad(5)
+        cfg.relative_to = RelativeTo.LAST_STEP
+        env_rel = env_creator.create_env(cfg)
     else:
         scene = EmptyWorldXArm7()
         cfg = scene.prefixed_cfg(scene.config())

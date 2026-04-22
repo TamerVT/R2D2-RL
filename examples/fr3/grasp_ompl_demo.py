@@ -5,10 +5,10 @@ from typing import Any, cast
 import gymnasium as gym
 import mujoco
 import numpy as np
-from rcs._core.common import Pose
+from rcs._core.common import Pose, RobotType
 from rcs._core.sim import SimRobot
 from rcs.envs.base import ControlMode, GripperWrapper
-from rcs.envs.creators import FR3SimplePickUpSimEnvCreator
+from rcs.envs.configs import EmptyWorldFR3
 from rcs.ompl.mj_ompl import MjOMPL
 
 import rcs
@@ -115,8 +115,17 @@ class OmplTrajectoryDemo:
 
 
 def main():
-    # Make an environment as usual
-    env = FR3SimplePickUpSimEnvCreator()(render_mode="human", delta_actions=False, control_mode=ControlMode.JOINTS)
+    scene = EmptyWorldFR3()
+    cfg = scene.config()
+    cfg.control_mode = ControlMode.JOINTS
+    cfg.sim_cfg.realtime = False
+    cfg.sim_cfg.async_control = True
+    cfg.max_relative_movement = None
+    cfg.root_frame_objects = {
+        "green_cube": (rcs.OBJECT_PATHS["green_cube"], Pose(translation=[0.5, 0.0, 0.05], quaternion=[0, 0, 0, 1]))
+    }
+    env = scene.create_env(cfg)
+    env.get_wrapper_attr("sim").open_gui()
     robot_tcp = rcs.common.Pose(
         translation=np.array([0.0, 0.0, 0.1034]),  # type: ignore
         rotation=np.array([[0.707, 0.707, 0], [-0.707, 0.707, 0], [0, 0, 1]]),  # type: ignore
@@ -132,9 +141,7 @@ def main():
             robot_env=env,  # Pass the environment created above to the planner.
             njoints=7,  # Specify the number of joints
             robot_tcp=robot_tcp,  # Specify the TCP of the robot to be planned around.
-            robot_xml_name=rcs.scenes[
-                "fr3_simple_pick_up"
-            ].mjcf_robot,  # Path to the robot xml file (NOT the scene.xml)
+            robot_xml_name=rcs.ROBOTS[RobotType.FR3].mjcf_model_path,
             robot_root_name="base_0",  # Name of the robot root body in the xml
             robot_joint_name="fr3_joint#_0",  # Joint name pattern of the robot in the xml, where # is [1~njoints]
             robot_actuator_name="fr3_joint#_0",  # Actuator name pattern, used to ensure that we only plan for actuated joints.

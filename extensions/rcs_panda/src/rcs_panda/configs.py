@@ -1,6 +1,7 @@
 import copy
 
 import numpy as np
+from rcs._core.common import RobotType
 from rcs.envs.base import ControlMode, RelativeTo
 from rcs_panda import hw
 from rcs_panda.creators import (
@@ -19,10 +20,10 @@ class DefaultPandaHardwareEnv(RCSPandaConfigEnvCreator):
 
     def config(self) -> PandaHardwareEnvCreatorConfig:
         robot_cfg = hw.PandaConfig(ip=self.ip)
-        robot_cfg.robot_type = rcs.scenes["panda_empty_world"].robot_type
-        robot_cfg.kinematic_model_path = rcs.scenes["panda_empty_world"].mjcf_robot
+        robot_cfg.robot_type = RobotType.Panda
+        robot_cfg.kinematic_model_path = rcs.ROBOTS[RobotType.Panda].mjcf_model_path
         robot_cfg.tcp_offset = common.Pose(common.FrankaHandTCPOffset())
-        robot_cfg.attachment_site = "attachment_site_0"
+        robot_cfg.attachment_site = rcs.ROBOTS[RobotType.Panda].attachment_site
         robot_cfg.speed_factor = 0.1
         robot_cfg.ik_solver = hw.IKSolver.rcs_ik
         robot_cfg.async_control = False

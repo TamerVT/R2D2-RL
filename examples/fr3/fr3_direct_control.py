@@ -6,8 +6,8 @@ from rcs._core.sim import CameraType, SimConfig
 from rcs.camera.sim import SimCameraConfig, SimCameraSet
 from rcs.envs.scenes import EmptyWorldFR3
 from rcs_fr3._core import hw
+from rcs_fr3.configs import DefaultFR3HardwareEnv
 from rcs_fr3.desk import FCI, ContextManager, Desk, load_creds_franka_desk
-from rcs_fr3.utils import default_fr3_hw_robot_cfg
 
 import rcs
 from rcs import sim
@@ -106,7 +106,10 @@ def main():
             simulation.open_gui()
 
         else:
-            fr3_cfg = default_fr3_hw_robot_cfg(ROBOT_IP)
+            default_env = DefaultFR3HardwareEnv()
+            default_env.ip = ROBOT_IP
+            env_cfg = default_env.config()
+            fr3_cfg = env_cfg.robot_cfg
             fr3_cfg.tcp_offset = rcs.common.Pose(rcs.common.FrankaHandTCPOffset())
             ik = rcs.common.Pin(
                 fr3_cfg.kinematic_model_path,
@@ -115,10 +118,8 @@ def main():
             )
             robot = hw.Franka(fr3_cfg, ik)
 
-            gripper_cfg_hw = hw.FHConfig(ip=ROBOT_IP)
-            gripper_cfg_hw.epsilon_inner = gripper_cfg_hw.epsilon_outer = 0.1
-            gripper_cfg_hw.speed = 0.1
-            gripper_cfg_hw.force = 30
+            gripper_cfg_hw = env_cfg.gripper_cfg
+            assert isinstance(gripper_cfg_hw, hw.FHConfig)
             gripper = hw.FrankaHand(gripper_cfg_hw)
             input("the robot is going to move, press enter whenever you are ready")
 

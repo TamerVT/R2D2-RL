@@ -18,8 +18,7 @@ from rcs.envs.base import (
 )
 from rcs.envs.configs import EmptyWorldUR5e
 from rcs.envs.sim import GripperWrapperSim, RobotSimWrapper
-from rcs_ur5e.creators import RCSUR5eEnvCreator
-from rcs_ur5e.hw import UR5eConfig
+from rcs_ur5e.configs import DefaultUR5eHardwareEnv
 
 import rcs
 from rcs import sim
@@ -33,15 +32,14 @@ ROBOT_INSTANCE = RobotPlatform.SIMULATION  # Change to RobotPlatform.HARDWARE fo
 
 def main():
     if ROBOT_INSTANCE == RobotPlatform.HARDWARE:
-        robot_cfg = UR5eConfig(ip=ROBOT_IP)
-        robot_cfg.async_control = False
-        env_rel = RCSUR5eEnvCreator()(
-            robot_cfg=robot_cfg,
-            control_mode=ControlMode.CARTESIAN_TQuat,
-            camera_set=None,
-            max_relative_movement=0.2,
-            relative_to=RelativeTo.LAST_STEP,
-        )
+        env_creator = DefaultUR5eHardwareEnv()
+        env_creator.ip = ROBOT_IP
+        cfg = env_creator.config()
+        cfg.control_mode = ControlMode.CARTESIAN_TQuat
+        cfg.camera_cfgs = None
+        cfg.max_relative_movement = 0.2
+        cfg.relative_to = RelativeTo.LAST_STEP
+        env_rel = env_creator.create_env(cfg)
     else:
         scene = EmptyWorldUR5e()
         cfg = scene.prefixed_cfg(scene.config())
