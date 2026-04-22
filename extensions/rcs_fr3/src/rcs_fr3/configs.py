@@ -135,6 +135,9 @@ class DefaultFR3MultiHardwareEnv(RCSFR3MultiConfigEnvCreator):
             camera_cfgs=copy.deepcopy(left_cfg.camera_cfgs),
             max_relative_movement=(0.5, np.deg2rad(90)),
             relative_to=RelativeTo.LAST_STEP,
+            # this is an example how the robots are oriented to each other
+            # in this example the have an aloha like mounting, facing each other
+            # with a distance of 1.5m
             robot_to_shared_base_frame={
                 "right": common.Pose(
                     translation=np.array([0, 0, 0]),

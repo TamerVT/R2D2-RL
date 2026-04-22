@@ -7,7 +7,7 @@ import numpy as np
 import rcs.hand.tilburg_hand
 from frankik import FrankaKinematics
 from rcs._core.common import BaseCameraConfig, Gripper, GripperConfig, Kinematics, Pose
-from rcs.camera.hw import HardwareCamera, HardwareCameraSet
+from rcs.camera.hw import DummyCalibrationStrategy, HardwareCamera, HardwareCameraSet
 from rcs.envs.base import (
     CameraSetWrapper,
     ControlMode,
@@ -64,13 +64,14 @@ class HardwareCameraCreatorConfig:
 def _create_realsense_camera(cfg: HardwareCameraCreatorConfig) -> HardwareCamera:
     try:
         from rcs.camera.hw import CalibrationStrategy
-        from rcs_realsense.calibration import FR3BaseArucoCalibration
+
+        # from rcs_realsense.calibration import FR3BaseArucoCalibration
         from rcs_realsense.camera import RealSenseCameraSet
     except ImportError as e:
         raise ImportError("RealSense camera support requires the `rcs_realsense` extension to be installed.") from e
 
     calibration_strategy = {
-        name: typing.cast(CalibrationStrategy, FR3BaseArucoCalibration(name)) for name in cfg.camera_cfgs
+        name: typing.cast(CalibrationStrategy, DummyCalibrationStrategy()) for name in cfg.camera_cfgs
     }
     return typing.cast(
         HardwareCamera,
