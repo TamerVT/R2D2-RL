@@ -29,7 +29,6 @@ from rcs.envs.base import (
     RobotWrapper,
     SimEnv,
 )
-from rcs.envs.parallel_pick_task import ParallelPickTaskConfig
 from rcs.envs.scenes import (
     CameraAdderConfig,
     SimEnvCreator,
@@ -248,8 +247,7 @@ class EmptyWorldFR3Duo(SimEnvCreator):
 
         control_mode: ControlMode = ControlMode.CARTESIAN_TQuat
         # task_cfg = None
-        # task_cfg = PickTaskConfig(robot_name="left")
-        task_cfg = ParallelPickTaskConfig()
+        task_cfg = PickTaskConfig(robot_name="left")
         scene: str = SCENE_PATHS["empty_world"]
         gripper_cfg = SimGripperConfig(
             epsilon_inner=0.005,
@@ -302,7 +300,7 @@ class EmptyWorldFR3Duo(SimEnvCreator):
         wrapper_cfg: WrapperConfig = WrapperConfig(binary_gripper=True, home_on_reset=True)
         headless = False
         add_gravcomp = True
-        shared_base_frame_to_root_frame = rcs.common.Pose()
+        shared_base_frame_to_root_frame = DEFAULT_TRANSFORMS["FR3_DUOMOUNT_HEIGHT_OFFSET"]
         root_frame_to_world = rcs.common.Pose()
         alternative_combined_robot_mjcf: str | None = None
         world_frame_objects: dict[str, tuple[str, rcs.common.Pose]] | None = None
