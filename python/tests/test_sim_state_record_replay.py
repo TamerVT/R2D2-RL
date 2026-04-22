@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import importlib.util
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -11,41 +9,10 @@ import numpy as np
 import pyarrow.dataset as ds
 from rcs._core.common import RobotPlatform
 from rcs.camera.interface import CameraFrame, DataFrame, Frame, FrameSet
+from rcs.envs.sim import SimStateObservationWrapper
 from rcs.envs.storage_wrapper import StorageWrapper
-
-import rcs
-
-REPO_ROOT = Path(__file__).resolve().parents[2]
-
-
-def _load_local_module(module_name: str, relative_path: str):
-    module_path = REPO_ROOT / relative_path
-    spec = importlib.util.spec_from_file_location(module_name, module_path)
-    if spec is None or spec.loader is None:
-        msg = f"Could not create an import spec for {module_name} from {module_path}."
-        raise ImportError(msg)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[module_name] = module
-    parent_name, _, child_name = module_name.rpartition(".")
-    if parent_name:
-        parent_module = sys.modules[parent_name]
-        setattr(parent_module, child_name, module)
-    spec.loader.exec_module(module)
-    return module
-
-
-local_sim_module = _load_local_module("rcs.sim.sim", "python/rcs/sim/sim.py")
-rcs.sim.__dict__["Sim"] = local_sim_module.Sim
-_load_local_module("rcs.envs.sim", "python/rcs/envs/sim.py")
-_load_local_module("rcs.sim_state_replay", "python/rcs/sim_state_replay.py")
-
-from rcs.envs.sim import SimStateObservationWrapper  # noqa: E402
-from rcs.sim.sim import Sim  # noqa: E402
-from rcs.sim_state_replay import (  # noqa: E402
-    load_trajectory,
-    replay_trajectory,
-    restore_sim_step,
-)
+from rcs.sim.sim import Sim
+from rcs.sim_state_replay import load_trajectory, replay_trajectory, restore_sim_step
 
 XML = """
 <mujoco>
@@ -146,11 +113,6 @@ def test_record_and_replay_sim_state(tmp_path: Path):
     recorded_obs = rows[0]["obs"]
     assert SimStateObservationWrapper.STATE_KEY in recorded_obs
     assert SimStateObservationWrapper.STATE_SPEC_KEY in recorded_obs
-    assert SimStateObservationWrapper.STATE_SIZE_KEY in recorded_obs
-    assert (
-        len(recorded_obs[SimStateObservationWrapper.STATE_KEY])
-        == recorded_obs[SimStateObservationWrapper.STATE_SIZE_KEY]
-    )
 
     recorded_steps = load_trajectory(dataset_path, rows[0]["uuid"], prefer_duckdb=True)
     assert len(recorded_steps) == 1

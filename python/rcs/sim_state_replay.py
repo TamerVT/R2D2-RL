@@ -19,16 +19,17 @@ import rcs  # noqa: F401
 app = typer.Typer(help="Replay recorded MuJoCo trajectories from a parquet dataset.")
 
 DATASET_ARGUMENT = typer.Argument(..., exists=True, file_okay=False, dir_okay=True)
-ENV_ID_OPTION = typer.Option("rcs/FR3SimplePickUpSim-v0", help="Gymnasium env id used for replay.")
-TRAJECTORY_UUID_OPTION = typer.Option(None, help="UUID of the recorded trajectory to replay.")
-CAMERA_OPTION = typer.Option([], "--camera", help="Camera names to enable on the replay env.")
-RESOLUTION_OPTION = typer.Option((256, 256), help="Replay camera resolution as WIDTH HEIGHT.")
-FRAME_RATE_OPTION = typer.Option(0, help="Replay camera frame rate.")
-RENDER_MODE_OPTION = typer.Option("human", help="Gym render mode for the replay env.")
-CONTROL_MODE_OPTION = typer.Option(ControlMode.CARTESIAN_TRPY.name, help="Control mode name for env creation.")
-SLEEP_OPTION = typer.Option(0.0, help="Optional delay between restored states.")
-OUTPUT_DIR_OPTION = typer.Option(None, help="Optional directory for re-rendered RGB frames.")
-PREFER_DUCKDB_OPTION = typer.Option(True, help="Use duckdb for parquet loading when it is available.")
+
+ENV_ID_OPTION = typer.Option(help="Gymnasium env id used for replay.")
+TRAJECTORY_UUID_OPTION = typer.Option(help="UUID of the recorded trajectory to replay.")
+CAMERA_OPTION = typer.Option("--camera", help="Camera names to enable on the replay env.")
+RESOLUTION_OPTION = typer.Option(help="Replay camera resolution as WIDTH HEIGHT.")
+FRAME_RATE_OPTION = typer.Option(help="Replay camera frame rate.")
+RENDER_MODE_OPTION = typer.Option(help="Gym render mode for the replay env.")
+CONTROL_MODE_OPTION = typer.Option(help="Control mode name for env creation.")
+SLEEP_OPTION = typer.Option(help="Optional delay between restored states.")
+OUTPUT_DIR_OPTION = typer.Option(help="Optional directory for re-rendered RGB frames.")
+PREFER_DUCKDB_OPTION = typer.Option(help="Use duckdb for parquet loading when it is available.")
 
 
 @dataclass(frozen=True)
@@ -79,7 +80,7 @@ def _load_distinct_uuids_with_duckdb(dataset_path: Path) -> list[str]:
 def _load_distinct_uuids_with_pyarrow(dataset_path: Path) -> list[str]:
     dataset = ds.dataset(str(dataset_path), format="parquet")
     uuids = dataset.to_table(columns=["uuid"])["uuid"]
-    return sorted(str(uuid) for uuid in pc.unique(uuids).to_pylist())
+    return sorted(str(uuid) for uuid in pc.unique(uuids).to_pylist())  # type: ignore
 
 
 def list_trajectory_ids(dataset_path: Path, prefer_duckdb: bool = True) -> list[str]:
@@ -193,6 +194,7 @@ def replay_trajectory(
     env.reset()
     for recorded_step in recorded_steps:
         restore_sim_step(env, recorded_step)
+        env.get_wrapper_attr("sim").step(1)
         if output_dir is not None:
             save_rgb_frames(output_dir, recorded_step, collect_rgb_frames(env))
         if sleep_s > 0:
@@ -202,17 +204,19 @@ def replay_trajectory(
 @app.command()
 def replay(
     dataset: Annotated[Path, DATASET_ARGUMENT],
-    env_id: Annotated[str, ENV_ID_OPTION],
-    trajectory_uuid: Annotated[str | None, TRAJECTORY_UUID_OPTION],
-    camera: Annotated[list[str], CAMERA_OPTION],
-    resolution: Annotated[tuple[int, int], RESOLUTION_OPTION],
-    frame_rate: Annotated[int, FRAME_RATE_OPTION],
-    render_mode: Annotated[str, RENDER_MODE_OPTION],
-    control_mode: Annotated[str, CONTROL_MODE_OPTION],
-    sleep_s: Annotated[float, SLEEP_OPTION],
-    output_dir: Annotated[Path | None, OUTPUT_DIR_OPTION],
-    prefer_duckdb: Annotated[bool, PREFER_DUCKDB_OPTION],
+    env_id: Annotated[str, ENV_ID_OPTION] = "rcs/FR3SimplePickUpSim-v0",
+    trajectory_uuid: Annotated[str | None, TRAJECTORY_UUID_OPTION] = None,
+    camera: Annotated[list[str] | None, CAMERA_OPTION] = None,
+    resolution: Annotated[tuple[int, int], RESOLUTION_OPTION] = (256, 256),
+    frame_rate: Annotated[int, FRAME_RATE_OPTION] = 0,
+    render_mode: Annotated[str, RENDER_MODE_OPTION] = "human",
+    control_mode: Annotated[str, CONTROL_MODE_OPTION] = ControlMode.CARTESIAN_TRPY.name,
+    sleep_s: Annotated[float, SLEEP_OPTION] = 0.0,
+    output_dir: Annotated[Path | None, OUTPUT_DIR_OPTION] = None,
+    prefer_duckdb: Annotated[bool, PREFER_DUCKDB_OPTION] = True,
 ):
+    if camera is None:
+        camera = []
     resolved_uuid = resolve_trajectory_uuid(dataset, trajectory_uuid, prefer_duckdb=prefer_duckdb)
     env = gym.make(
         env_id,

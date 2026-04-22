@@ -46,7 +46,6 @@ class RobotSimWrapper(ActObsInfoWrapper):
 class SimStateObservationWrapper(ActObsInfoWrapper):
     STATE_KEY = "sim_state"
     STATE_SPEC_KEY = "sim_state_spec"
-    STATE_SIZE_KEY = "sim_state_size"
 
     def __init__(self, env):
         super().__init__(env)
@@ -58,7 +57,6 @@ class SimStateObservationWrapper(ActObsInfoWrapper):
         sim_state = self.sim.get_state()
         observation[self.STATE_KEY] = sim_state
         observation[self.STATE_SPEC_KEY] = self.sim.get_state_spec()
-        observation[self.STATE_SIZE_KEY] = sim_state.shape[0]
         return observation, info
 
 
