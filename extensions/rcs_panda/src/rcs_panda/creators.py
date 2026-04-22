@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 import gymnasium as gym
 import rcs.hand.tilburg_hand
-from rcs._core.common import BaseCameraConfig, Gripper, GripperConfig
+from rcs._core.common import BaseCameraConfig, Gripper, GripperConfig, GripperType
 from rcs.camera.hw import DummyCalibrationStrategy, HardwareCamera, HardwareCameraSet
 from rcs.envs.base import (
     CameraSetWrapper,
@@ -102,7 +102,7 @@ def _create_robotiq_gripper(cfg: GripperConfig) -> Gripper:
 
 
 HARDWARE_GRIPPER_CREATORS: dict[str, typing.Callable[[GripperConfig], Gripper]] = {
-    default_panda_hw_gripper_cfg().gripper_type.id: _create_franka_gripper,
+    GripperType.FrankaHand.id: _create_franka_gripper,
     "robotiq2f85": _create_robotiq_gripper,
 }
 
@@ -241,26 +241,6 @@ class RCSPandaMultiEnvCreator(RCSHardwareEnvCreator):
             logger.info("CameraSet started")
             env = CameraSetWrapper(env, camera_set)
         return CoverWrapper(env)
-
-
-class RCSPandaDefaultEnvCreator(RCSHardwareEnvCreator):
-    def __call__(  # type: ignore
-        self,
-        robot_ip: str,
-        control_mode: ControlMode = ControlMode.CARTESIAN_TQuat,
-        delta_actions: bool = True,
-        camera_set: HardwareCameraSet | None = None,
-        gripper: bool = True,
-    ) -> gym.Env:
-        return RCSPandaEnvCreator()(
-            ip=robot_ip,
-            camera_set=camera_set,
-            control_mode=control_mode,
-            robot_cfg=default_panda_hw_robot_cfg(robot_ip),
-            gripper_cfg=default_panda_hw_gripper_cfg(robot_ip) if gripper else None,
-            max_relative_movement=0.2 if delta_actions else None,
-            relative_to=RelativeTo.LAST_STEP,
-        )
 
 
 class RCSPandaConfigEnvCreator(RCSEnvCreator[PandaHardwareEnvCreatorConfig]):

@@ -84,9 +84,7 @@ def _create_robotiq_gripper(cfg: GripperConfig) -> Gripper:
 
 
 HARDWARE_GRIPPER_CREATORS: dict[str, typing.Callable[[GripperConfig], Gripper]] = {
-    RobotiQGripperConfig(
-        ip="", gripper_type=rcs.common.GripperType("Robotiq2F85")
-    ).gripper_type.id: _create_robotiq_gripper,
+    "Robotiq2F85siemens": _create_robotiq_gripper,
 }
 
 
