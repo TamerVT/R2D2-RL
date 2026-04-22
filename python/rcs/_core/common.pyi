@@ -242,7 +242,7 @@ class Robot:
 class RobotConfig:
     attachment_site: str
     dof: int
-    joint_limits: numpy.ndarray
+    joint_limits: numpy.ndarray[tuple[typing.Literal[2], N], numpy.dtype[numpy.float64]]
     kinematic_model_path: str
     q_home: numpy.ndarray | None
     robot_platform: RobotPlatform
@@ -252,7 +252,7 @@ class RobotConfig:
         self,
         robot_type: RobotType = ...,
         dof: int = 7,
-        joint_limits: numpy.ndarray = ...,
+        joint_limits: numpy.ndarray[tuple[typing.Literal[2], N], numpy.dtype[numpy.float64]] = ...,
         robot_platform: RobotPlatform = ...,
         tcp_offset: Pose = ...,
         attachment_site: str = "attachment_site",
