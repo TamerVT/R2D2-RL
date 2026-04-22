@@ -1,6 +1,8 @@
 PYSRC = python
 CPPSRC = src
 COMPILE_MODE = Release
+LINT_EXCLUDE_RUFF = --exclude examples/teleop/SimPublisher
+LINT_EXCLUDE_MYPY = 'build|examples/teleop/SimPublisher'
 
 # CPP
 cppcheckformat:
@@ -48,10 +50,10 @@ pyformat:
 pylint: ruff mypy
 
 ruff:
-	ruff check ${PYSRC} extensions examples
+	ruff check ${PYSRC} extensions examples ${LINT_EXCLUDE_RUFF}
 
 mypy:
-	mypy ${PYSRC} extensions examples --install-types --non-interactive --no-namespace-packages --exclude 'build'
+	mypy ${PYSRC} extensions examples --install-types --non-interactive --no-namespace-packages --exclude ${LINT_EXCLUDE_MYPY}
 
 pytest:
 	pytest -vv

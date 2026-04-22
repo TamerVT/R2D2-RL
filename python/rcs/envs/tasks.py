@@ -1,11 +1,10 @@
 from dataclasses import dataclass, field
-from typing import Any, cast
+from typing import Any
 
 import gymnasium as gym
 import numpy as np
-from rcs._core import sim
 from rcs.envs.base import GripperWrapper
-from rcs.envs.scenes import BaseTaskConfig, SimEnvCreatorConfig, Task, TaskConfig
+from rcs.envs.scenes import BaseTaskConfig, SimEnvCreatorConfig, Task
 from rcs.sim.composer import ModelComposer
 from rcs.sim.sim import Sim
 
@@ -169,16 +168,15 @@ class PickTask(Task[PickTaskConfig]):
         )
 
     @staticmethod
-    def add_task_env(cfg: PickTaskConfig, env: gym.Env, simulation: Sim, env_cfg: SimEnvCreatorConfig) -> gym.Env:
+    def add_task_env(cfg: PickTaskConfig, env: gym.Env, _simulation: Sim, env_cfg: SimEnvCreatorConfig) -> gym.Env:
         """Add task-specific wrappers to the environment."""
         object2world = cfg.object_center_to_root_frame * env_cfg.root_frame_to_world
         shared2world = env_cfg.shared_base_frame_to_root_frame * env_cfg.root_frame_to_world
         object_joint = cfg.prefix + cfg.object_joint
         env = PickObjSuccessWrapper(env, cfg.robot_name, shared2world, object_joint)
-        env = RandomSquareObjPos(
+        return RandomSquareObjPos(
             env, center2world=object2world, include_rotation=cfg.include_rotation, obj_joint_name=object_joint
         )
-        return env
 
 
 rcs.TASKS["pick"] = PickTask

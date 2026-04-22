@@ -2,8 +2,7 @@ import logging
 from typing import Any
 
 import numpy as np
-from rcs._core import common
-from rcs._core.common import Pose, RobotPlatform
+from rcs._core.common import RobotPlatform
 from rcs._core.sim import SimConfig
 from rcs.camera.hw import HardwareCameraSet
 from rcs.envs.base import ControlMode, RelativeTo
@@ -88,7 +87,7 @@ def get_env():
             if digit is not None:
                 cams.append(digit)
 
-        camera_set = HardwareCameraSet(cams) if cams else None
+        _camera_set = HardwareCameraSet(cams) if cams else None
 
         env_creator = DefaultFR3MultiHardwareEnv()
         env_creator.left_ip = ROBOT2IP["left"]

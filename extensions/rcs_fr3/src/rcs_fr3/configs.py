@@ -159,9 +159,8 @@ class FrankaDuoEnv(DefaultFR3MultiHardwareEnv):
         try:
             from rcs_robotiq2f85.hw import RobotiQ2F85GripperConfig
         except ImportError as e:
-            raise ImportError(
-                "Robotiq gripper support requires the `rcs_robotiq2f85` extension to be installed."
-            ) from e
+            msg = "Robotiq gripper support requires the `rcs_robotiq2f85` extension to be installed."
+            raise ImportError(msg) from e
 
         cfg = super().config()
         cfg.camera_cfgs = None

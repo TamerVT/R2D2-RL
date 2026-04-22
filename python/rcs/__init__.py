@@ -130,8 +130,7 @@ CAMERA_PATHS = {
 }
 
 # we add our task classes here
-# type: dict[str, Task]
-TASKS = {}
+TASKS: dict[str, object] = {}
 
 DEFAULT_TRANSFORMS = {
     "FR3_ROBOTIQ_GRIPPER": common.Pose(translation=[0, 0, 0], quaternion=[0, 0, 0.7071068, 0.7071068]),

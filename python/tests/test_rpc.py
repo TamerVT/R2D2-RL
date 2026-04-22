@@ -56,8 +56,7 @@ def build_rpc_env() -> gym.Env:
     robot = rcs.sim.SimRobot(simulation, ik, robot_cfg)
     env = RobotWrapper(env, robot, ControlMode.JOINTS)
     env = RobotSimWrapper(env)
-    env = RelativeActionSpace(env, max_mov=0.1, relative_to=RelativeTo.LAST_STEP)
-    return env
+    return RelativeActionSpace(env, max_mov=0.1, relative_to=RelativeTo.LAST_STEP)
 
 
 def can_bind_tcp() -> bool:

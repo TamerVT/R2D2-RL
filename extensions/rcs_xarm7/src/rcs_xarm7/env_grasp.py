@@ -5,11 +5,8 @@ from time import sleep
 from rcs._core.common import RobotPlatform
 from rcs.envs.base import ControlMode, RelativeTo
 from rcs.envs.configs import EmptyWorldXArm7
-from rcs.envs.utils import default_sim_tilburg_hand_cfg
 from rcs.hand.tilburg_hand import THConfig
 from rcs_xarm7.configs import DefaultXArm7HardwareEnv
-
-import rcs
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)

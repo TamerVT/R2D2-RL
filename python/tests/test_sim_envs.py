@@ -2,7 +2,6 @@ import copy
 
 import gymnasium as gym
 import numpy as np
-import pytest
 from rcs.camera.sim import SimCameraSet
 from rcs.envs.base import (
     CameraSetWrapper,

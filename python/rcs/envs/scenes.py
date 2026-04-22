@@ -7,7 +7,6 @@ from os import PathLike
 import gymnasium as gym
 from gymnasium.envs.registration import EnvCreator
 from rcs._core.sim import (
-    CameraType,
     SimCameraConfig,
     SimConfig,
     SimGripperConfig,
@@ -74,10 +73,11 @@ class Task(typing.Generic[TaskConfig]):
     @staticmethod
     def add_task_mujoco(cfg: TaskConfig, composer: ModelComposer, env_cfg: "SimEnvCreatorConfig"):
         """Add task-specific elements to the Mujoco scene."""
-        pass
 
     @staticmethod
-    def add_task_env(cfg: TaskConfig, env: gym.Env, simulation: Sim, env_cfg: "SimEnvCreatorConfig") -> gym.Env:
+    def add_task_env(
+        _cfg: TaskConfig, env: gym.Env, _simulation: Sim, _env_cfg: "SimEnvCreatorConfig"
+    ) -> gym.Env:
         """Add task-specific wrappers to the environment."""
         return env
 
@@ -172,10 +172,7 @@ class SimEnvCreator(RCSEnvCreator[SimEnvCreatorConfig], typing.Generic[TaskConfi
         Returns:
             dict[str, tuple[str, str]]: A dictionary mapping robot names to a tuple of (kinematic_model_path, attachment_site).
         """
-        if cfg._original_cfg is None:
-            o_cfg = cfg
-        else:
-            o_cfg = cfg._original_cfg
+        o_cfg = cfg if cfg._original_cfg is None else cfg._original_cfg
 
         return {
             robot_name: (rcfg.kinematic_model_path, rcfg.attachment_site)

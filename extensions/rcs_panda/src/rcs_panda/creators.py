@@ -43,7 +43,8 @@ def _create_realsense_camera(cfg: HardwareCameraCreatorConfig) -> HardwareCamera
         # from rcs_realsense.calibration import FR3BaseArucoCalibration
         from rcs_realsense.camera import RealSenseCameraSet
     except ImportError as e:
-        raise ImportError("RealSense camera support requires the `rcs_realsense` extension to be installed.") from e
+        msg = "RealSense camera support requires the `rcs_realsense` extension to be installed."
+        raise ImportError(msg) from e
 
     calibration_strategy = {
         name: typing.cast(CalibrationStrategy, DummyCalibrationStrategy()) for name in cfg.camera_cfgs
@@ -58,7 +59,8 @@ def _create_digit_camera(cfg: HardwareCameraCreatorConfig) -> HardwareCamera:
     try:
         from rcs.camera.digit_cam import DigitCam
     except ImportError as e:
-        raise ImportError("DIGIT camera support requires the `digit_interface` package to be installed.") from e
+        msg = "DIGIT camera support requires the `digit_interface` package to be installed."
+        raise ImportError(msg) from e
 
     return typing.cast(HardwareCamera, DigitCam(cameras=cfg.camera_cfgs))
 
@@ -77,14 +79,16 @@ def _create_hardware_camera_set(
     cameras: list[HardwareCamera] = []
     for cfg in camera_cfgs.values():
         if cfg.camera_type_id not in HARDWARE_CAMERA_CREATORS:
-            raise ValueError(f"Unknown hardware camera type id: {cfg.camera_type_id}")
+            msg = f"Unknown hardware camera type id: {cfg.camera_type_id}"
+            raise ValueError(msg)
         cameras.append(HARDWARE_CAMERA_CREATORS[cfg.camera_type_id](cfg))
     return HardwareCameraSet(cameras) if cameras else None
 
 
 def _create_franka_gripper(cfg: GripperConfig) -> Gripper:
     if not isinstance(cfg, hw.FHConfig):
-        raise TypeError(f"Expected FHConfig for franka gripper, got {type(cfg).__name__}")
+        msg = f"Expected FHConfig for franka gripper, got {type(cfg).__name__}"
+        raise TypeError(msg)
     return hw.FrankaHand(cfg)
 
 
@@ -92,10 +96,12 @@ def _create_robotiq_gripper(cfg: GripperConfig) -> Gripper:
     try:
         from rcs_robotiq2f85.hw import RobotiQ2F85Gripper, RobotiQ2F85GripperConfig
     except ImportError as e:
-        raise ImportError("Robotiq gripper support requires the `rcs_robotiq2f85` extension to be installed.") from e
+        msg = "Robotiq gripper support requires the `rcs_robotiq2f85` extension to be installed."
+        raise ImportError(msg) from e
 
     if not isinstance(cfg, RobotiQ2F85GripperConfig):
-        raise TypeError(f"Expected RobotiQ2F85GripperConfig, got {type(cfg).__name__}")
+        msg = f"Expected RobotiQ2F85GripperConfig, got {type(cfg).__name__}"
+        raise TypeError(msg)
     return typing.cast(Gripper, RobotiQ2F85Gripper(cfg))
 
 
@@ -146,7 +152,8 @@ class RCSPandaConfigEnvCreator(RCSEnvCreator[PandaHardwareEnvCreatorConfig]):
         elif cfg.gripper_cfg is not None:
             gripper_type_id = cfg.gripper_cfg.gripper_type.id
             if gripper_type_id not in HARDWARE_GRIPPER_CREATORS:
-                raise ValueError(f"Unknown hardware gripper type id: {gripper_type_id}")
+                msg = f"Unknown hardware gripper type id: {gripper_type_id}"
+                raise ValueError(msg)
             gripper = HARDWARE_GRIPPER_CREATORS[gripper_type_id](cfg.gripper_cfg)
             env = GripperWrapper(env, gripper, binary=cfg.wrapper_cfg.binary_gripper)
 
@@ -162,7 +169,8 @@ class RCSPandaConfigEnvCreator(RCSEnvCreator[PandaHardwareEnvCreatorConfig]):
         return CoverWrapper(env)
 
     def config(self) -> PandaHardwareEnvCreatorConfig:
-        raise NotImplementedError("Implement config() in a subclass or pass `cfg=` explicitly.")
+        msg = "Implement config() in a subclass or pass `cfg=` explicitly."
+        raise NotImplementedError(msg)
 
 
 class RCSPandaMultiConfigEnvCreator(RCSEnvCreator[PandaMultiHardwareEnvCreatorConfig]):
@@ -191,4 +199,5 @@ class RCSPandaMultiConfigEnvCreator(RCSEnvCreator[PandaMultiHardwareEnvCreatorCo
         return CoverWrapper(env)
 
     def config(self) -> PandaMultiHardwareEnvCreatorConfig:
-        raise NotImplementedError("Implement config() in a subclass or pass `cfg=` explicitly.")
+        msg = "Implement config() in a subclass or pass `cfg=` explicitly."
+        raise NotImplementedError(msg)

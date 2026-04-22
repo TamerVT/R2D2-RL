@@ -40,7 +40,8 @@ def _create_realsense_camera(cfg: HardwareCameraCreatorConfig) -> HardwareCamera
         from rcs_realsense.calibration import FR3BaseArucoCalibration
         from rcs_realsense.camera import RealSenseCameraSet
     except ImportError as e:
-        raise ImportError("RealSense camera support requires the `rcs_realsense` extension to be installed.") from e
+        msg = "RealSense camera support requires the `rcs_realsense` extension to be installed."
+        raise ImportError(msg) from e
 
     calibration_strategy = {
         name: typing.cast(CalibrationStrategy, FR3BaseArucoCalibration(name)) for name in cfg.camera_cfgs
@@ -55,7 +56,8 @@ def _create_digit_camera(cfg: HardwareCameraCreatorConfig) -> HardwareCamera:
     try:
         from rcs.camera.digit_cam import DigitCam
     except ImportError as e:
-        raise ImportError("DIGIT camera support requires the `digit_interface` package to be installed.") from e
+        msg = "DIGIT camera support requires the `digit_interface` package to be installed."
+        raise ImportError(msg) from e
 
     return typing.cast(HardwareCamera, DigitCam(cameras=cfg.camera_cfgs))
 
@@ -74,7 +76,8 @@ def _create_hardware_camera_set(
     cameras: list[HardwareCamera] = []
     for cfg in camera_cfgs.values():
         if cfg.camera_type_id not in HARDWARE_CAMERA_CREATORS:
-            raise ValueError(f"Unknown hardware camera type id: {cfg.camera_type_id}")
+            msg = f"Unknown hardware camera type id: {cfg.camera_type_id}"
+            raise ValueError(msg)
         cameras.append(HARDWARE_CAMERA_CREATORS[cfg.camera_type_id](cfg))
     return HardwareCameraSet(cameras) if cameras else None
 
@@ -120,4 +123,5 @@ class RCSXArm7ConfigEnvCreator(RCSEnvCreator[XArm7HardwareEnvCreatorConfig]):
         return CoverWrapper(env)
 
     def config(self) -> XArm7HardwareEnvCreatorConfig:
-        raise NotImplementedError("Implement config() in a subclass or pass `cfg=` explicitly.")
+        msg = "Implement config() in a subclass or pass `cfg=` explicitly."
+        raise NotImplementedError(msg)

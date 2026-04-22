@@ -8,7 +8,7 @@ from numpy.random import random
 from rcs._core.common import RobotPlatform
 from rcs.envs.base import GripperWrapper
 from rcs.envs.space_utils import ActObsInfoWrapper
-from rcs.envs.task_helper import *
+from rcs.envs.task_helper import get_geom_pos, random_position_in_bounds
 
 import rcs
 from rcs import sim
@@ -324,12 +324,12 @@ class MazeTaskWrapper(gym.Wrapper):
         # check if two contact wiht the board
         contact_points = 0
         for n in self.holds:
-            if any(n == a or n == b for a, b in contacts):
-                contact_points = contact_points + 1
+            if any(n in (a, b) for a, b in contacts):
+                contact_points += 1
 
         # check if board is lifted
         n = "floor"
-        is_lifted = not any(n == a or n == b for a, b in contacts)
+        is_lifted = not any(n in (a, b) for a, b in contacts)
 
         if contact_points == 2 and is_lifted:
             self.phase = [False, True]
@@ -367,7 +367,6 @@ class MazeTaskWrapper(gym.Wrapper):
         x_max_t = 1
         x_min_t = 1
         y_max_t = 1
-        y_max_ = 1
         z_t = 0.1
 
         # randmoise the board position
@@ -457,8 +456,8 @@ class JoinBlocksTaskWrapper(gym.Wrapper):
         block_marker_pos = get_geom_pos(self.sim.model, self.sim.data, self.marker_block)
 
         # check approach phase:
-        p_block_lift = any(self.p_block == a or self.p_block == b for a, b in contacts)
-        h_block_lift = any(self.h_block == a or self.h_block == b for a, b in contacts)
+        p_block_lift = any(self.p_block in (a, b) for a, b in contacts)
+        h_block_lift = any(self.h_block in (a, b) for a, b in contacts)
 
         if h_block_lift and p_block_lift:
             self.phase[0] = False
@@ -509,7 +508,6 @@ class JoinBlocksTaskWrapper(gym.Wrapper):
         x_max_t = 1
         x_min_t = 1
         y_max_t = 1
-        y_max_ = 1
         z_t = 0.1
 
         # randmoise the board position

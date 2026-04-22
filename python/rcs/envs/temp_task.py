@@ -2,7 +2,6 @@ from dataclasses import dataclass, field
 
 import gymnasium as gym
 import numpy as np
-import rcs_models
 from numpy.random import random
 from rcs.envs.scenes import BaseTaskConfig, Task
 from rcs.envs.sim import JoinBlocksTaskWrapper, MazeTaskWrapper
@@ -50,14 +49,12 @@ class Maze_Task(Task[MazeTaskConfig]):
         )
 
     @staticmethod
-    def add_task_env(cfg: MazeTaskConfig, env: gym.Env, simulation: Sim) -> gym.Env:
+    def add_task_env(_cfg: MazeTaskConfig, env: gym.Env, _simulation: Sim) -> gym.Env:
         """Add task-specific wrappers to the environment."""
-        env = MazeTaskWrapper(env)
-
-        return env
+        return MazeTaskWrapper(env)
 
     @staticmethod
-    def hard_reset(cfg: MazeTaskConfig, env: gym.Env, simulation: Sim):
+    def hard_reset(_cfg: MazeTaskConfig, _env: gym.Env, _simulation: Sim):
 
         # TODO add reset to change boards
         pass
@@ -88,7 +85,7 @@ class JoinBlocks_Task(Task[MazeTaskConfig]):
 
         for o in JoinBlocksTaskConfig.task_dict["objects"]:
             name = o["name"]
-            path = 0["path"]
+            path = o["path"]
 
             composer.add_object_world_frame(
                 path,
@@ -97,15 +94,12 @@ class JoinBlocks_Task(Task[MazeTaskConfig]):
             )
 
     @staticmethod
-    def add_task_env(cfg: MazeTaskConfig, env: gym.Env, simulation: Sim) -> gym.Env:
+    def add_task_env(_cfg: MazeTaskConfig, env: gym.Env, _simulation: Sim) -> gym.Env:
         """Add task-specific wrappers to the environment."""
-
-        env = JoinBlocksTaskWrapper(env)
-
-        return env
+        return JoinBlocksTaskWrapper(env)
 
     @staticmethod
-    def hard_reset(cfg: MazeTaskConfig, env: gym.Env, simulation: Sim):
+    def hard_reset(_cfg: MazeTaskConfig, _env: gym.Env, _simulation: Sim):
 
         # TODO can be ignored for now
         pass

@@ -1,53 +1,25 @@
 import copy
 import time
-import typing
-from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from os import PathLike
+from typing import ClassVar
 
-import gymnasium as gym
 import numpy as np
-from gymnasium.envs.registration import EnvCreator
-from rcs._core.common import FrankaHandTCPOffset, GripperType, Pose, RobotType
-from rcs._core.sim import (
-    CameraType,
-    SimCameraConfig,
-    SimConfig,
-    SimGripperConfig,
-    SimRobotConfig,
-)
-from rcs.camera.interface import BaseCameraSet
-from rcs.camera.sim import SimCameraSet
-from rcs.envs.base import (
-    CameraSetWrapper,
-    ControlMode,
-    CoverWrapper,
-    GripperWrapper,
-    MultiRobotWrapper,
-    RelativeActionSpace,
-    RelativeTo,
-    RobotWrapper,
-    SimEnv,
-)
+from rcs._core.common import FrankaHandTCPOffset, GripperType, RobotType
+from rcs._core.sim import CameraType, SimCameraConfig, SimConfig, SimGripperConfig, SimRobotConfig
+from rcs.envs.base import ControlMode, RelativeTo
 from rcs.envs.scenes import (
     CameraAdderConfig,
     SimEnvCreator,
     SimEnvCreatorConfig,
     WrapperConfig,
 )
-from rcs.envs.sim import GripperWrapperSim, RobotSimWrapper
 from rcs.envs.tasks import PickTaskConfig
-from rcs.sim.composer import ModelComposer
-from rcs.sim.sim import Sim
 
 import rcs
 from rcs import (
     CAMERA_PATHS,
     DEFAULT_TRANSFORMS,
-    GRIPPER_PATHS,
     OBJECT_PATHS,
     SCENE_PATHS,
-    TASKS,
 )
 
 
@@ -196,8 +168,7 @@ class EmptyWorldFR3(SimEnvCreator):
 
 
 class EmptyWorldFR3Duo(SimEnvCreator):
-
-    gripper_mesh_quaternion_offset = [0, 0, 0.7071068, 0.7071068]
+    gripper_mesh_quaternion_offset: ClassVar[list[float]] = [0, 0, 0.7071068, 0.7071068]
 
     def config(self) -> SimEnvCreatorConfig:
         robot_cfg = SimRobotConfig(
