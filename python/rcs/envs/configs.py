@@ -131,7 +131,8 @@ class EmptyWorldFR3(SimEnvCreator):
             "bird_eye": CameraAdderConfig(
                 fovy=60.0,
                 offset=rcs.common.Pose(
-                    translation=np.array([0.271, -0.000, 2.080]), quaternion=np.array([0.0060, -0.0060, -0.7067, 0.7074])
+                    translation=np.array([0.271, -0.000, 2.080]),
+                    quaternion=np.array([0.0060, -0.0060, -0.7067, 0.7074]),
                 ),
             ),
             "wrist": CameraAdderConfig(
@@ -146,9 +147,7 @@ class EmptyWorldFR3(SimEnvCreator):
             ),
         }
         gripper_offsets: dict[str, rcs.common.Pose] | None = {
-            "robot": rcs.common.Pose(
-                rotation=FrankaHandTCPOffset()[:3, :3], translation=np.array([0.0, 0.0, 0.0])
-            )
+            "robot": rcs.common.Pose(rotation=FrankaHandTCPOffset()[:3, :3], translation=np.array([0.0, 0.0, 0.0]))
         }
         return SimEnvCreatorConfig(
             robot_cfgs=robot_cfgs,

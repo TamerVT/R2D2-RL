@@ -146,9 +146,7 @@ DEFAULT_TRANSFORMS = {
     "FR3_DUOMOUNT_HEIGHT_OFFSET": common.Pose(
         translation=np.array([0.0, 0.0, 0.342]), quaternion=np.array([0.0, 0.0, 0.0, 1.0])
     ),
-    "FR3_DUOMOUNT_BASE": common.Pose(
-        translation=np.array([0.0, 0.0, 0.0]), quaternion=np.array([0.0, 0.0, 0.0, 1.0])
-    ),
+    "FR3_DUOMOUNT_BASE": common.Pose(translation=np.array([0.0, 0.0, 0.0]), quaternion=np.array([0.0, 0.0, 0.0, 1.0])),
     "FR3_DUOMOUNT_LEFT_ROBOT": common.Pose(
         translation=np.array([0.0, 0.05018, 0.0]), quaternion=np.array([-0.436978, 0.0225312, -0.243326, 0.865641])
     ),
