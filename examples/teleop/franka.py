@@ -84,7 +84,9 @@ def get_env():
         if CAMERA_DICT is not None:
             cams.append(default_realsense(CAMERA_DICT))
         if DIGIT_DICT is not None:
-            cams.append(default_digit(DIGIT_DICT))
+            digit = default_digit(DIGIT_DICT)
+            if digit is not None:
+                cams.append(digit)
 
         camera_set = HardwareCameraSet(cams) if cams else None
 

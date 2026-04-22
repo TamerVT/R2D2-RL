@@ -18,12 +18,10 @@ from rcs.envs.base import (
     RelativeTo,
     RobotWrapper,
 )
-from rcs.envs.creators import RCSHardwareEnvCreator
 from rcs.envs.scenes import RCSEnvCreator, WrapperConfig
 from rcs.hand.tilburg_hand import TilburgHand
 from rcs_panda import hw
 from rcs_panda.envs import PandaHW
-from rcs_panda.utils import default_panda_hw_gripper_cfg, default_panda_hw_robot_cfg
 
 import rcs
 
@@ -128,119 +126,6 @@ class PandaMultiHardwareEnvCreatorConfig:
     relative_to: RelativeTo = RelativeTo.LAST_STEP
     robot_to_shared_base_frame: dict[str, rcs.common.Pose] | None = None
     wrapper_cfg: WrapperConfig = field(default_factory=WrapperConfig)
-
-
-class RCSPandaEnvCreator(RCSHardwareEnvCreator):
-    def __call__(  # type: ignore
-        self,
-        ip: str,
-        control_mode: ControlMode,
-        robot_cfg: hw.PandaConfig,
-        gripper_cfg: hw.FHConfig | rcs.hand.tilburg_hand.THConfig | None = None,
-        camera_set: HardwareCameraSet | None = None,
-        max_relative_movement: float | tuple[float, float] | None = None,
-        relative_to: RelativeTo = RelativeTo.LAST_STEP,
-    ) -> gym.Env:
-        """
-        Creates a hardware environment for the Panda robot.
-
-        Args:
-            ip (str): IP address of the robot.
-            control_mode (ControlMode): Control mode for the robot.
-            robot_cfg (hw.PandaConfig): Configuration for the Panda robot.
-            gripper_cfg (hw.FHConfig | None): Configuration for the gripper. If None, no gripper is used.
-            camera_set (BaseHardwareCameraSet | None): Camera set to be used. If None, no cameras are used.
-            max_relative_movement (float | tuple[float, float] | None): Maximum allowed movement. If float, it restricts
-                translational movement in meters. If tuple, it restricts both translational (in meters) and rotational
-                (in radians) movements. If None, no restriction is applied.
-            relative_to (RelativeTo): Specifies whether the movement is relative to a configured origin or the last step.
-
-        Returns:
-            gym.Env: The configured hardware environment for the Panda robot.
-        """
-        ik = rcs.common.Pin(
-            robot_cfg.kinematic_model_path,
-            robot_cfg.attachment_site,
-            urdf=robot_cfg.kinematic_model_path.endswith(".urdf"),
-        )
-        # ik = rcs_robotics_library._core.rl.RoboticsLibraryIK(robot_cfg.kinematic_model_path)
-
-        robot_cfg.ip = ip
-        robot = hw.Franka(robot_cfg, ik)
-
-        env: gym.Env = HardwareEnv()
-        env = RobotWrapper(
-            env,
-            robot,
-            control_mode,
-        )
-
-        env = PandaHW(env)
-        if isinstance(gripper_cfg, hw.FHConfig):
-            gripper_cfg.ip = ip
-            gripper = hw.FrankaHand(gripper_cfg)
-            env = GripperWrapper(env, gripper)
-        elif isinstance(gripper_cfg, rcs.hand.tilburg_hand.THConfig):
-            hand = TilburgHand(gripper_cfg)
-            env = HandWrapper(env, hand, binary=True)
-
-        if camera_set is not None:
-            camera_set.start()
-            camera_set.wait_for_frames()
-            logger.info("CameraSet started")
-            env = CameraSetWrapper(env, camera_set)
-
-        if max_relative_movement is not None:
-            env = RelativeActionSpace(env, max_mov=max_relative_movement, relative_to=relative_to)
-        return CoverWrapper(env)
-
-
-class RCSPandaMultiEnvCreator(RCSHardwareEnvCreator):
-    def __call__(  # type: ignore
-        self,
-        ips: list[str],
-        control_mode: ControlMode,
-        robot_cfg: hw.PandaConfig,
-        gripper_cfg: hw.FHConfig | None = None,
-        camera_set: HardwareCameraSet | None = None,
-        max_relative_movement: float | tuple[float, float] | None = None,
-        relative_to: RelativeTo = RelativeTo.LAST_STEP,
-    ) -> gym.Env:
-
-        ik = rcs.common.Pin(
-            robot_cfg.kinematic_model_path,
-            robot_cfg.attachment_site,
-            urdf=robot_cfg.kinematic_model_path.endswith(".urdf"),
-        )
-        # ik = rcs_robotics_library._core.rl.RoboticsLibraryIK(robot_cfg.kinematic_model_path)
-
-        robots: dict[str, hw.Franka] = {}
-        for ip in ips:
-            robot_cfg.ip = ip
-            robots[ip] = hw.Franka(robot_cfg, ik)
-
-        envs: dict[str, gym.Env] = {}
-        env: gym.Env
-        for ip in ips:
-            env = HardwareEnv()
-            env = RobotWrapper(env, robots[ip], control_mode)
-            env = PandaHW(env)
-            if gripper_cfg is not None:
-                gripper_cfg.ip = ip
-                gripper = hw.FrankaHand(gripper_cfg)
-                env = GripperWrapper(env, gripper)
-
-            if max_relative_movement is not None:
-                env = RelativeActionSpace(env, max_mov=max_relative_movement, relative_to=relative_to)
-            envs[ip] = env
-
-        env = MultiRobotWrapper(envs)
-        if camera_set is not None:
-            camera_set.start()
-            camera_set.wait_for_frames()
-            logger.info("CameraSet started")
-            env = CameraSetWrapper(env, camera_set)
-        return CoverWrapper(env)
 
 
 class RCSPandaConfigEnvCreator(RCSEnvCreator[PandaHardwareEnvCreatorConfig]):

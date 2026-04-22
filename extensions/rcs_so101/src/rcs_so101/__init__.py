@@ -1,7 +1,7 @@
 from rcs_so101 import configs, creators, hw
 from rcs_so101._core import __version__
 from rcs_so101._core.so101_ik import SO101IK
-from rcs_so101.creators import RCSSO101ConfigEnvCreator, RCSSO101EnvCreator
+from rcs_so101.creators import RCSSO101ConfigEnvCreator
 from rcs_so101.hw import SO101, SO101Config, SO101Gripper
 
 __all__ = [
@@ -9,7 +9,6 @@ __all__ = [
     "creators",
     "hw",
     "SO101IK",
-    "RCSSO101EnvCreator",
     "RCSSO101ConfigEnvCreator",
     "SO101",
     "SO101Config",
