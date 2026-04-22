@@ -32,16 +32,16 @@
 
   <worldbody>
     <body name="base" childclass="fr3_duo_mount">
-      <geom mesh="fr3_duo_head"  material="metal" pos="-0.0369 0 0.117" class="visual"/>
-      <geom mesh="fr3_duo_mount" material="metal" pos="-0.0369 0 -0.05" class="visual"/>
-      <geom mesh="fr3_duo_cover" material="white" pos="-0.0369 0 0.018" class="visual"/>
-      <geom mesh="fr3_duo_pillar" material="metal" pos="-0.0369 0 -0.19" class="visual"/>
-      <geom mesh="fr3_duo_plate" material="metal" pos="-0.0369 0 -0.336" class="visual"/>
-      <geom mesh="fr3_duo_head_coll"  material="metal" pos="-0.0369 0 0.117" class="collision"/>
-      <geom mesh="fr3_duo_mount_coll" material="metal" pos="-0.0369 0 -0.05" class="collision"/>
-      <geom mesh="fr3_duo_cover_coll" material="white" pos="-0.0369 0 0.018" class="collision"/>
-      <geom mesh="fr3_duo_pillar_coll" material="metal" pos="-0.0369 0 -0.19" class="collision"/>
-      <geom mesh="fr3_duo_plate_coll" material="metal" pos="-0.0369 0 -0.336" class="collision"/>
+      <geom mesh="fr3_duo_head"  material="metal"  pos="-0.0369 0 0.459" class="visual"/>
+      <geom mesh="fr3_duo_mount" material="metal"  pos="-0.0369 0 0.292" class="visual"/>
+      <geom mesh="fr3_duo_cover" material="white"  pos="-0.0369 0 0.360" class="visual"/>
+      <geom mesh="fr3_duo_pillar" material="metal" pos="-0.0369 0 0.152" class="visual"/>
+      <geom mesh="fr3_duo_plate" material="metal"  pos="-0.0369 0 0.006" class="visual"/>
+      <geom mesh="fr3_duo_head_coll"  material="metal"  pos="-0.0369 0 0.459" class="collision"/>
+      <geom mesh="fr3_duo_mount_coll" material="metal"  pos="-0.0369 0 0.292" class="collision"/>
+      <geom mesh="fr3_duo_cover_coll" material="white"  pos="-0.0369 0 0.360" class="collision"/>
+      <geom mesh="fr3_duo_pillar_coll" material="metal" pos="-0.0369 0 0.152" class="collision"/>
+      <geom mesh="fr3_duo_plate_coll" material="metal"  pos="-0.0369 0 0.006" class="collision"/>
     </body>
   </worldbody>
 
