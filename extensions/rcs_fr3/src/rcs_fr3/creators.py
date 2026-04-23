@@ -78,6 +78,23 @@ def _create_realsense_camera(cfg: HardwareCameraCreatorConfig) -> HardwareCamera
     )
 
 
+def _create_zed_camera(cfg: HardwareCameraCreatorConfig) -> HardwareCamera:
+    try:
+        from rcs.camera.hw import CalibrationStrategy
+        from rcs_zed.camera import ZEDCameraSet
+    except ImportError as e:
+        msg = "ZED camera support requires the `rcs_zed` extension to be installed."
+        raise ImportError(msg) from e
+
+    calibration_strategy = {
+        name: typing.cast(CalibrationStrategy, DummyCalibrationStrategy()) for name in cfg.camera_cfgs
+    }
+    return typing.cast(
+        HardwareCamera,
+        ZEDCameraSet(cameras=cfg.camera_cfgs, calibration_strategy=calibration_strategy, **cfg.kwargs),
+    )
+
+
 def _create_digit_camera(cfg: HardwareCameraCreatorConfig) -> HardwareCamera:
     try:
         from rcs.camera.digit_cam import DigitCam
@@ -90,6 +107,7 @@ def _create_digit_camera(cfg: HardwareCameraCreatorConfig) -> HardwareCamera:
 
 HARDWARE_CAMERA_CREATORS: dict[str, typing.Callable[[HardwareCameraCreatorConfig], HardwareCamera]] = {
     "realsense": _create_realsense_camera,
+    "zed": _create_zed_camera,
     "digit": _create_digit_camera,
 }
 

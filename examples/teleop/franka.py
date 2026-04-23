@@ -41,6 +41,9 @@ RECORD_FPS = 30
 #     "bird_eye": "243522070364",
 # }
 CAMERA_DICT = None
+ZED_CAMERA_DICT = {
+    "zed": "19928076",
+}
 MQ3_ADDR = "10.42.0.1"
 
 # DIGIT_DICT = {
@@ -91,6 +94,23 @@ def get_env():
                         frame_rate=30,
                     )
                     for name, identifier in CAMERA_DICT.items()
+                },
+            )
+        if ZED_CAMERA_DICT is not None:
+            camera_cfgs["zed"] = HardwareCameraCreatorConfig(
+                camera_type_id="zed",
+                camera_cfgs={
+                    name: BaseCameraConfig(
+                        identifier=identifier,
+                        resolution_width=1280,
+                        resolution_height=720,
+                        frame_rate=30,
+                    )
+                    for name, identifier in ZED_CAMERA_DICT.items()
+                },
+                kwargs={
+                    "enable_depth": False,
+                    "enable_imu": False,
                 },
             )
         if DIGIT_DICT is not None:
