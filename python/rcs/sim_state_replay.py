@@ -192,11 +192,12 @@ def replay_trajectory(
         raise ValueError(msg)
 
     env.reset()
+    sim = env.get_wrapper_attr("sim")
     for recorded_step in recorded_steps:
         restore_sim_step(env, recorded_step)
-        env.get_wrapper_attr("sim").step(1)
         if output_dir is not None:
             save_rgb_frames(output_dir, recorded_step, collect_rgb_frames(env))
+        sim.sync_gui()
         if sleep_s > 0:
             time.sleep(sleep_s)
 

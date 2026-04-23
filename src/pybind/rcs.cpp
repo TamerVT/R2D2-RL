@@ -742,6 +742,7 @@ PYBIND11_MODULE(_core, m) {
       .def("get_config", &rcs::sim::Sim::get_config)
       .def("step", &rcs::sim::Sim::step, py::arg("k"))
       .def("reset", &rcs::sim::Sim::reset)
+      .def("sync_gui", &rcs::sim::Sim::sync_gui)
       .def("_start_gui_server", &rcs::sim::Sim::start_gui_server, py::arg("id"))
       .def("_stop_gui_server", &rcs::sim::Sim::stop_gui_server);
 

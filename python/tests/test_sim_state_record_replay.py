@@ -12,7 +12,12 @@ from rcs.camera.interface import CameraFrame, DataFrame, Frame, FrameSet
 from rcs.envs.sim import SimStateObservationWrapper
 from rcs.envs.storage_wrapper import StorageWrapper
 from rcs.sim.sim import Sim
-from rcs.sim_state_replay import load_trajectory, replay_trajectory, restore_sim_step
+from rcs.sim_state_replay import (
+    RecordedSimStep,
+    load_trajectory,
+    replay_trajectory,
+    restore_sim_step,
+)
 
 XML = """
 <mujoco>
@@ -89,6 +94,58 @@ class DummySimEnv(gym.Env):
 
     def close(self):
         return None
+
+
+class SpySim:
+    def __init__(self):
+        self.states: list[tuple[np.ndarray, int | None]] = []
+        self.sync_calls = 0
+
+    def set_state(self, state: np.ndarray, spec: int | None = None):
+        self.states.append((np.asarray(state, dtype=np.float64), spec))
+
+    def sync_gui(self):
+        self.sync_calls += 1
+
+
+class SpyReplayEnv(gym.Env):
+    PLATFORM = RobotPlatform.SIMULATION
+
+    def __init__(self, sim: SpySim):
+        super().__init__()
+        self.sim = sim
+        self.reset_calls = 0
+
+    def get_wrapper_attr(self, name: str):
+        return getattr(self, name)
+
+    def reset(self, *, seed: int | None = None, options: dict | None = None):
+        self.reset_calls += 1
+        return {}, {}
+
+
+def test_replay_trajectory_syncs_gui_without_stepping():
+    spy_sim = SpySim()
+    env = SpyReplayEnv(spy_sim)
+    recorded_steps = [
+        RecordedSimStep(
+            step=3,
+            uuid="traj-1",
+            timestamp=1.23,
+            observation={
+                SimStateObservationWrapper.STATE_KEY: np.array([1.0, 2.0, 3.0], dtype=np.float64),
+                SimStateObservationWrapper.STATE_SPEC_KEY: 7,
+            },
+        )
+    ]
+
+    replay_trajectory(env, recorded_steps)
+
+    assert env.reset_calls == 1
+    assert len(spy_sim.states) == 1
+    np.testing.assert_allclose(spy_sim.states[0][0], np.array([1.0, 2.0, 3.0], dtype=np.float64))
+    assert spy_sim.states[0][1] == 7
+    assert spy_sim.sync_calls == 1
 
 
 def test_record_and_replay_sim_state(tmp_path: Path):

@@ -182,5 +182,11 @@ void Sim::start_gui_server(const std::string& id) {
 // TODO: when stop_gui_server is called, the callback still exists but now
 // points to an non existing gui
 void Sim::stop_gui_server() { this->gui.reset(); }
+
+void Sim::sync_gui() {
+  if (this->gui.has_value()) {
+    this->gui->publish_state();
+  }
+}
 }  // namespace sim
 }  // namespace rcs
