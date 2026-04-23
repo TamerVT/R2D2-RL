@@ -113,10 +113,12 @@ class QuestOperator(BaseOperator):
             cmds = copy.copy(self._commands)
             self._commands = TeleopCommands()
             if self.config.switched_left_right:
+                swapped_reset_origin_to_current = {}
                 if "left" in cmds.reset_origin_to_current:
-                    cmds.reset_origin_to_current = {"right": cmds.reset_origin_to_current["left"]}
-                elif "right" in cmds.reset_origin_to_current:
-                    cmds.reset_origin_to_current = {"left": cmds.reset_origin_to_current["right"]}
+                    swapped_reset_origin_to_current["right"] = cmds.reset_origin_to_current["left"]
+                if "right" in cmds.reset_origin_to_current:
+                    swapped_reset_origin_to_current["left"] = cmds.reset_origin_to_current["right"]
+                cmds.reset_origin_to_current = swapped_reset_origin_to_current
             return cmds
 
     def reset_operator_state(self):
