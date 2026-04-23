@@ -20,14 +20,14 @@ def serials():
     try:
         devices = ZEDCameraSet.enumerate_connected_devices()
     except RuntimeError as exc:
-        logger.warning("%s", exc)
+        typer.secho(str(exc), fg=typer.colors.YELLOW, err=True)
         return
     if len(devices) == 0:
-        logger.warning("No ZED devices connected or the ZED SDK is not available.")
+        typer.secho("No ZED devices connected or the ZED SDK is not available.", fg=typer.colors.YELLOW, err=True)
         return
-    logger.info("Connected devices:")
+    typer.echo("Connected devices:")
     for device in devices.values():
-        logger.info("  %s: %s (imu=%s)", device.model, device.serial, device.has_imu)
+        typer.echo(f"  {device.model}: {device.serial} (imu={device.has_imu})")
 
 
 @zed_app.command("rgb-view")
