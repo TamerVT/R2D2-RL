@@ -9,6 +9,7 @@
 #include <optional>
 #include <set>
 #include <unordered_map>
+#include <vector>
 
 #include "rcs/Camera.h"
 #include "sim/sim.h"
@@ -41,7 +42,7 @@ class SimCameraSet {
  public:
   SimCameraSet(std::shared_ptr<rcs::sim::Sim> sim,
                std::unordered_map<std::string, SimCameraConfig> cameras,
-               bool render_on_demand = true);
+               bool render_on_demand = true, int max_buffer_frames = 100);
   ~SimCameraSet();
 
   int buffer_size();
@@ -59,9 +60,12 @@ class SimCameraSet {
  private:
   std::shared_ptr<Sim> sim;
   std::unordered_map<std::string, SimCameraConfig> cameras_cfg;
-  std::vector<FrameSet> buffer;
+  std::vector<std::optional<FrameSet>> buffer;
   std::unordered_map<std::string, mjvCamera> cameras;
   std::mutex buffer_lock;
+  int max_buffer_frames;
+  int next_ring_index = 0;
+  int buffer_len = 0;
   mjtNum last_ts = 0;
   void render_all();
   void render_single(const std::string& id, mjrContext& ctx, mjvScene& scene,

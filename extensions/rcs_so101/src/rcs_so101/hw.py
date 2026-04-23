@@ -69,12 +69,8 @@ class SO101(common.Robot):
         # print(obs)
         joints_normalized = (joints_hf + 100) / 200
         joints_in_rad = (
-            joints_normalized
-            * (
-                common.robots_meta_config(common.RobotType.SO101).joint_limits[1]
-                - common.robots_meta_config(common.RobotType.SO101).joint_limits[0]
-            )
-            + common.robots_meta_config(common.RobotType.SO101).joint_limits[0]
+            joints_normalized * (self._robot_config.joint_limits[1] - self._robot_config.joint_limits[0])
+            + self._robot_config.joint_limits[0]
         )
         self._last_joint = joints_in_rad
         return joints_in_rad
@@ -92,7 +88,7 @@ class SO101(common.Robot):
     def move_home(self) -> None:
         home = typing.cast(
             np.ndarray[tuple[typing.Literal[5]], np.dtype[np.float64]],
-            common.robots_meta_config(common.RobotType.SO101).q_home,
+            self._robot_config.q_home,
         )
         print("move home", home)
         self.set_joint_position(home)
@@ -108,9 +104,8 @@ class SO101(common.Robot):
 
     def _set_joint_position(self, q: np.ndarray[tuple[typing.Literal[5]], np.dtype[np.float64]]) -> None:  # type: ignore
         self._last_joint = q
-        q_normalized = (q - common.robots_meta_config(common.RobotType.SO101).joint_limits[0]) / (
-            common.robots_meta_config(common.RobotType.SO101).joint_limits[1]
-            - common.robots_meta_config(common.RobotType.SO101).joint_limits[0]
+        q_normalized = (q - self._robot_config.joint_limits[0]) / (
+            self._robot_config.joint_limits[1] - self._robot_config.joint_limits[0]
         )
         q_hf = (q_normalized * 200) - 100
         self._hf_robot.send_action(
@@ -188,7 +183,7 @@ class SO101Gripper(common.Gripper):
         super().__init__()
         self._hf_robot = hf_robot
         self._robot = robot
-        self._cfg = common.GripperConfig(binary=False)
+        self._cfg = common.GripperConfig()
 
     def get_normalized_width(self) -> float:
         obs = self._robot.obs
