@@ -35,7 +35,7 @@ stubgen:
 	sed -i 's/    q_home: numpy\.ndarray\[tuple\[M\], numpy\.dtype\[numpy\.float64\]\] | None/    q_home: numpy.ndarray | None/' python/rcs/_core/common.pyi
 	python -c "from pathlib import Path; p=Path('python/rcs/_core/common.pyi'); t=p.read_text(); t=t.replace('numpy.ndarray[tuple[typing.Literal[2], N], numpy.dtype[numpy.float64]]', 'numpy.ndarray[tuple[typing.Literal[2], typing.Any], numpy.dtype[numpy.float64]]'); p.write_text(t)"
 	python -c "from pathlib import Path; p=Path('python/rcs/_core/sim.pyi'); t=p.read_text(); t=t.replace('numpy.ndarray[tuple[typing.Literal[2], N], numpy.dtype[numpy.float64]]', 'numpy.ndarray[tuple[typing.Literal[2], typing.Any], numpy.dtype[numpy.float64]]'); t=t.replace(', max_buffer_frames: int = 100', ''); p.write_text(t)"
-	python scripts/generate_common_typing.py
+	python ci_scripts/generate_common_typing.py
 	ruff check --fix python/rcs/_core python/rcs/common_typing.py
 	isort python/rcs/_core python/rcs/common_typing.py
 	black python/rcs/_core python/rcs/common_typing.py

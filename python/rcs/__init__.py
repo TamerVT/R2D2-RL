@@ -9,7 +9,15 @@ from rcs._core import __version__, common
 
 from rcs import camera, envs, hand, sim
 
-RCS_PREFIX = os.path.join(os.path.dirname(__file__), "../../")
+
+def _rcs_prefix() -> str:
+    env_prefix = os.environ.get("RCS_PREFIX")
+    if env_prefix:
+        return os.path.abspath(env_prefix)
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
+
+
+RCS_PREFIX = _rcs_prefix()
 
 
 # TODO: assets must be "downloaded" first time this is imported
