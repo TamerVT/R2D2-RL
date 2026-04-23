@@ -1,4 +1,5 @@
 FROM stereolabs/zed:5.2-gl-devel-cuda12.8-ubuntu24.04
+# FROM stereolabs/zed:5.0-gl-devel-cuda12.1-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
