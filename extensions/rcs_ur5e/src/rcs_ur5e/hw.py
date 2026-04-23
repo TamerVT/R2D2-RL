@@ -33,7 +33,7 @@ class UR5eConfig(common.RobotConfig):
     ):
         super().__init__(**kwargs)
         self.robot_platform = common.RobotPlatform.HARDWARE
-        self.robot_type = common.RobotType.UR5e
+        self.robot_type = common.RobotType("UR5e")
         self.ip = ip
         # Robot movement parameters
         self.max_velocity = max_velocity
@@ -194,7 +194,7 @@ class UR5e(common.Robot):
         super().__init__()
         self.ik = ik
         self._config = cfg
-        self._config.robot_type = common.RobotType.UR5e
+        self._config.robot_type = common.RobotType("UR5e")
         self._ip = cfg.ip
 
         # Delete shared memory if it exists
@@ -306,7 +306,7 @@ class UR5e(common.Robot):
     def move_home(self) -> None:
         home = typing.cast(
             np.ndarray[tuple[typing.Literal[6]], np.dtype[np.float64]],
-            common.robots_meta_config(common.RobotType.UR5e).q_home,
+            self._config.q_home,
         )
         if np.any((home < -2 * np.pi) | (home > 2 * np.pi)):
             msg = f"Home position {home} is out of bounds."

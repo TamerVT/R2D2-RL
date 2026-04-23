@@ -1,30 +1,31 @@
 """Tests for multi-robot simulation with greenlet-based step coordination."""
 
+import copy
+
 import numpy as np
 import pytest
-from rcs._core.sim import SimConfig
-from rcs.envs.base import ControlMode, JointsDictType
-from rcs.envs.creators import SimMultiEnvCreator
-from rcs.envs.utils import default_sim_robot_cfg
+from rcs.envs.base import ControlMode, JointsDictType, RelativeTo
+from rcs.envs.configs import EmptyWorldFR3Duo
 
-SCENE = "fr3_dual_arm"
 ROBOT2ID = {"left": "0", "right": "1"}
 
 
 @pytest.fixture()
 def multi_env():
-    # idx="" so SimMultiEnvCreator can add the per-robot postfix ("_0", "_1") itself
-    robot_cfg = default_sim_robot_cfg(SCENE, idx="")
-    sim_cfg = SimConfig()
-    sim_cfg.async_control = False
-    env = SimMultiEnvCreator()(
-        name2id=ROBOT2ID,
-        robot_cfg=robot_cfg,
-        control_mode=ControlMode.JOINTS,
-        gripper_cfg=None,
-        sim_cfg=sim_cfg,
-        max_relative_movement=None,
-    )
+    scene = EmptyWorldFR3Duo()
+    cfg = copy.deepcopy(scene.config())
+    cfg.control_mode = ControlMode.JOINTS
+    cfg.task_cfg = None
+    cfg.gripper_cfgs = None
+    cfg.gripper_offsets = None
+    cfg.camera_cfgs = None
+    cfg.camera_adds = None
+    cfg.headless = True
+    cfg.sim_cfg.realtime = False
+    cfg.sim_cfg.async_control = False
+    cfg.max_relative_movement = None
+    cfg.relative_to = RelativeTo.NONE
+    env = scene.create_env(cfg)
     yield env
     env.close()
 

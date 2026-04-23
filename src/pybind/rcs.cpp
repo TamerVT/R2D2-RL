@@ -9,6 +9,7 @@
 #include <sim/camera.h>
 #include <sim/gui.h>
 
+#include <functional>
 #include <memory>
 
 #include "rcs/Kinematics.h"
@@ -22,6 +23,30 @@
 #define MACRO_STRINGIFY(x) STRINGIFY(x)
 
 namespace py = pybind11;
+
+template <typename T>
+py::class_<T> bind_type_class(py::module_& m, const std::string& class_name) {
+  return py::class_<T>(m, class_name.c_str())
+      .def(py::init<std::string>())
+      .def_static("get_all", &T::get_all)
+      .def_readonly("id", &T::id)
+      // just uses the id, this allows us to use strings also
+      // for comparison and dictionary lookups
+      .def("__hash__", [](const T& t) { return py::hash(py::str(t.id)); })
+      .def("__eq__",
+           [](const T& self, py::handle other) {
+             if (py::isinstance<T>(other)) {
+               return self.id == py::cast<T>(other).id;
+             }
+             if (py::isinstance<py::str>(other)) {
+               return self.id == py::cast<std::string>(other);
+             }
+             return false;
+           })
+      .def("__repr__", [class_name](const T& t) {
+        return "<" + class_name + ": " + t.id + ">";
+      });
+}
 
 /**
  * @brief Robot trampoline class for python bindings,
@@ -310,6 +335,7 @@ PYBIND11_MODULE(_core, m) {
       .def("translation", &rcs::common::Pose::translation)
       .def("rotation_m", &rcs::common::Pose::rotation_m)
       .def("rotation_q", &rcs::common::Pose::rotation_q)
+      .def("rotation_q_wxyz", &rcs::common::Pose::rotation_q_wxyz)
       .def("pose_matrix", &rcs::common::Pose::pose_matrix)
       .def("rotation_rpy", &rcs::common::Pose::rotation_rpy)
       .def("xyzrpy", &rcs::common::Pose::xyzrpy)
@@ -349,42 +375,26 @@ PYBIND11_MODULE(_core, m) {
              std::shared_ptr<rcs::common::Pin>>(common, "Pin")
       .def(py::init<const std::string&, const std::string&, bool>(),
            py::arg("path"), py::arg("frame_id") = "fr3_link8",
-           py::arg("urdf") = true);
+           py::arg("urdf") = false);
 
-  py::enum_<rcs::common::RobotType>(common, "RobotType")
-      .value("FR3", rcs::common::RobotType::FR3)
-      .value("UR5e", rcs::common::RobotType::UR5e)
-      .value("SO101", rcs::common::RobotType::SO101)
-      .value("XArm7", rcs::common::RobotType::XArm7)
-      .value("Panda", rcs::common::RobotType::Panda)
-      .export_values();
+  bind_type_class<rcs::common::RobotType>(common, "RobotType")
+      .def_readonly_static("FR3", &rcs::common::RobotType::FR3)
+      .def_readonly_static("Panda", &rcs::common::RobotType::Panda);
 
   py::enum_<rcs::common::RobotPlatform>(common, "RobotPlatform")
       .value("HARDWARE", rcs::common::RobotPlatform::HARDWARE)
       .value("SIMULATION", rcs::common::RobotPlatform::SIMULATION)
       .export_values();
 
-  py::class_<rcs::common::RobotMetaConfig>(common, "RobotMetaConfig")
-      .def_readonly("q_home", &rcs::common::RobotMetaConfig::q_home)
-      .def_readonly("dof", &rcs::common::RobotMetaConfig::dof)
-      .def_readonly("joint_limits",
-                    &rcs::common::RobotMetaConfig::joint_limits);
-
-  common.def(
-      "robots_meta_config",
-      [](rcs::common::RobotType robot_type) -> rcs::common::RobotMetaConfig {
-        return rcs::common::robots_meta_config.at(robot_type);
-      },
-      py::arg("robot_type"));
-
   rcs::common::RobotConfig default_robot_config;
   py::class_<rcs::common::RobotConfig>(common, "RobotConfig")
-      .def(py::init([](rcs::common::RobotType robot_type,
+      .def(py::init([](rcs::common::RobotType robot_type, size_t dof,
+                       const Eigen::Matrix<double, 2, Eigen::Dynamic,
+                                           Eigen::ColMajor>& joint_limits,
                        rcs::common::RobotPlatform robot_platform,
                        const rcs::common::Pose& tcp_offset,
                        const std::string& attachment_site,
                        const std::string& kinematic_model_path,
-                       bool home_on_reset,
                        std::optional<rcs::common::VectorXd> q_home) {
              rcs::common::RobotConfig config;
              config.robot_type = robot_type;
@@ -392,38 +402,45 @@ PYBIND11_MODULE(_core, m) {
              config.tcp_offset = tcp_offset;
              config.attachment_site = attachment_site;
              config.kinematic_model_path = kinematic_model_path;
-             config.home_on_reset = home_on_reset;
              config.q_home = q_home;
+             config.dof = dof;
+             config.joint_limits = joint_limits;
              return config;
            }),
            py::arg("robot_type") = default_robot_config.robot_type,
+           py::arg("dof") = default_robot_config.dof,
+           py::arg("joint_limits") = default_robot_config.joint_limits,
            py::arg("robot_platform") = default_robot_config.robot_platform,
            py::arg("tcp_offset") = default_robot_config.tcp_offset,
            py::arg("attachment_site") = default_robot_config.attachment_site,
            py::arg("kinematic_model_path") =
                default_robot_config.kinematic_model_path,
-           py::arg("home_on_reset") = default_robot_config.home_on_reset,
            py::arg("q_home") = default_robot_config.q_home)
       .def_readwrite("robot_type", &rcs::common::RobotConfig::robot_type)
+      .def_readwrite("dof", &rcs::common::RobotConfig::dof)
+      .def_readwrite("joint_limits", &rcs::common::RobotConfig::joint_limits)
       .def_readwrite("kinematic_model_path",
                      &rcs::common::RobotConfig::kinematic_model_path)
       .def_readwrite("attachment_site",
-                     &rcs::sim::SimRobotConfig::attachment_site)
-      .def_readwrite("tcp_offset", &rcs::sim::SimRobotConfig::tcp_offset)
+                     &rcs::common::RobotConfig::attachment_site)
+      .def_readwrite("tcp_offset", &rcs::common::RobotConfig::tcp_offset)
       .def_readwrite("robot_platform",
                      &rcs::common::RobotConfig::robot_platform)
-      .def_readwrite("home_on_reset", &rcs::common::RobotConfig::home_on_reset)
       .def_readwrite("q_home", &rcs::common::RobotConfig::q_home);
   py::class_<rcs::common::RobotState>(common, "RobotState").def(py::init<>());
+
+  bind_type_class<rcs::common::GripperType>(common, "GripperType")
+      .def_readonly_static("FrankaHand", &rcs::common::GripperType::FrankaHand);
+
   rcs::common::GripperConfig default_gripper_config;
   py::class_<rcs::common::GripperConfig>(common, "GripperConfig")
-      .def(py::init([](bool binary) {
+      .def(py::init([](rcs::common::GripperType gripper_type) {
              rcs::common::GripperConfig config;
-             config.binary = binary;
+             config.gripper_type = gripper_type;
              return config;
            }),
-           py::arg("binary") = default_gripper_config.binary)
-      .def_readwrite("binary", &rcs::common::GripperConfig::binary);
+           py::arg("gripper_type") = default_gripper_config.gripper_type)
+      .def_readwrite("gripper_type", &rcs::common::GripperConfig::gripper_type);
   py::class_<rcs::common::GripperState>(common, "GripperState")
       .def(py::init<>());
   py::enum_<rcs::common::GraspType>(common, "GraspType")
@@ -515,11 +532,14 @@ PYBIND11_MODULE(_core, m) {
                       rcs::common::Pose tcp_offset, std::string attachment_site,
                       std::string kinematic_model_path,
                       double joint_rotational_tolerance,
-                      double seconds_between_callbacks,
-                      std::string mjcf_scene_path, bool trajectory_trace,
+                      double seconds_between_callbacks, bool trajectory_trace,
                       std::vector<std::string> arm_collision_geoms,
                       std::vector<std::string> joints,
-                      std::vector<std::string> actuators, std::string base) {
+                      std::optional<rcs::common::VectorXd> q_home,
+                      std::vector<std::string> actuators, std::string base,
+                      size_t dof,
+                      const Eigen::Matrix<double, 2, Eigen::Dynamic,
+                                          Eigen::ColMajor>& joint_limits) {
             rcs::sim::SimRobotConfig config;
             config.robot_type = robot_type;
             config.robot_platform = rcs::common::RobotPlatform::SIMULATION;
@@ -528,12 +548,14 @@ PYBIND11_MODULE(_core, m) {
             config.kinematic_model_path = kinematic_model_path;
             config.joint_rotational_tolerance = joint_rotational_tolerance;
             config.seconds_between_callbacks = seconds_between_callbacks;
-            config.mjcf_scene_path = mjcf_scene_path;
             config.trajectory_trace = trajectory_trace;
             config.arm_collision_geoms = arm_collision_geoms;
             config.joints = joints;
             config.actuators = actuators;
             config.base = base;
+            config.dof = dof;
+            config.joint_limits = joint_limits;
+            config.q_home = q_home;
             return config;
           }),
           py::arg("robot_type") = default_simrobot_cfg.robot_type,
@@ -545,20 +567,20 @@ PYBIND11_MODULE(_core, m) {
               default_simrobot_cfg.joint_rotational_tolerance,
           py::arg("seconds_between_callbacks") =
               default_simrobot_cfg.seconds_between_callbacks,
-          py::arg("mjcf_scene_path") = default_simrobot_cfg.mjcf_scene_path,
           py::arg("trajectory_trace") = default_simrobot_cfg.trajectory_trace,
           py::arg("arm_collision_geoms") =
               default_simrobot_cfg.arm_collision_geoms,
           py::arg("joints") = default_simrobot_cfg.joints,
+          py::arg("q_home") = default_simrobot_cfg.q_home,
           py::arg("actuators") = default_simrobot_cfg.actuators,
-          py::arg("base") = default_simrobot_cfg.base)
+          py::arg("base") = default_simrobot_cfg.base,
+          py::arg("dof") = default_simrobot_cfg.dof,
+          py::arg("joint_limits") = default_simrobot_cfg.joint_limits)
 
       .def_readwrite("joint_rotational_tolerance",
                      &rcs::sim::SimRobotConfig::joint_rotational_tolerance)
       .def_readwrite("seconds_between_callbacks",
                      &rcs::sim::SimRobotConfig::seconds_between_callbacks)
-      .def_readwrite("mjcf_scene_path",
-                     &rcs::sim::SimRobotConfig::mjcf_scene_path)
       .def_readwrite("trajectory_trace",
                      &rcs::sim::SimRobotConfig::trajectory_trace)
       .def_readwrite("arm_collision_geoms",
@@ -566,6 +588,8 @@ PYBIND11_MODULE(_core, m) {
       .def_readwrite("joints", &rcs::sim::SimRobotConfig::joints)
       .def_readwrite("actuators", &rcs::sim::SimRobotConfig::actuators)
       .def_readwrite("base", &rcs::sim::SimRobotConfig::base)
+      .def_readwrite("dof", &rcs::sim::SimRobotConfig::dof)
+      .def_readwrite("joint_limits", &rcs::sim::SimRobotConfig::joint_limits)
       .def("__copy__",
            [](const rcs::sim::SimRobotConfig& self) {
              return rcs::sim::SimRobotConfig(self);
@@ -574,8 +598,7 @@ PYBIND11_MODULE(_core, m) {
            [](const rcs::sim::SimRobotConfig& self, py::dict) {
              return rcs::sim::SimRobotConfig(self);
            })
-      .def("add_postfix", &rcs::sim::SimRobotConfig::add_postfix,
-           py::arg("id"));
+      .def("add_prefix", &rcs::sim::SimRobotConfig::add_prefix, py::arg("id"));
   py::class_<rcs::sim::SimRobotState, rcs::common::RobotState>(sim,
                                                                "SimRobotState")
       .def(py::init<>())
@@ -600,7 +623,8 @@ PYBIND11_MODULE(_core, m) {
                        std::vector<std::string> collision_geoms_fingers,
                        std::vector<std::string> joints, double max_joint_width,
                        double min_joint_width, std::string actuator,
-                       double max_actuator_width, double min_actuator_width) {
+                       double max_actuator_width, double min_actuator_width,
+                       rcs::common::GripperType gripper_type) {
              rcs::sim::SimGripperConfig config;
              config.epsilon_inner = epsilon_inner;
              config.epsilon_outer = epsilon_outer;
@@ -614,6 +638,7 @@ PYBIND11_MODULE(_core, m) {
              config.actuator = actuator;
              config.max_actuator_width = max_actuator_width;
              config.min_actuator_width = min_actuator_width;
+             config.gripper_type = gripper_type;
              return config;
            }),
            py::arg("epsilon_inner") = default_simgripper_cfg.epsilon_inner,
@@ -632,7 +657,8 @@ PYBIND11_MODULE(_core, m) {
            py::arg("max_actuator_width") =
                default_simgripper_cfg.max_actuator_width,
            py::arg("min_actuator_width") =
-               default_simgripper_cfg.min_actuator_width)
+               default_simgripper_cfg.min_actuator_width,
+           py::arg("gripper_type") = default_simgripper_cfg.gripper_type)
       .def_readwrite("epsilon_inner",
                      &rcs::sim::SimGripperConfig::epsilon_inner)
       .def_readwrite("epsilon_outer",
@@ -655,6 +681,7 @@ PYBIND11_MODULE(_core, m) {
                      &rcs::sim::SimGripperConfig::max_actuator_width)
       .def_readwrite("min_actuator_width",
                      &rcs::sim::SimGripperConfig::min_actuator_width)
+      .def_readwrite("gripper_type", &rcs::sim::SimGripperConfig::gripper_type)
       .def("__copy__",
            [](const rcs::sim::SimGripperConfig& self) {
              return rcs::sim::SimGripperConfig(self);
@@ -663,7 +690,7 @@ PYBIND11_MODULE(_core, m) {
            [](const rcs::sim::SimGripperConfig& self, py::dict) {
              return rcs::sim::SimGripperConfig(self);
            })
-      .def("add_postfix", &rcs::sim::SimGripperConfig::add_postfix,
+      .def("add_prefix", &rcs::sim::SimGripperConfig::add_prefix,
            py::arg("id"));
   py::class_<rcs::sim::SimGripperState, rcs::common::GripperState>(
       sim, "SimGripperState")
@@ -806,7 +833,7 @@ PYBIND11_MODULE(_core, m) {
       .def_readwrite("grasp_type", &rcs::sim::SimTilburgHandConfig::grasp_type)
       .def_readwrite("seconds_between_callbacks",
                      &rcs::sim::SimTilburgHandConfig::seconds_between_callbacks)
-      .def("add_postfix", &rcs::sim::SimTilburgHandConfig::add_postfix,
+      .def("add_prefix", &rcs::sim::SimTilburgHandConfig::add_prefix,
            py::arg("id"))
       .def("__copy__",
            [](const rcs::sim::SimTilburgHandConfig& self) {
@@ -848,7 +875,14 @@ PYBIND11_MODULE(_core, m) {
            py::arg("identifier"), py::arg("frame_rate"),
            py::arg("resolution_width"), py::arg("resolution_height"),
            py::arg("type") = rcs::sim::CameraType::fixed)
-      .def_readwrite("type", &rcs::sim::SimCameraConfig::type);
+      .def_readwrite("type", &rcs::sim::SimCameraConfig::type)
+      .def("__copy__",
+           [](const rcs::sim::SimCameraConfig& self) {
+             return rcs::sim::SimCameraConfig(self);
+           })
+      .def("__deepcopy__", [](const rcs::sim::SimCameraConfig& self, py::dict) {
+        return rcs::sim::SimCameraConfig(self);
+      });
   py::class_<rcs::sim::FrameSet>(sim, "FrameSet")
       .def(py::init(
                [](const std::unordered_map<std::string, rcs::sim::ColorFrame>&
@@ -870,9 +904,10 @@ PYBIND11_MODULE(_core, m) {
   py::class_<rcs::sim::SimCameraSet>(sim, "SimCameraSet")
       .def(py::init<std::shared_ptr<rcs::sim::Sim>,
                     std::unordered_map<std::string, rcs::sim::SimCameraConfig>,
-                    bool>(),
+                    bool, int>(),
            py::arg("sim"), py::arg("cameras"),
-           py::arg("render_on_demand") = true)
+           py::arg("render_on_demand") = true,
+           py::arg("max_buffer_frames") = 100)
       .def("buffer_size", &rcs::sim::SimCameraSet::buffer_size)
       .def("clear_buffer", &rcs::sim::SimCameraSet::clear_buffer)
       .def("get_latest_frameset", &rcs::sim::SimCameraSet::get_latest_frameset)
