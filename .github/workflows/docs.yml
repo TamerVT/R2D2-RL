@@ -35,7 +35,7 @@ jobs:
           pip install -r docs/requirements.txt
 
       - name: Build versioned docs site
-        run: python scripts/build_versioned_docs.py
+        run: python ci_scripts/build_versioned_docs.py
 
       - name: Setup GitHub Pages
         uses: actions/configure-pages@v3
