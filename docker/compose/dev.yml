@@ -1,0 +1,24 @@
+services:
+  rcs:
+    build:
+      context: ../..
+      dockerfile: docker/Dockerfile
+    working_dir: /workspace/robot-control-stack
+    command:
+      - /bin/sh
+      - -lc
+      - /usr/local/bin/link-editable-source && exec /bin/sh
+    environment:
+      DISPLAY: ${DISPLAY}
+      RCS_PREFIX: /workspace/robot-control-stack
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: all
+    volumes:
+      - ../..:/workspace/robot-control-stack
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - /dev:/dev
+    network_mode: host
+    privileged: true
+    gpus: all
+    stdin_open: true
+    tty: true
