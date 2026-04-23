@@ -3,7 +3,9 @@
 
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
+#include <vector>
 
 #include "Kinematics.h"
 #include "Pose.h"
@@ -12,43 +14,38 @@
 namespace rcs {
 namespace common {
 
-
 enum RobotPlatform { SIMULATION = 0, HARDWARE };
 
 template <typename Derived>
 struct TypeBase {
-    std::string id;
+  std::string id;
 
-    // Each subclass gets its own unique static map
-    static std::map<std::string, const Derived*>& registry() {
-        static std::map<std::string, const Derived*> _registry;
-        return _registry;
+  // Each subclass gets its own unique static registry of type ids.
+  static std::set<std::string>& registry() {
+    static std::set<std::string> _registry;
+    return _registry;
+  }
+
+  // Constructor automatically registers the instance
+  TypeBase(std::string id_) : id(std::move(id_)) { registry().insert(id); }
+
+  // Returns all registered instances of this specific type
+  static std::vector<Derived> get_all() {
+    std::vector<Derived> all;
+    all.reserve(registry().size());
+    for (const auto& id : registry()) {
+      all.emplace_back(id);
     }
+    return all;
+  }
 
-    // Constructor automatically registers the instance
-    TypeBase(std::string id_) : id(std::move(id_)) {
-        auto& reg = registry();
-        if (reg.find(id) == reg.end()) {
-            reg[id] = static_cast<const Derived*>(this);
-        }
-    }
-
-    // Returns all registered instances of this specific type
-    static std::vector<Derived> get_all() {
-        std::vector<Derived> all;
-        for (const auto& [key, ptr] : registry()) {
-            all.push_back(*ptr);
-        }
-        return all;
-    }
-
-    bool operator==(const TypeBase& other) const { return id == other.id; }
+  bool operator==(const TypeBase& other) const { return id == other.id; }
 };
 struct RobotType : public TypeBase<RobotType> {
-    using TypeBase::TypeBase; // Inherit the constructor
+  using TypeBase::TypeBase;  // Inherit the constructor
 
-    static const RobotType FR3;
-    static const RobotType Panda;
+  static const RobotType FR3;
+  static const RobotType Panda;
 };
 inline const RobotType RobotType::FR3{"FR3"};
 inline const RobotType RobotType::Panda{"Panda"};
@@ -61,50 +58,51 @@ struct RobotConfig {
   std::string kinematic_model_path = "assets/scenes/fr3_empty_world/robot.xml";
   std::optional<VectorXd> q_home = std::nullopt;
   size_t dof = 7;
-  Eigen::Matrix<double, 2, Eigen::Dynamic, Eigen::ColMajor> joint_limits = 
-           (Eigen::Matrix<double, 2, Eigen::Dynamic, Eigen::ColMajor>(2, 7) <<
-                // low 7‐tuple
-                -2.3093,
-            -1.5133, -2.4937, -2.7478, -2.4800, 0.8521, -2.6895,
-            // high 7‐tuple
-            2.3093, 1.5133, 2.4937, -0.4461, 2.4800, 4.2094, 2.6895)
-               .finished();
-  virtual ~RobotConfig(){};
+  Eigen::Matrix<double, 2, Eigen::Dynamic, Eigen::ColMajor> joint_limits =
+      (Eigen::Matrix<double, 2, Eigen::Dynamic, Eigen::ColMajor>(2, 7) <<
+           // low 7‐tuple
+           -2.3093,
+       -1.5133, -2.4937, -2.7478, -2.4800, 0.8521, -2.6895,
+       // high 7‐tuple
+       2.3093, 1.5133, 2.4937, -0.4461, 2.4800, 4.2094, 2.6895)
+          .finished();
+  virtual ~RobotConfig() {};
 };
 struct RobotState {
-  virtual ~RobotState(){};
+  virtual ~RobotState() {};
 };
 
-
 struct GripperType : public TypeBase<GripperType> {
-    using TypeBase::TypeBase; 
+  using TypeBase::TypeBase;
 
-    static const GripperType FrankaHand;
+  static const GripperType FrankaHand;
 };
 inline const GripperType GripperType::FrankaHand{"FrankaHand"};
 
 struct GripperConfig {
   GripperType gripper_type = GripperType::FrankaHand;
-  virtual ~GripperConfig(){};
+  virtual ~GripperConfig() {};
 };
 struct GripperState {
-  virtual ~GripperState(){};
+  virtual ~GripperState() {};
 };
 
-enum GraspType {  POWER_GRASP = 0, 
-                  PRECISION_GRASP,
-                  LATERAL_GRASP,
-                  TRIPOD_GRASP  };
+enum GraspType {
+  POWER_GRASP = 0,
+  PRECISION_GRASP,
+  LATERAL_GRASP,
+  TRIPOD_GRASP
+};
 struct HandConfig {
-  virtual ~HandConfig(){};
+  virtual ~HandConfig() {};
 };
 struct HandState {
-  virtual ~HandState(){};
+  virtual ~HandState() {};
 };
 
 class Robot {
  public:
-  virtual ~Robot(){};
+  virtual ~Robot() {};
 
   // Also add an implementation specific set_config function that takes
   // a deduced config type
@@ -143,7 +141,7 @@ class Robot {
 
 class Gripper {
  public:
-  virtual ~Gripper(){};
+  virtual ~Gripper() {};
 
   // Also add an implementation specific set_config function that takes
   // a deduced config type
@@ -176,9 +174,9 @@ class Gripper {
 
 class Hand {
  public:
-  virtual ~Hand(){};
-  // TODO: Add low-level control interface for the hand with internal state updates
-  // Also add an implementation specific set_config function that takes
+  virtual ~Hand() {};
+  // TODO: Add low-level control interface for the hand with internal state
+  // updates Also add an implementation specific set_config function that takes
   // a deduced config type
   // bool set_config(const GConfig& cfg);
 
