@@ -21,14 +21,20 @@ def _display_frame(window_name: str, frame, *, is_rgb: bool):
 @realsense_app.command()
 def serials():
     """Reads out the serial numbers of the connected realsense devices."""
-    context = rs.context()
-    devices = RealSenseCameraSet.enumerate_connected_devices(context)
-    if len(devices) == 0:
-        logger.warning("No realsense devices connected.")
+    try:
+        context = rs.context()
+        devices = RealSenseCameraSet.enumerate_connected_devices(context)
+    except Exception as exc:
+        typer.secho(f"Could not enumerate RealSense devices: {exc}", fg=typer.colors.RED, err=True)
         return
-    logger.info("Connected devices:")
+
+    if len(devices) == 0:
+        typer.secho("No RealSense devices connected.", fg=typer.colors.YELLOW, err=True)
+        return
+
+    typer.echo("Connected devices:")
     for device in devices.values():
-        logger.info("  %s: %s", device.product_line, device.serial)
+        typer.echo(f"  {device.product_line}: {device.serial}")
 
 
 @realsense_app.command("rgb-view")
