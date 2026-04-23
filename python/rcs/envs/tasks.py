@@ -37,10 +37,12 @@ class PickObjSuccessWrapper(gym.Wrapper):
     def step(self, action: dict[str, Any]):  # type: ignore
         obs, reward, _, truncated, info = super().step(action)
 
+        gripper_closed = obs[self.robot_name]["gripper"][0] == GripperWrapper.BINARY_GRIPPER_CLOSED[0]
+
         if (
             self._gripper.get_normalized_width() > 0.01
             and self._gripper.get_normalized_width() < 0.99
-            and obs[self.robot_name]["gripper"] == GripperWrapper.BINARY_GRIPPER_CLOSED
+            and gripper_closed
         ):
             self._gripper_closing += 1
         else:
@@ -61,7 +63,7 @@ class PickObjSuccessWrapper(gym.Wrapper):
         # NOTE: 4 depends on the time passing between each step.
         is_grasped = (
             self._gripper_closing >= 4  # gripper is closing since more than 4 steps
-            and obs[self.robot_name]["gripper"] == GripperWrapper.BINARY_GRIPPER_CLOSED  # command is still close
+            and gripper_closed  # command is still close
             and tcp_to_obj_dist <= 0.01  # tcp to cube center is max 1cm
         )
         success = obj_to_goal_dist <= 0.022 and info[self.robot_name]["is_grasped"]
