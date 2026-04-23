@@ -79,13 +79,13 @@ class DummySimEnv(gym.Env):
         super().reset(seed=seed)
         mj.mj_resetData(self.sim.model, self.sim.data)
         mj.mj_forward(self.sim.model, self.sim.data)
-        return self._obs(), {}
+        return self._obs(), {"dummy": True}
 
     def step(self, action: dict[str, np.ndarray]):
         self.sim.data.qpos[0] += float(action["delta"][0])
         self.sim.data.qvel[:] = 0.0
         mj.mj_forward(self.sim.model, self.sim.data)
-        return self._obs(), 0.0, False, False, {}
+        return self._obs(), 0.0, False, False, {"dummy": True}
 
     def close(self):
         return None
@@ -98,12 +98,12 @@ def test_record_and_replay_sim_state(tmp_path: Path):
     dataset_path = tmp_path / "dataset"
     record_env: gym.Env = DummySimEnv(Sim(model_path))
     record_env = SimStateObservationWrapper(record_env)
-    record_env = StorageWrapper(record_env, str(dataset_path), "test sim replay", batch_size=1, always_record=True)
-
+    record_env = StorageWrapper(record_env, str(dataset_path), "test sim replay")
     obs, _ = record_env.reset()
+    record_env.start_record()
     assert SimStateObservationWrapper.STATE_KEY in obs
-
     record_env.step({"delta": np.array([0.125], dtype=np.float64)})
+    record_env.stop_record()
     record_env.close()
 
     table = ds.dataset(str(dataset_path), format="parquet").to_table().sort_by([("step", "ascending")])
