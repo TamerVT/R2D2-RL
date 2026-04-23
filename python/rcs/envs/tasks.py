@@ -132,10 +132,8 @@ class RandomSquareObjPos(gym.Wrapper):
         pose_in_world_frame = self.center2world * pose_in_center_frame
 
         # qpos array format for a free joint: [x, y, z, qw, qx, qy, qz]
-        quat_xyzw = pose_in_world_frame.rotation_q()
-        quat_wxyz = np.array([quat_xyzw[3], quat_xyzw[0], quat_xyzw[1], quat_xyzw[2]])
         self.get_wrapper_attr("sim").data.joint(self.obj_joint_name).qpos = np.append(
-            pose_in_world_frame.translation(), quat_wxyz
+            pose_in_world_frame.translation(), pose_in_world_frame.rotation_q_wxyz()
         )
 
         # reset of remaining stack, must happen after our reset!
