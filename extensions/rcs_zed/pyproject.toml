@@ -8,7 +8,6 @@ version = "0.6.3"
 description = "RCS ZED camera module"
 dependencies = [
   "rcs>=0.6.3",
-  "rcs_realsense>=0.6.3",
   "opencv-python~=4.10.0",
   "pupil_apriltags",
   "diskcache",

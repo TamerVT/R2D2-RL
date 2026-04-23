@@ -1,5 +1,6 @@
 services:
   rcs:
+    image: rcs-dev
     build:
       context: ../..
       dockerfile: docker/Dockerfile

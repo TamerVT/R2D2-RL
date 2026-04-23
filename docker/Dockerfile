@@ -28,7 +28,12 @@ ENV PATH="/opt/venv/bin:/root/.local/bin:${PATH}" \
     VIRTUAL_ENV=/opt/venv
 
 RUN uv python install 3.11 \
-    && uv venv --python 3.11 /opt/venv
+    && uv venv --python 3.11 /opt/venv \
+    && python -m ensurepip --upgrade
+
+# Install the ZED Python bindings into the same virtualenv used by the project.
+RUN uv pip install requests \
+    && python /usr/local/zed/get_python_api.py
 
 COPY . /opt/rcs-src
 COPY docker/link-editable-source.sh /usr/local/bin/link-editable-source
@@ -47,7 +52,8 @@ RUN chmod +x /usr/local/bin/link-editable-source \
     && uv pip install /opt/rcs-src \
     && uv pip install --no-build-isolation /opt/rcs-src/extensions/rcs_fr3 \
     && uv pip install /opt/rcs-src/extensions/rcs_realsense \
-    && uv pip install /opt/rcs-src/extensions/rcs_robotiq2f85
+    && uv pip install /opt/rcs-src/extensions/rcs_robotiq2f85 \
+    && uv pip install /opt/rcs-src/extensions/rcs_zed
 
 WORKDIR /workspace/robot-control-stack
 
