@@ -194,3 +194,6 @@ If you find RCS useful for your academic work please consider citing it:
 
 For more scientific information and supplementary videos, visit the **[paper website](https://robotcontrolstack.github.io/)**.
 
+## License
+
+The RCS source code is licensed under AGPL-3.0. A small subset of redistributed third-party robot and sensor assets under `assets/` keeps its original upstream license; the applicable notices are collected in [THIRD_PARTY_ASSET_LICENSES.md](THIRD_PARTY_ASSET_LICENSES.md).
