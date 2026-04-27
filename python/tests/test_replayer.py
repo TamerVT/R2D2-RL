@@ -101,7 +101,7 @@ def _replay_prefix(output_dir: Path, *, with_cameras: bool, limit: int) -> None:
         uuid = load_distinct_uuids(source_dir)[0]
         recorded_steps = load_trajectory(source_dir, uuid)[:limit]
         env.get_wrapper_attr("set_instruction")(recorded_steps[0].instruction)
-        replay_trajectory(env, recorded_steps)
+        replay_trajectory(env, recorded_steps, True)
     finally:
         env.close()
 

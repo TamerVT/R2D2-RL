@@ -99,10 +99,7 @@ def restore_sim_step(env: gym.Env, recorded_step: RecordedSimStep):
         env.get_wrapper_attr("set_replay_state")(recorded_step.sim_state, spec=recorded_step.sim_state_spec)
 
 
-def replay_trajectory(
-    env: gym.Env,
-    recorded_steps: list[RecordedSimStep],
-):
+def replay_trajectory(env: gym.Env, recorded_steps: list[RecordedSimStep], headless: bool):
     if not recorded_steps:
         msg = "No recorded sim states found in the requested trajectory."
         raise ValueError(msg)
@@ -111,17 +108,20 @@ def replay_trajectory(
     for recorded_step in recorded_steps:
         restore_sim_step(env, recorded_step)
         env.step(recorded_step.action)
+        if not headless:
+            env.get_wrapper_attr("sim").sync_gui()
         if recorded_step.success:
             env.get_wrapper_attr("success")()
 
 
 def replay():
     dataset = "/home/tobi/coding/rcs_repos/robot-control-stack/test_iris"
+    headless = False
     scene = EmptyWorldFR3Duo()
     sim_cfg_data = scene.config()
     sim_cfg_data.camera_cfgs = {}
-    sim_cfg_data.sim_cfg = SimConfig(async_control=True, realtime=True, frequency=30, max_convergence_steps=500)
-    sim_cfg_data.headless = True
+    sim_cfg_data.sim_cfg = SimConfig(async_control=True, realtime=not headless, frequency=30, max_convergence_steps=500)
+    sim_cfg_data.headless = headless
     sim_cfg_data.relative_to = RelativeTo.CONFIGURED_ORIGIN
     if sim_cfg_data.root_frame_objects is None:
         sim_cfg_data.root_frame_objects = {}
@@ -145,7 +145,7 @@ def replay():
             if not recorded_steps:
                 continue
             env_rel.get_wrapper_attr("set_instruction")(recorded_steps[0].instruction)
-            replay_trajectory(env_rel, recorded_steps)
+            replay_trajectory(env_rel, recorded_steps, headless)
     finally:
         env_rel.close()
 
