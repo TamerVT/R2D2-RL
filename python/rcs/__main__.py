@@ -3,10 +3,8 @@ from typing import Annotated
 
 import typer
 from rcs.envs.storage_wrapper import StorageWrapper
-from rcs.sim_state_replay import replay as replay_command
 
 app = typer.Typer()
-app.command()(replay_command)
 
 
 @app.command()

@@ -40,23 +40,6 @@ class RobotSimWrapper(ActObsInfoWrapper):
         return super().reset(seed=seed, options=options)
 
 
-class SimStateObservationWrapper(ActObsInfoWrapper):
-    STATE_KEY = "sim_state"
-    STATE_SPEC_KEY = "sim_state_spec"
-
-    def __init__(self, env):
-        super().__init__(env)
-        assert self.env.get_wrapper_attr("PLATFORM") == RobotPlatform.SIMULATION, "Base environment must be simulation."
-        self.sim = cast(sim.Sim, self.get_wrapper_attr("sim"))
-
-    def observation(self, observation: dict[str, Any], info: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
-        observation = dict(observation)
-        sim_state = self.sim.get_state()
-        observation[self.STATE_KEY] = sim_state
-        observation[self.STATE_SPEC_KEY] = self.sim.get_state_spec()
-        return observation, info
-
-
 class GripperWrapperSim(ActObsInfoWrapper):
     def __init__(self, env):
         super().__init__(env)

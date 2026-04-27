@@ -14,7 +14,6 @@ import pyarrow as pa
 import pyarrow.dataset as ds
 import simplejpeg
 from PIL import Image
-from rcs.envs.base import RelativeActionSpace
 
 
 class StorageWrapper(gym.Wrapper):
@@ -31,6 +30,7 @@ class StorageWrapper(gym.Wrapper):
         basename_template: Optional[str] = None,
         max_rows_per_group: Optional[int] = None,
         max_rows_per_file: Optional[int] = None,
+        success_from_env: bool = False,
     ):
         """
         Asynchronously log environment transitions to a Parquet dataset on disk.
@@ -91,6 +91,7 @@ class StorageWrapper(gym.Wrapper):
         self._success = False
         self._prev_action = None
         self._prev_absolute_action = None
+        self.success_from_env = success_from_env
 
         self.thread_pool = ThreadPoolExecutor()
         self.queue: Queue[pa.Table | pa.RecordBatch] = Queue(maxsize=2)
@@ -249,48 +250,40 @@ class StorageWrapper(gym.Wrapper):
 
         if not self._pause:
             assert isinstance(obs, dict)
+            if "frames" in obs and not obs["frames"]:
+                del obs["frames"]
             if "frames" in obs:
                 self._encode_images(obs)
             self._flatten_arrays(obs)
-            if info.get("success"):
+            if info.get("success") and self.success_from_env:
                 self.success()
 
-            self.buffer.append(
-                {
-                    "obs": obs,
-                    "info": info,
-                    "reward": reward,
-                    "step": self.step_cnt,
-                    "uuid": self.uuid.hex,
-                    "date": datetime.date.today().isoformat(),
-                    "success": self._success,
-                    "action": self._prev_action,
-                    "instruction": self.instruction,
-                    "timestamp": datetime.datetime.now().timestamp(),
-                    RelativeActionSpace.ABSOLUTE_ACTION_KEY: self._prev_absolute_action,
-                }
-            )
+            frame = {
+                "obs": obs,
+                "info": info,
+                "reward": reward,
+                "step": self.step_cnt,
+                "uuid": self.uuid.hex,
+                "date": datetime.date.today().isoformat(),
+                "success": self._success,
+                "action": self._prev_action,
+                "env_action": action,
+                "instruction": self.instruction,
+                "timestamp": datetime.datetime.now().timestamp(),
+            }
+
             self._prev_action = action
-            if RelativeActionSpace.ABSOLUTE_ACTION_KEY in obs:
-                # single env
-                self._prev_absolute_action = obs[RelativeActionSpace.ABSOLUTE_ACTION_KEY]
-            else:
-                # multi env wrapper
-                act_dict = {}
-                try:
-                    for key in self.get_wrapper_attr("envs"):
-                        if RelativeActionSpace.ABSOLUTE_ACTION_KEY in obs[key]:
-                            act_dict[key] = obs[key][RelativeActionSpace.ABSOLUTE_ACTION_KEY]
-                except AttributeError:
-                    pass
-                if len(act_dict) != 0:
-                    self._prev_absolute_action = act_dict  # type: ignore
+
+            self.buffer.append(frame)
 
             self.step_cnt += 1
             if len(self.buffer) == self.batch_size:
                 self._flush()
 
         return obs, reward, terminated, truncated, info
+
+    def set_instruction(self, instruction: str):
+        self.instruction = instruction
 
     def success(self):
         self._success = True

@@ -200,23 +200,36 @@ class HardwareEnv(BaseEnv):
 
 class SimEnv(BaseEnv):
     PLATFORM = RobotPlatform.SIMULATION
+    STATE_KEY = "sim_state"
+    STATE_SPEC_KEY = "sim_state_spec"
 
-    def __init__(self, sim: simulation.Sim) -> None:
+    def __init__(self, sim: simulation.Sim, return_state=True) -> None:
         self.sim = sim
         cfg = self.sim.get_config()
         self.frame_rate = SimpleFrameRate(cfg.frequency, "MoJoCo Simulation Loop")
         self.main_greenlet: greenlet | None = None
+        self.return_state = return_state
+        self._replay_state: tuple[np.ndarray, int | None] | None = None
+
+    def set_replay_state(self, state: np.ndarray, spec: int | None = None):
+        self._replay_state = (state, spec)
 
     def step(self, action: dict[str, Any]) -> tuple[dict[str, Any], float, bool, bool, dict]:
         if self.main_greenlet is not None:
             self.main_greenlet.switch()
         else:
             self.step_sim()
-        return super().step(action)
+        obs, reward, terminated, truncated, info = super().step(action)
+        if self.return_state:
+            obs, info = self.observation(obs, info)
+        return obs, reward, terminated, truncated, info
 
     def step_sim(self):
         cfg = self.sim.get_config()
-        if cfg.async_control:
+        if self._replay_state is not None:
+            self.sim.set_state(self._replay_state[0], self._replay_state[1])
+            self._replay_state = None
+        elif cfg.async_control:
             self.sim.step(round(1 / cfg.frequency / self.sim.model.opt.timestep))
             if cfg.realtime:
                 self.frame_rate.frame_rate = cfg.frequency
@@ -235,6 +248,12 @@ class SimEnv(BaseEnv):
         else:
             self.apply_sim_state()
         return super().reset(seed=seed, options=options)
+
+    def observation(self, observation: dict[str, Any], info: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+        sim_state = self.sim.get_state()
+        info[self.STATE_KEY] = sim_state
+        info[self.STATE_SPEC_KEY] = self.sim.get_state_spec()
+        return observation, info
 
 
 class CoverWrapper(gym.Wrapper):
