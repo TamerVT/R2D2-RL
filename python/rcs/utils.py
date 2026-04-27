@@ -6,7 +6,7 @@ logger.setLevel(logging.INFO)
 
 
 class SimpleFrameRate:
-    def __init__(self, frame_rate: float, loop_name: str = "SimpleFrameRate"):
+    def __init__(self, frame_rate: float | None, loop_name: str = "SimpleFrameRate"):
         """SimpleFrameRate is a utility class to manage frame rates in a simple way.
         It allows you to call it in a loop, and it will sleep the necessary time to maintain the desired frame rate.
 
@@ -22,6 +22,8 @@ class SimpleFrameRate:
         self.t = None
 
     def __call__(self):
+        if self.frame_rate is None:
+            return
         if self.t is None:
             self.t = perf_counter()
             self._last_print = self.t

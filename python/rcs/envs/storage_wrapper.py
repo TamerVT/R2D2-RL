@@ -14,6 +14,7 @@ import pyarrow as pa
 import pyarrow.dataset as ds
 import simplejpeg
 from PIL import Image
+from rcs.envs.base import RelativeActionSpace
 
 
 class StorageWrapper(gym.Wrapper):
@@ -89,6 +90,7 @@ class StorageWrapper(gym.Wrapper):
         self.instruction = instruction
         self._success = False
         self._prev_action = None
+        self._prev_absolute_action = None
 
         self.thread_pool = ThreadPoolExecutor()
         self.queue: Queue[pa.Table | pa.RecordBatch] = Queue(maxsize=2)
@@ -265,9 +267,25 @@ class StorageWrapper(gym.Wrapper):
                     "action": self._prev_action,
                     "instruction": self.instruction,
                     "timestamp": datetime.datetime.now().timestamp(),
+                    RelativeActionSpace.ABSOLUTE_ACTION_KEY: self._prev_absolute_action,
                 }
             )
             self._prev_action = action
+            if RelativeActionSpace.ABSOLUTE_ACTION_KEY in obs:
+                # single env
+                self._prev_absolute_action = obs[RelativeActionSpace.ABSOLUTE_ACTION_KEY]
+            else:
+                # multi env wrapper
+                act_dict = {}
+                try:
+                    for key in self.get_wrapper_attr("envs"):
+                        if RelativeActionSpace.ABSOLUTE_ACTION_KEY in obs[key]:
+                            act_dict[key] = obs[key][RelativeActionSpace.ABSOLUTE_ACTION_KEY]
+                except AttributeError:
+                    pass
+                if len(act_dict) != 0:
+                    self._prev_absolute_action = act_dict  # type: ignore
+
             self.step_cnt += 1
             if len(self.buffer) == self.batch_size:
                 self._flush()
@@ -291,6 +309,7 @@ class StorageWrapper(gym.Wrapper):
         self._pause = not self.always_record
         self._success = False
         self._prev_action = None
+        self._prev_absolute_action = None
         obs, info = self.env.reset()
         self.step_cnt = 0
         self.uuid = uuid4()

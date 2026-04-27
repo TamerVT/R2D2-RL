@@ -55,6 +55,7 @@ DIGIT_DICT = None
 
 DATASET_PATH = "test_iris"
 INSTRUCTION = "pick up cube"
+RECORD_FPS = 30
 
 robot2world = {
     "right": rcs.common.Pose(
@@ -143,7 +144,9 @@ def get_env():
 
         scene = EmptyWorldFR3Duo()
         sim_cfg_data = scene.config()
-        sim_cfg_data.sim_cfg = SimConfig(async_control=True, realtime=True, frequency=30, max_convergence_steps=500)
+        sim_cfg_data.sim_cfg = SimConfig(
+            async_control=True, realtime=True, frequency=RECORD_FPS, max_convergence_steps=500
+        )
         sim_cfg_data.relative_to = RelativeTo.CONFIGURED_ORIGIN
         if sim_cfg_data.root_frame_objects is None:
             sim_cfg_data.root_frame_objects = {}
@@ -164,7 +167,7 @@ def get_env():
 def main():
     env_rel, operator = get_env()
     env_rel.reset()
-    tele = TeleopLoop(env_rel, operator)
+    tele = TeleopLoop(env_rel, operator, env_frequency=RECORD_FPS, robot_platform=ROBOT_INSTANCE)
     with env_rel, tele:  # type: ignore
         tele.environment_step_loop()
 
