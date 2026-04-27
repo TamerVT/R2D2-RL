@@ -188,5 +188,11 @@ void Sim::start_gui_server(const std::string& id) {
   }
 }
 void Sim::stop_gui_server() { this->gui.reset(); }
+
+void Sim::sync_gui() {
+  if (this->gui.has_value()) {
+    this->gui->publish_state();
+  }
+}
 }  // namespace sim
 }  // namespace rcs

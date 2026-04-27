@@ -102,6 +102,7 @@ class Sim {
       const std::string& id, int frame_rate, size_t width, size_t height);
   void start_gui_server(const std::string& id);
   void stop_gui_server();
+  void sync_gui();
 };
 }  // namespace sim
 }  // namespace rcs

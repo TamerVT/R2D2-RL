@@ -46,18 +46,24 @@ GuiServer::~GuiServer() {
   }
 };
 
-void GuiServer::update_mjdata_callback() {
+void GuiServer::publish_state() {
+  this->shm.state_lock.lock();
+  mj_getState(this->m, this->d, this->shm.state.ptr, MJ_PHYSICS_SPEC);
+  this->shm.state_lock.unlock();
+}
+
+void GuiServer::publish_state_if_requested() {
   this->shm.info_lock.lock_upgradable();
   if (*this->shm.info_byte) {
-    this->shm.state_lock.lock();
-    mj_getState(this->m, this->d, this->shm.state.ptr, MJ_PHYSICS_SPEC);
-    this->shm.state_lock.unlock();
+    this->publish_state();
     this->shm.info_lock.unlock_upgradable_and_lock();
     *this->shm.info_byte = false;
     this->shm.info_lock.unlock_and_lock_upgradable();
   }
   this->shm.info_lock.unlock_upgradable();
 }
+
+void GuiServer::update_mjdata_callback() { this->publish_state_if_requested(); }
 
 }  // namespace sim
 }  // namespace rcs
