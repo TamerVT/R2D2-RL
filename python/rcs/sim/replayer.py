@@ -49,7 +49,7 @@ class RecordedSimStep:
         return None
 
 
-def load_distinct_uuids(dataset_path: Path) -> list[str]:
+def load_distinct_uuids(dataset_path: Path | str) -> list[str]:
     connection = duckdb.connect()
     try:
         rows = connection.execute(
@@ -61,7 +61,7 @@ def load_distinct_uuids(dataset_path: Path) -> list[str]:
     return [str(row[0]) for row in rows]
 
 
-def load_trajectory(dataset_path: Path, trajectory_uuid: str) -> list[RecordedSimStep]:
+def load_trajectory(dataset_path: Path | str, trajectory_uuid: str) -> list[RecordedSimStep]:
     connection = duckdb.connect()
     try:
         rows = connection.execute(
@@ -128,11 +128,6 @@ def replay():
     sim_cfg_data.task_cfg = PickTaskConfig(robot_name="right")
 
     uuids = load_distinct_uuids(dataset)
-    # first_instruction = ""
-    # if uuids:
-    #     first_recorded_steps = load_trajectory(dataset, uuids[0])
-    #     if first_recorded_steps:
-    #         first_instruction = first_recorded_steps[0].instruction
 
     env_rel = scene.create_env(sim_cfg_data)
     env_rel = StorageWrapper(
