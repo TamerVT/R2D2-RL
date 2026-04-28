@@ -126,7 +126,7 @@ GRIPPER_PATHS: dict[common.GripperType, str] = {
 }
 
 GRIPPER_OFFSETS: dict[common.GripperType, common.Pose] = {
-    common.GripperType.FrankaHand: common.FrankaHandTCPOffset(),
+    common.GripperType.FrankaHand: common.Pose(pose_matrix=common.FrankaHandTCPOffset()),
     common.GripperType("Robotiq2F85"): common.Pose(translation=np.array([0.0, 0.0, 0.1628])),
 }
 
