@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Iterable
 
 import duckdb
 import numpy as np
@@ -14,16 +15,16 @@ import torch
 from torchvision.io import decode_jpeg
 from torchvision.transforms import v2
 
-DATASET_PATHS = [
+DEFAULT_DATASET_PATHS = [
     "data_grasp",
 ]
-HF_DATA_DIR = "data_lerobot_joint_simple"
-REPO_ID = "rcs/grasp_joint_simple"
-ROBOT_TYPE = "fr3"
-FPS = 30
-ROBOT_KEYS = ["left", "right"]
-JOINTS = False
-TCP_OFFSET = rcs.GRIPPER_OFFSETS[rcs.common.GripperType("Robotiq2F85")]
+DEFAULT_HF_DATA_DIR = "data_lerobot_joint_simple"
+DEFAULT_REPO_ID = "rcs/grasp_joint_simple"
+DEFAULT_ROBOT_TYPE = "fr3"
+DEFAULT_FPS = 30
+DEFAULT_ROBOT_KEYS = ["left", "right"]
+DEFAULT_JOINTS = False
+DEFAULT_GRIPPER_TYPE = "Robotiq2F85"
 
 
 @dataclass(frozen=True)
@@ -45,34 +46,114 @@ class CamConversionConfig:
         return f"image_{self.name}"
 
 
-CAMERAS = [
+DEFAULT_CAMERAS = [
     CamConversionConfig(name="head", resolution=(256, 256)),
     CamConversionConfig(name="image_left_wrist", source_name="left_wrist", resolution=(256, 256)),
     CamConversionConfig(name="image_right_wrist", source_name="right_wrist", resolution=(256, 256)),
 ]
-IMAGE_BATCH_SIZE = 32
-PER_ROBOT_ARM_DIM = 7
-PER_ROBOT_STATE_DIM = PER_ROBOT_ARM_DIM + 1
+DEFAULT_IMAGE_BATCH_SIZE = 32
+DEFAULT_PER_ROBOT_ARM_DIM = 7
 
-ik = rcs.common.Pin(
-    rcs.ROBOTS[RobotType.FR3].mjcf_model_path,
-    rcs.ROBOTS[RobotType.FR3].attachment_site,
-)
+
+def _resolve_robot_type(robot_type: str | RobotType) -> RobotType:
+    candidates = list(rcs.ROBOTS.keys())
+    if isinstance(robot_type, RobotType):
+        for candidate in candidates:
+            if candidate == robot_type or str(candidate).lower() == str(robot_type).lower():
+                return candidate
+        return robot_type
+
+    normalized = robot_type.lower()
+    for candidate in candidates:
+        candidate_text = str(candidate).lower()
+        if candidate_text == normalized or normalized in candidate_text:
+            return candidate
+
+    msg = f"Unknown robot type '{robot_type}'"
+    raise ValueError(msg)
+
+
+def _resolve_gripper_type(gripper_type: str) -> rcs.common.GripperType:
+    try:
+        return rcs.common.GripperType(gripper_type)
+    except Exception:
+        attr = getattr(rcs.common.GripperType, gripper_type, None)
+        if attr is None:
+            msg = f"Unknown gripper type '{gripper_type}'"
+            raise ValueError(msg)
+        return attr
+
+
+def parse_camera_spec(spec: str) -> CamConversionConfig:
+    name_source, _, resolution_spec = spec.partition("@")
+    name, sep, source_name = name_source.partition(":")
+    if not name:
+        msg = f"Invalid camera spec '{spec}'"
+        raise ValueError(msg)
+
+    resolution = (256, 256)
+    if resolution_spec:
+        try:
+            height_str, width_str = resolution_spec.lower().split("x", maxsplit=1)
+            resolution = (int(height_str), int(width_str))
+        except ValueError as exc:
+            msg = f"Invalid camera resolution in spec '{spec}'"
+            raise ValueError(msg) from exc
+
+    return CamConversionConfig(
+        name=name,
+        source_name=source_name or None if sep else None,
+        resolution=resolution,
+    )
+
+
+def camera_specs_to_configs(camera_specs: Iterable[str]) -> list[CamConversionConfig]:
+    return [parse_camera_spec(spec) for spec in camera_specs]
 
 
 class JointDatasetConverter:
-    def __init__(self, root: str | Path):
+    def __init__(
+        self,
+        root: str | Path,
+        dataset_paths: list[str | Path] | None = None,
+        repo_id: str = DEFAULT_REPO_ID,
+        robot_type: str = DEFAULT_ROBOT_TYPE,
+        fps: int = DEFAULT_FPS,
+        robot_keys: list[str] | None = None,
+        joints: bool = DEFAULT_JOINTS,
+        gripper_type: str = DEFAULT_GRIPPER_TYPE,
+        cameras: list[CamConversionConfig] | None = None,
+        image_batch_size: int = DEFAULT_IMAGE_BATCH_SIZE,
+        per_robot_arm_dim: int = DEFAULT_PER_ROBOT_ARM_DIM,
+    ):
         self.root = Path(root)
         self.conn = duckdb.connect()
-        self.source_sql = self._build_source_sql(DATASET_PATHS)
-        self.state_dim = len(ROBOT_KEYS) * PER_ROBOT_STATE_DIM
-        self.camera_resizers = {camera.name: v2.Resize(camera.resolution) for camera in CAMERAS}
+        self.dataset_paths = dataset_paths or list(DEFAULT_DATASET_PATHS)
+        self.repo_id = repo_id
+        self.robot_type = robot_type
+        self.fps = fps
+        self.robot_keys = robot_keys or list(DEFAULT_ROBOT_KEYS)
+        self.joints = joints
+        self.gripper_type = _resolve_gripper_type(gripper_type)
+        self.cameras = cameras or list(DEFAULT_CAMERAS)
+        self.image_batch_size = image_batch_size
+        self.per_robot_arm_dim = per_robot_arm_dim
+        self.per_robot_state_dim = self.per_robot_arm_dim + 1
+        self.state_dim = len(self.robot_keys) * self.per_robot_state_dim
+        self.source_sql = self._build_source_sql(self.dataset_paths)
+        resolved_robot_type = _resolve_robot_type(self.robot_type)
+        self.tcp_offset = rcs.GRIPPER_OFFSETS[self.gripper_type]
+        self.ik = rcs.common.Pin(
+            rcs.ROBOTS[resolved_robot_type].mjcf_model_path,
+            rcs.ROBOTS[resolved_robot_type].attachment_site,
+        )
+        self.camera_resizers = {camera.name: v2.Resize(camera.resolution) for camera in self.cameras}
 
         self.lrds = LeRobotDataset.create(
-            repo_id=REPO_ID,
-            robot_type=ROBOT_TYPE,
+            repo_id=self.repo_id,
+            robot_type=self.robot_type,
             root=self.root,
-            fps=FPS,
+            fps=self.fps,
             use_videos=False,
             features=self._build_features(),
             image_writer_threads=0,
@@ -81,8 +162,8 @@ class JointDatasetConverter:
 
     def _build_features(self) -> dict[str, dict[str, object]]:
         state_names = []
-        for robot_key in ROBOT_KEYS:
-            state_names.extend([f"{robot_key}_joint_{i}" for i in range(7)])
+        for robot_key in self.robot_keys:
+            state_names.extend([f"{robot_key}_joint_{i}" for i in range(self.per_robot_arm_dim)])
             state_names.append(f"{robot_key}_gripper")
 
         features = {
@@ -91,7 +172,7 @@ class JointDatasetConverter:
                 "shape": (*camera.resolution, 3),
                 "names": ["height", "width", "channel"],
             }
-            for camera in CAMERAS
+            for camera in self.cameras
         }
         features["observation.state"] = {
             "dtype": "float32",
@@ -130,21 +211,21 @@ class JointDatasetConverter:
         observation_selects = ",\n                    ".join(
             [
                 f"obs.{robot_key}.joints AS observation_joints_{robot_key}"
-                for robot_key in ROBOT_KEYS
+                for robot_key in self.robot_keys
             ]
             + [
                 f"obs.{robot_key}.gripper AS observation_gripper_{robot_key}"
-                for robot_key in ROBOT_KEYS
+                for robot_key in self.robot_keys
             ]
         )
         action_selects = ",\n                    ".join(
             [
                 f"info.{robot_key}.absolute_action AS absolute_action_{robot_key}"
-                for robot_key in ROBOT_KEYS
+                for robot_key in self.robot_keys
             ]
             + [
                 f"env_action.{robot_key}.gripper AS action_gripper_{robot_key}"
-                for robot_key in ROBOT_KEYS
+                for robot_key in self.robot_keys
             ]
         )
 
@@ -174,12 +255,12 @@ class JointDatasetConverter:
 
     def _image_query(self) -> str:
         image_selects = ",\n                    ".join(
-            f"obs.frames.{camera.frame_name}.rgb.data AS {camera.image_column}" for camera in CAMERAS
+            f"obs.frames.{camera.frame_name}.rgb.data AS {camera.image_column}" for camera in self.cameras
         )
         image_not_null_checks = "\n                  ".join(
-            f"AND obs.frames.{camera.frame_name}.rgb.data IS NOT NULL" for camera in CAMERAS
+            f"AND obs.frames.{camera.frame_name}.rgb.data IS NOT NULL" for camera in self.cameras
         )
-        image_columns = ",\n                ".join(camera.image_column for camera in CAMERAS)
+        image_columns = ",\n                ".join(camera.image_column for camera in self.cameras)
 
         return f"""
             WITH ordered AS (
@@ -207,7 +288,7 @@ class JointDatasetConverter:
 
     def _build_observation_state(self, row: pd.Series) -> np.ndarray:
         vectors = []
-        for robot_key in ROBOT_KEYS:
+        for robot_key in self.robot_keys:
             joints = row[f"observation_joints_{robot_key}"]
             gripper = row[f"observation_gripper_{robot_key}"]
             if self._is_missing(joints) or self._is_missing(gripper):
@@ -216,7 +297,7 @@ class JointDatasetConverter:
 
             joints_vec = np.asarray(joints, dtype=np.float32)
             gripper_vec = np.asarray(gripper, dtype=np.float32)
-            if joints_vec.shape != (PER_ROBOT_ARM_DIM,) or gripper_vec.shape != (1,):
+            if joints_vec.shape != (self.per_robot_arm_dim,) or gripper_vec.shape != (1,):
                 msg = (
                     f"Unexpected observation shapes for robot '{robot_key}' at step {row['step']}: "
                     f"joints={joints_vec.shape}, gripper={gripper_vec.shape}"
@@ -228,7 +309,7 @@ class JointDatasetConverter:
 
     def _convert_action_to_joint_space(self, row: pd.Series) -> np.ndarray:
         actions = []
-        for robot_key in ROBOT_KEYS:
+        for robot_key in self.robot_keys:
             observation_joints = row[f"observation_joints_{robot_key}"]
             absolute_action = row[f"absolute_action_{robot_key}"]
             action_gripper = row[f"action_gripper_{robot_key}"]
@@ -240,8 +321,8 @@ class JointDatasetConverter:
             absolute_action_vec = np.asarray(absolute_action, dtype=np.float64)
             action_gripper_vec = np.asarray(action_gripper, dtype=np.float32)
             if (
-                observation_joints_vec.shape != (PER_ROBOT_ARM_DIM,)
-                or absolute_action_vec.shape != (PER_ROBOT_ARM_DIM,)
+                observation_joints_vec.shape != (self.per_robot_arm_dim,)
+                or absolute_action_vec.shape != (self.per_robot_arm_dim,)
                 or action_gripper_vec.shape != (1,)
             ):
                 msg = (
@@ -251,14 +332,14 @@ class JointDatasetConverter:
                 )
                 raise ValueError(msg)
 
-            if JOINTS:
+            if self.joints:
                 arm_action_vec = absolute_action_vec.astype(np.float32)
             else:
                 target_pose = rcs.common.Pose(
                     translation=absolute_action_vec[:3],
                     quaternion=absolute_action_vec[3:7],
                 )
-                ik_joints = ik.inverse(target_pose, observation_joints_vec, tcp_offset=TCP_OFFSET)
+                ik_joints = self.ik.inverse(target_pose, observation_joints_vec, tcp_offset=self.tcp_offset)
                 if ik_joints is None:
                     msg = f"IK failed for robot '{robot_key}' at step {row['step']}"
                     raise ValueError(msg)
@@ -303,7 +384,7 @@ class JointDatasetConverter:
         frames_by_step: dict[int, dict[str, np.ndarray]] = {}
 
         reader = self.conn.execute(self._image_query(), [episode_id]).fetch_record_batch(
-            rows_per_batch=IMAGE_BATCH_SIZE
+            rows_per_batch=self.image_batch_size
         )
         for batch in reader:
             self._decode_image_batch(batch, frames_by_step)
@@ -316,7 +397,7 @@ class JointDatasetConverter:
             images = frames_by_step[step]
 
             frame = {
-                camera.dataset_key: images[camera.name] for camera in CAMERAS
+                camera.dataset_key: images[camera.name] for camera in self.cameras
             }
             frame["observation.state"] = curr["observation_state"]
             frame["action"] = curr["action_vector"]
@@ -343,13 +424,43 @@ class JointDatasetConverter:
         batch_dict = batch.to_pydict()
         steps = [int(step) for step in batch_dict["step"]]
         decoded_images = {}
-        for camera in CAMERAS:
+        for camera in self.cameras:
             decoded_images[camera.name] = self._decode_and_resize_batch(batch_dict[camera.image_column], camera)
 
         for idx, step in enumerate(steps):
-            frames_by_step[step] = {camera.name: decoded_images[camera.name][idx] for camera in CAMERAS}
+            frames_by_step[step] = {camera.name: decoded_images[camera.name][idx] for camera in self.cameras}
+
+
+def run_conversion(
+    root: str | Path = DEFAULT_HF_DATA_DIR,
+    dataset_paths: list[str | Path] | None = None,
+    repo_id: str = DEFAULT_REPO_ID,
+    robot_type: str = DEFAULT_ROBOT_TYPE,
+    fps: int = DEFAULT_FPS,
+    robot_keys: list[str] | None = None,
+    joints: bool = DEFAULT_JOINTS,
+    gripper_type: str = DEFAULT_GRIPPER_TYPE,
+    cameras: list[CamConversionConfig] | None = None,
+    image_batch_size: int = DEFAULT_IMAGE_BATCH_SIZE,
+    per_robot_arm_dim: int = DEFAULT_PER_ROBOT_ARM_DIM,
+    success: bool = True,
+    n: int = -1,
+) -> None:
+    converter = JointDatasetConverter(
+        root=root,
+        dataset_paths=dataset_paths,
+        repo_id=repo_id,
+        robot_type=robot_type,
+        fps=fps,
+        robot_keys=robot_keys,
+        joints=joints,
+        gripper_type=gripper_type,
+        cameras=cameras,
+        image_batch_size=image_batch_size,
+        per_robot_arm_dim=per_robot_arm_dim,
+    )
+    converter.generate_examples(success=success, n=n)
 
 
 if __name__ == "__main__":
-    hf_ds = JointDatasetConverter(HF_DATA_DIR)
-    hf_ds.generate_examples(success=True, n=-1)
+    run_conversion()
