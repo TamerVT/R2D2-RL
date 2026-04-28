@@ -8,12 +8,13 @@ import duckdb
 import numpy as np
 import pandas as pd
 import pyarrow as pa
-import rcs
-from rcs._core.common import RobotType
-from lerobot.datasets.lerobot_dataset import LeRobotDataset
 import torch
+from lerobot.datasets.lerobot_dataset import LeRobotDataset
+from rcs._core.common import RobotType
 from torchvision.io import decode_jpeg
 from torchvision.transforms import v2
+
+import rcs
 
 DEFAULT_DATASET_PATHS = [
     "data_grasp",
@@ -209,24 +210,12 @@ class JointDatasetConverter:
 
     def _fetch_transition_table(self, episode_id: str) -> pd.DataFrame:
         observation_selects = ",\n                    ".join(
-            [
-                f"obs.{robot_key}.joints AS observation_joints_{robot_key}"
-                for robot_key in self.robot_keys
-            ]
-            + [
-                f"obs.{robot_key}.gripper AS observation_gripper_{robot_key}"
-                for robot_key in self.robot_keys
-            ]
+            [f"obs.{robot_key}.joints AS observation_joints_{robot_key}" for robot_key in self.robot_keys]
+            + [f"obs.{robot_key}.gripper AS observation_gripper_{robot_key}" for robot_key in self.robot_keys]
         )
         action_selects = ",\n                    ".join(
-            [
-                f"info.{robot_key}.absolute_action AS absolute_action_{robot_key}"
-                for robot_key in self.robot_keys
-            ]
-            + [
-                f"env_action.{robot_key}.gripper AS action_gripper_{robot_key}"
-                for robot_key in self.robot_keys
-            ]
+            [f"info.{robot_key}.absolute_action AS absolute_action_{robot_key}" for robot_key in self.robot_keys]
+            + [f"env_action.{robot_key}.gripper AS action_gripper_{robot_key}" for robot_key in self.robot_keys]
         )
 
         return self.conn.execute(
@@ -313,7 +302,11 @@ class JointDatasetConverter:
             observation_joints = row[f"observation_joints_{robot_key}"]
             absolute_action = row[f"absolute_action_{robot_key}"]
             action_gripper = row[f"action_gripper_{robot_key}"]
-            if self._is_missing(observation_joints) or self._is_missing(absolute_action) or self._is_missing(action_gripper):
+            if (
+                self._is_missing(observation_joints)
+                or self._is_missing(absolute_action)
+                or self._is_missing(action_gripper)
+            ):
                 msg = f"Missing action inputs for robot '{robot_key}' at step {row['step']}"
                 raise ValueError(msg)
 
@@ -396,9 +389,7 @@ class JointDatasetConverter:
                 continue
             images = frames_by_step[step]
 
-            frame = {
-                camera.dataset_key: images[camera.name] for camera in self.cameras
-            }
+            frame = {camera.dataset_key: images[camera.name] for camera in self.cameras}
             frame["observation.state"] = curr["observation_state"]
             frame["action"] = curr["action_vector"]
             frame["task"] = str(curr["instruction"])

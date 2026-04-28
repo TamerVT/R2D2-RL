@@ -21,7 +21,13 @@ from rcs.envs.scenes import (
 from rcs.envs.tasks import PickTaskConfig
 
 import rcs
-from rcs import CAMERA_PATHS, DEFAULT_TRANSFORMS, GRIPPER_OFFSETS, OBJECT_PATHS, SCENE_PATHS
+from rcs import (
+    CAMERA_PATHS,
+    DEFAULT_TRANSFORMS,
+    GRIPPER_OFFSETS,
+    OBJECT_PATHS,
+    SCENE_PATHS,
+)
 
 
 class EmptyWorldFR3(SimEnvCreator):
@@ -358,7 +364,7 @@ class EmptyWorldUR5e(EmptyWorldFR3):
         lead_robot_name = self.lead_robot_name(cfg)
 
         robot_cfg = cfg.robot_cfgs[lead_robot_name]
-        robot_cfg.tcp_offset=GRIPPER_OFFSETS[rcs.common.GripperType("Robotiq2F85")]
+        robot_cfg.tcp_offset = GRIPPER_OFFSETS[rcs.common.GripperType("Robotiq2F85")]
         robot_cfg.attachment_site = rcs.ROBOTS[rt].attachment_site
         robot_cfg.kinematic_model_path = rcs.ROBOTS[rt].mjcf_model_path
         robot_cfg.arm_collision_geoms = []

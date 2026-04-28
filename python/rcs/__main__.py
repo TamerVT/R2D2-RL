@@ -97,8 +97,12 @@ def lerobot_convert(
             help="Input parquet path or glob. Repeat for multiple datasets. Example: --dataset-path /data/session1 --dataset-path /data/session2",
         ),
     ] = None,
-    repo_id: Annotated[str, typer.Option(help="LeRobot repo id metadata. Example: --repo-id myorg/grasp_v2")] = DEFAULT_REPO_ID,
-    robot_type: Annotated[str, typer.Option(help="Robot type for metadata and IK model lookup. Example: --robot-type fr3")] = DEFAULT_ROBOT_TYPE,
+    repo_id: Annotated[
+        str, typer.Option(help="LeRobot repo id metadata. Example: --repo-id myorg/grasp_v2")
+    ] = DEFAULT_REPO_ID,
+    robot_type: Annotated[
+        str, typer.Option(help="Robot type for metadata and IK model lookup. Example: --robot-type fr3")
+    ] = DEFAULT_ROBOT_TYPE,
     fps: Annotated[int, typer.Option(help="Dataset frames per second. Example: --fps 30")] = DEFAULT_FPS,
     robot_keys: Annotated[
         list[str] | None,
@@ -107,8 +111,12 @@ def lerobot_convert(
             help="Robot keys to concatenate. Repeat for multiple robots. Example: --robot-key left --robot-key right",
         ),
     ] = None,
-    joints: Annotated[bool, typer.Option(help="Whether absolute_action is already in joint space. Example: --joints")] = DEFAULT_JOINTS,
-    gripper_type: Annotated[str, typer.Option(help="Gripper type used to derive TCP offset. Example: --gripper-type Robotiq2F85")] = DEFAULT_GRIPPER_TYPE,
+    joints: Annotated[
+        bool, typer.Option(help="Whether absolute_action is already in joint space. Example: --joints")
+    ] = DEFAULT_JOINTS,
+    gripper_type: Annotated[
+        str, typer.Option(help="Gripper type used to derive TCP offset. Example: --gripper-type Robotiq2F85")
+    ] = DEFAULT_GRIPPER_TYPE,
     camera_specs: Annotated[
         list[str] | None,
         typer.Option(
@@ -118,12 +126,16 @@ def lerobot_convert(
                 "The name becomes the LeRobot output key (observation.images.<name>). "
                 "The optional source_name is the key in the source parquet (obs.frames.<source_name>.rgb.data); "
                 "if omitted, the image_ prefix is stripped from name to derive it. "
-                'Example: --camera head@256x256 --camera image_left_wrist:left_wrist@256x256'
+                "Example: --camera head@256x256 --camera image_left_wrist:left_wrist@256x256"
             ),
         ),
     ] = None,
-    image_batch_size: Annotated[int, typer.Option(help="Batch size for image decoding. Example: --image-batch-size 32")] = DEFAULT_IMAGE_BATCH_SIZE,
-    per_robot_arm_dim: Annotated[int, typer.Option(help="Per-robot arm joint/action dimension without gripper. Example: --per-robot-arm-dim 7")] = DEFAULT_PER_ROBOT_ARM_DIM,
+    image_batch_size: Annotated[
+        int, typer.Option(help="Batch size for image decoding. Example: --image-batch-size 32")
+    ] = DEFAULT_IMAGE_BATCH_SIZE,
+    per_robot_arm_dim: Annotated[
+        int, typer.Option(help="Per-robot arm joint/action dimension without gripper. Example: --per-robot-arm-dim 7")
+    ] = DEFAULT_PER_ROBOT_ARM_DIM,
     success: Annotated[bool, typer.Option(help="Only include successful episodes. Example: --success")] = True,
     n: Annotated[int, typer.Option(help="Maximum number of episodes to convert. -1 means all. Example: --n 50")] = -1,
 ):
