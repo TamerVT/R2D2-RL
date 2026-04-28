@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 
 import duckdb
@@ -20,13 +21,31 @@ ROBOT_TYPE = "fr3"
 FPS = 30
 ARM_KEY = "right"
 
+
+@dataclass(frozen=True)
+class CamConversionConfig:
+    name: str
+    resolution: tuple[int, int]
+    source_name: str | None = None
+
+    @property
+    def dataset_key(self) -> str:
+        return f"observation.images.{self.name}"
+
+    @property
+    def frame_name(self) -> str:
+        return self.source_name or self.name.removeprefix("image_")
+
+    @property
+    def image_column(self) -> str:
+        return f"image_{self.name}"
+
+
 CAMERAS = [
-    ("head", "head"),
-    ("image_left_wrist", "left_wrist"),
-    ("image_right_wrist", "right_wrist"),
+    CamConversionConfig(name="head", resolution=(256, 256)),
+    CamConversionConfig(name="image_left_wrist", source_name="left_wrist", resolution=(256, 256)),
+    CamConversionConfig(name="image_right_wrist", source_name="right_wrist", resolution=(256, 256)),
 ]
-IMAGE_SIZE = (256, 256)
-RESIZE = v2.Resize(IMAGE_SIZE)
 IMAGE_BATCH_SIZE = 32
 
 
@@ -35,6 +54,9 @@ class JointDatasetConverter:
         self.root = Path(root)
         self.conn = duckdb.connect()
         self.source_sql = self._build_source_sql(DATASET_PATHS)
+        self.camera_resizers = {
+            camera.name: v2.Resize(camera.resolution) for camera in CAMERAS
+        }
 
         self.lrds = LeRobotDataset.create(
             repo_id=REPO_ID,
@@ -42,36 +64,31 @@ class JointDatasetConverter:
             root=self.root,
             fps=FPS,
             use_videos=False,
-            features={
-                "observation.images.head": {
-                    "dtype": "image",
-                    "shape": (*IMAGE_SIZE, 3),
-                    "names": ["height", "width", "channel"],
-                },
-                "observation.images.image_left_wrist": {
-                    "dtype": "image",
-                    "shape": (*IMAGE_SIZE, 3),
-                    "names": ["height", "width", "channel"],
-                },
-                "observation.images.image_right_wrist": {
-                    "dtype": "image",
-                    "shape": (*IMAGE_SIZE, 3),
-                    "names": ["height", "width", "channel"],
-                },
-                "observation.state": {
-                    "dtype": "float32",
-                    "shape": (8,),
-                    "names": [f"joint_{i}" for i in range(7)] + ["gripper"],
-                },
-                "action": {
-                    "dtype": "float32",
-                    "shape": (8,),
-                    "names": [f"joint_{i}" for i in range(7)] + ["gripper"],
-                },
-            },
+            features=self._build_features(),
             image_writer_threads=0,
             image_writer_processes=0,
         )
+
+    def _build_features(self) -> dict[str, dict[str, object]]:
+        features = {
+            camera.dataset_key: {
+                "dtype": "image",
+                "shape": (*camera.resolution, 3),
+                "names": ["height", "width", "channel"],
+            }
+            for camera in CAMERAS
+        }
+        features["observation.state"] = {
+            "dtype": "float32",
+            "shape": (8,),
+            "names": [f"joint_{i}" for i in range(7)] + ["gripper"],
+        }
+        features["action"] = {
+            "dtype": "float32",
+            "shape": (8,),
+            "names": [f"joint_{i}" for i in range(7)] + ["gripper"],
+        }
+        return features
 
     def _build_source_sql(self, dataset_paths: list[str | Path]) -> str:
         queries = []
@@ -151,22 +168,26 @@ class JointDatasetConverter:
         )
 
     def _image_query(self) -> str:
+        image_selects = ",\n                    ".join(
+            f"obs.frames.{camera.frame_name}.rgb.data AS {camera.image_column}" for camera in CAMERAS
+        )
+        image_not_null_checks = "\n                  ".join(
+            f"AND obs.frames.{camera.frame_name}.rgb.data IS NOT NULL" for camera in CAMERAS
+        )
+        image_columns = ",\n                ".join(camera.image_column for camera in CAMERAS)
+
         return f"""
             WITH ordered AS (
                 SELECT
                     uuid,
                     step,
                     action.{ARM_KEY}.gripper AS action_gripper,
-                    obs.frames.head.rgb.data AS image_head,
-                    obs.frames.left_wrist.rgb.data AS image_left_wrist,
-                    obs.frames.right_wrist.rgb.data AS image_right_wrist,
+                    {image_selects},
                     LEAD(obs.{ARM_KEY}.joints) OVER w AS next_joints,
                     LEAD(obs.{ARM_KEY}.gripper) OVER w AS next_gripper
                 FROM ({self.source_sql}) AS src
                 WHERE uuid = ?
-                  AND obs.frames.head.rgb.data IS NOT NULL
-                  AND obs.frames.left_wrist.rgb.data IS NOT NULL
-                  AND obs.frames.right_wrist.rgb.data IS NOT NULL
+                  {image_not_null_checks}
                 WINDOW w AS (PARTITION BY uuid ORDER BY step)
             ),
             action_annotated AS (
@@ -179,9 +200,7 @@ class JointDatasetConverter:
             )
             SELECT
                 step,
-                image_head,
-                image_left_wrist,
-                image_right_wrist
+                {image_columns}
             FROM action_annotated
             WHERE next_joints IS NOT NULL
               AND NOT (
@@ -238,43 +257,36 @@ class JointDatasetConverter:
                 ]
             ).astype(np.float32)
 
-            self.lrds.add_frame(
-                {
-                    "observation.images.head": images["head"],
-                    "observation.images.image_left_wrist": images["image_left_wrist"],
-                    "observation.images.image_right_wrist": images["image_right_wrist"],
-                    "observation.state": state_vec,
-                    "action": action_vec,
-                    "task": str(curr["instruction"]),
-                }
-            )
+            frame = {
+                camera.dataset_key: images[camera.name] for camera in CAMERAS
+            }
+            frame["observation.state"] = state_vec
+            frame["action"] = action_vec
+            frame["task"] = str(curr["instruction"])
+
+            self.lrds.add_frame(frame)
 
         self.lrds.save_episode()
         return True
 
-    def _decode_and_resize_batch(self, image_bytes_list: list[bytes]) -> np.ndarray:
+    def _decode_and_resize_batch(self, image_bytes_list: list[bytes], camera: CamConversionConfig) -> np.ndarray:
         image_tensors = [
             torch.frombuffer(bytearray(image_bytes), dtype=torch.uint8) for image_bytes in image_bytes_list
         ]
         decoded = decode_jpeg(image_tensors)
         batch = torch.stack(decoded)
-        resized = RESIZE(batch)
+        resized = self.camera_resizers[camera.name](batch)
         return resized.permute(0, 2, 3, 1).cpu().numpy()
 
     def _decode_image_batch(self, batch: pa.RecordBatch, frames_by_step: dict[int, dict[str, np.ndarray]]) -> None:
         batch_dict = batch.to_pydict()
         steps = [int(step) for step in batch_dict["step"]]
         decoded_images = {}
-        for feature_name, column_name in CAMERAS:
-            image_column = f"image_{column_name}" if column_name != "head" else "image_head"
-            decoded_images[feature_name] = self._decode_and_resize_batch(batch_dict[image_column])
+        for camera in CAMERAS:
+            decoded_images[camera.name] = self._decode_and_resize_batch(batch_dict[camera.image_column], camera)
 
         for idx, step in enumerate(steps):
-            frames_by_step[step] = {
-                "head": decoded_images["head"][idx],
-                "image_left_wrist": decoded_images["image_left_wrist"][idx],
-                "image_right_wrist": decoded_images["image_right_wrist"][idx],
-            }
+            frames_by_step[step] = {camera.name: decoded_images[camera.name][idx] for camera in CAMERAS}
 
 
 if __name__ == "__main__":
