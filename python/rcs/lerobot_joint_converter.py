@@ -106,10 +106,19 @@ class JointDatasetConverter:
                     obs.{ARM_KEY}.joints AS observation_joints,
                     obs.{ARM_KEY}.gripper AS observation_gripper,
                     action.{ARM_KEY}.gripper AS action_gripper,
-                    LEAD(obs.{ARM_KEY}.joints) OVER (PARTITION BY uuid ORDER BY step) AS next_joints,
-                    LEAD(obs.{ARM_KEY}.gripper) OVER (PARTITION BY uuid ORDER BY step) AS next_gripper
+                    LEAD(obs.{ARM_KEY}.joints) OVER w AS next_joints,
+                    LEAD(obs.{ARM_KEY}.gripper) OVER w AS next_gripper
                 FROM ({self.source_sql}) AS src
                 WHERE uuid = ?
+                WINDOW w AS (PARTITION BY uuid ORDER BY step)
+            ),
+            action_annotated AS (
+                SELECT
+                    *,
+                    COALESCE(action_gripper, next_gripper) AS effective_action_gripper,
+                    LAG(next_joints) OVER (PARTITION BY uuid ORDER BY step) AS prev_action_joints,
+                    LAG(COALESCE(action_gripper, next_gripper)) OVER (PARTITION BY uuid ORDER BY step) AS prev_action_gripper
+                FROM ordered
             )
             SELECT
                 uuid,
@@ -121,11 +130,12 @@ class JointDatasetConverter:
                 action_gripper,
                 next_joints,
                 next_gripper
-            FROM ordered
+            FROM action_annotated
             WHERE next_joints IS NOT NULL
               AND NOT (
-                  observation_joints = next_joints
-                  AND observation_gripper = next_gripper
+                  prev_action_joints IS NOT NULL
+                  AND next_joints = prev_action_joints
+                  AND effective_action_gripper = prev_action_gripper
               )
             ORDER BY step
             """,
@@ -146,29 +156,38 @@ class JointDatasetConverter:
                 SELECT
                     uuid,
                     step,
-                    obs.{ARM_KEY}.joints AS observation_joints,
-                    obs.{ARM_KEY}.gripper AS observation_gripper,
+                    action.{ARM_KEY}.gripper AS action_gripper,
                     obs.frames.head.rgb.data AS image_head,
                     obs.frames.left_wrist.rgb.data AS image_left_wrist,
                     obs.frames.right_wrist.rgb.data AS image_right_wrist,
-                    LEAD(obs.{ARM_KEY}.joints) OVER (PARTITION BY uuid ORDER BY step) AS next_joints,
-                    LEAD(obs.{ARM_KEY}.gripper) OVER (PARTITION BY uuid ORDER BY step) AS next_gripper
+                    LEAD(obs.{ARM_KEY}.joints) OVER w AS next_joints,
+                    LEAD(obs.{ARM_KEY}.gripper) OVER w AS next_gripper
                 FROM ({self.source_sql}) AS src
                 WHERE uuid = ?
                   AND obs.frames.head.rgb.data IS NOT NULL
                   AND obs.frames.left_wrist.rgb.data IS NOT NULL
                   AND obs.frames.right_wrist.rgb.data IS NOT NULL
+                WINDOW w AS (PARTITION BY uuid ORDER BY step)
+            ),
+            action_annotated AS (
+                SELECT
+                    *,
+                    COALESCE(action_gripper, next_gripper) AS effective_action_gripper,
+                    LAG(next_joints) OVER (PARTITION BY uuid ORDER BY step) AS prev_action_joints,
+                    LAG(COALESCE(action_gripper, next_gripper)) OVER (PARTITION BY uuid ORDER BY step) AS prev_action_gripper
+                FROM ordered
             )
             SELECT
                 step,
                 image_head,
                 image_left_wrist,
                 image_right_wrist
-            FROM ordered
+            FROM action_annotated
             WHERE next_joints IS NOT NULL
               AND NOT (
-                  observation_joints = next_joints
-                  AND observation_gripper = next_gripper
+                  prev_action_joints IS NOT NULL
+                  AND next_joints = prev_action_joints
+                  AND effective_action_gripper = prev_action_gripper
               )
             ORDER BY step
         """
