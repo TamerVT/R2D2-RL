@@ -21,7 +21,7 @@ from rcs.envs.scenes import (
 from rcs.envs.tasks import PickTaskConfig
 
 import rcs
-from rcs import CAMERA_PATHS, DEFAULT_TRANSFORMS, OBJECT_PATHS, SCENE_PATHS
+from rcs import CAMERA_PATHS, DEFAULT_TRANSFORMS, GRIPPER_OFFSETS, OBJECT_PATHS, SCENE_PATHS
 
 
 class EmptyWorldFR3(SimEnvCreator):
@@ -33,7 +33,7 @@ class EmptyWorldFR3(SimEnvCreator):
         q_home[-1] = np.pi / 4
         robot_cfg = SimRobotConfig(
             robot_type=RobotType.FR3,
-            tcp_offset=rcs.common.Pose(pose_matrix=FrankaHandTCPOffset()),
+            tcp_offset=GRIPPER_OFFSETS[rcs.common.GripperType.FrankaHand],
             attachment_site=rcs.ROBOTS[RobotType.FR3].attachment_site,
             kinematic_model_path=rcs.ROBOTS[RobotType.FR3].mjcf_model_path,
             joint_rotational_tolerance=0.05 * (np.pi / 180.0),
@@ -178,6 +178,7 @@ class EmptyWorldFR3Duo(SimEnvCreator):
 
     def config(self) -> SimEnvCreatorConfig:
         robot_cfg = SimRobotConfig(
+            tcp_offset=GRIPPER_OFFSETS[rcs.common.GripperType("Robotiq2F85")],
             robot_type=RobotType.FR3,
             attachment_site=rcs.ROBOTS[RobotType.FR3].attachment_site,
             kinematic_model_path=rcs.ROBOTS[RobotType.FR3].mjcf_model_path,
@@ -357,7 +358,7 @@ class EmptyWorldUR5e(EmptyWorldFR3):
         lead_robot_name = self.lead_robot_name(cfg)
 
         robot_cfg = cfg.robot_cfgs[lead_robot_name]
-        robot_cfg.tcp_offset = rcs.common.Pose()
+        robot_cfg.tcp_offset=GRIPPER_OFFSETS[rcs.common.GripperType("Robotiq2F85")]
         robot_cfg.attachment_site = rcs.ROBOTS[rt].attachment_site
         robot_cfg.kinematic_model_path = rcs.ROBOTS[rt].mjcf_model_path
         robot_cfg.arm_collision_geoms = []
