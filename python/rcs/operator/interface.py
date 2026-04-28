@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from time import sleep
 
 import gymnasium as gym
+from rcs._core.common import RobotPlatform
 from rcs.envs.base import ArmWithGripper, ControlMode, RelativeTo
 from rcs.sim.sim import Sim
 from rcs.utils import SimpleFrameRate
@@ -71,12 +72,14 @@ class TeleopLoop:
         env: gym.Env,
         operator: BaseOperator,
         env_frequency: int = 30,
+        robot_platform: RobotPlatform = RobotPlatform.HARDWARE,
         key_translation: dict[str, str] | None = None,
     ):
         super().__init__()
         self.env = env
         self.operator = operator
         self._exit_requested = False
+        self.robot_platform = robot_platform
         self.env_frequency = env_frequency
         if key_translation is None:
             # controller to robot translation
@@ -114,7 +117,9 @@ class TeleopLoop:
         return translated
 
     def environment_step_loop(self):
-        rate_limiter = SimpleFrameRate(self.env_frequency, "env loop")
+        rate_limiter = SimpleFrameRate(
+            self.env_frequency if self.robot_platform == RobotPlatform.HARDWARE else None, "env loop"
+        )
 
         # 0. Initial Reset to get current positions for untracked robots
         self._last_obs, _ = self.env.reset()

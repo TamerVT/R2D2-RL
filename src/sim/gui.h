@@ -53,6 +53,8 @@ class GuiServer {
  public:
   GuiServer(mjModel* m, mjData* d, const std::string& id);
   ~GuiServer();
+  void publish_state();
+  void publish_state_if_requested();
   void update_mjdata_callback();
 
  private:
@@ -75,7 +77,7 @@ class GuiClient {
  private:
   mjModel* m;
   mjData* d;
-  const std::string& id;
+  const std::string id;
   struct shm shm;
 };
 

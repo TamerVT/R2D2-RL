@@ -10,8 +10,6 @@ from rcs.envs.tasks import PickTaskConfig
 from rcs.operator.gello import GelloConfig, GelloOperator
 from rcs.operator.interface import TeleopLoop
 from rcs.operator.quest import QuestConfig, QuestOperator
-from rcs_fr3.configs import DefaultFR3MultiHardwareEnv
-from rcs_fr3.creators import HardwareCameraCreatorConfig
 from simpub.sim.mj_publisher import MujocoPublisher
 
 import rcs
@@ -41,6 +39,9 @@ RECORD_FPS = 30
 #     "bird_eye": "243522070364",
 # }
 CAMERA_DICT = None
+ZED_CAMERA_DICT = {
+    "zed": "19928076",
+}
 MQ3_ADDR = "10.42.0.1"
 
 # DIGIT_DICT = {
@@ -52,6 +53,7 @@ DIGIT_DICT = None
 
 DATASET_PATH = "test_iris"
 INSTRUCTION = "pick up cube"
+RECORD_FPS = 30
 
 robot2world = {
     "right": rcs.common.Pose(
@@ -63,7 +65,9 @@ robot2world = {
 }
 
 config: QuestConfig | GelloConfig
-config = QuestConfig(mq3_addr=MQ3_ADDR, simulation=ROBOT_INSTANCE == RobotPlatform.SIMULATION, switched_left_right=True)
+config = QuestConfig(
+    mq3_addr=MQ3_ADDR, simulation=ROBOT_INSTANCE == RobotPlatform.SIMULATION, switched_left_right=False
+)
 # config = GelloConfig(
 #     arms={
 #         "right": GelloArmConfig(com_port="/dev/serial/by-id/usb-ROBOTIS_OpenRB-150_E505008B503059384C2E3120FF07332D-if00"),
@@ -75,6 +79,9 @@ config = QuestConfig(mq3_addr=MQ3_ADDR, simulation=ROBOT_INSTANCE == RobotPlatfo
 
 def get_env():
     if ROBOT_INSTANCE == RobotPlatform.HARDWARE:
+        from rcs_fr3.configs import DefaultFR3MultiHardwareEnv
+        from rcs_fr3.creators import HardwareCameraCreatorConfig
+
         env_creator = DefaultFR3MultiHardwareEnv()
         env_creator.left_ip = ROBOT2IP["left"]
         env_creator.right_ip = ROBOT2IP["right"]
@@ -91,6 +98,23 @@ def get_env():
                         frame_rate=30,
                     )
                     for name, identifier in CAMERA_DICT.items()
+                },
+            )
+        if ZED_CAMERA_DICT is not None:
+            camera_cfgs["zed"] = HardwareCameraCreatorConfig(
+                camera_type_id="zed",
+                camera_cfgs={
+                    name: BaseCameraConfig(
+                        identifier=identifier,
+                        resolution_width=1280,
+                        resolution_height=720,
+                        frame_rate=30,
+                    )
+                    for name, identifier in ZED_CAMERA_DICT.items()
+                },
+                kwargs={
+                    "enable_depth": False,
+                    "enable_imu": False,
                 },
             )
         if DIGIT_DICT is not None:
@@ -123,12 +147,14 @@ def get_env():
 
         scene = EmptyWorldFR3Duo()
         sim_cfg_data = scene.config()
-        sim_cfg_data.sim_cfg = SimConfig(async_control=True, realtime=True, frequency=30, max_convergence_steps=500)
+        sim_cfg_data.sim_cfg = SimConfig(
+            async_control=True, realtime=True, frequency=RECORD_FPS, max_convergence_steps=500
+        )
         sim_cfg_data.relative_to = RelativeTo.CONFIGURED_ORIGIN
         if sim_cfg_data.root_frame_objects is None:
             sim_cfg_data.root_frame_objects = {}
         # cfg.root_frame_objects["green_cube"] = (rcs.OBJECT_PATHS["green_cube"], Pose(translation=[0.5, 0, 0.5], quaternion=[0, 0, 0, 1]))
-        sim_cfg_data.task_cfg = PickTaskConfig(robot_name="left")
+        sim_cfg_data.task_cfg = PickTaskConfig(robot_name="right")
 
         env_rel = scene.create_env(sim_cfg_data)
         env_rel = StorageWrapper(
@@ -144,7 +170,7 @@ def get_env():
 def main():
     env_rel, operator = get_env()
     env_rel.reset()
-    tele = TeleopLoop(env_rel, operator)
+    tele = TeleopLoop(env_rel, operator, env_frequency=RECORD_FPS, robot_platform=ROBOT_INSTANCE)
     with env_rel, tele:  # type: ignore
         tele.environment_step_loop()
 

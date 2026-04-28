@@ -68,6 +68,7 @@ class Sim {
   size_t convergence_steps = 0;
   bool converged = true;
   std::optional<GuiServer> gui;
+  bool gui_callback_registered = false;
 
  public:
   // TODO: hide m & d, pass as parameter to callback (easier refactoring)
@@ -101,6 +102,7 @@ class Sim {
       const std::string& id, int frame_rate, size_t width, size_t height);
   void start_gui_server(const std::string& id);
   void stop_gui_server();
+  void sync_gui();
 };
 }  // namespace sim
 }  // namespace rcs

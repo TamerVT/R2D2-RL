@@ -200,23 +200,36 @@ class HardwareEnv(BaseEnv):
 
 class SimEnv(BaseEnv):
     PLATFORM = RobotPlatform.SIMULATION
+    STATE_KEY = "sim_state"
+    STATE_SPEC_KEY = "sim_state_spec"
 
-    def __init__(self, sim: simulation.Sim) -> None:
+    def __init__(self, sim: simulation.Sim, return_state=True) -> None:
         self.sim = sim
         cfg = self.sim.get_config()
         self.frame_rate = SimpleFrameRate(cfg.frequency, "MoJoCo Simulation Loop")
         self.main_greenlet: greenlet | None = None
+        self.return_state = return_state
+        self._replay_state: tuple[np.ndarray, int | None] | None = None
+
+    def set_replay_state(self, state: np.ndarray, spec: int | None = None):
+        self._replay_state = (state, spec)
 
     def step(self, action: dict[str, Any]) -> tuple[dict[str, Any], float, bool, bool, dict]:
         if self.main_greenlet is not None:
             self.main_greenlet.switch()
         else:
             self.step_sim()
-        return super().step(action)
+        obs, reward, terminated, truncated, info = super().step(action)
+        if self.return_state:
+            obs, info = self.observation(obs, info)
+        return obs, reward, terminated, truncated, info
 
     def step_sim(self):
         cfg = self.sim.get_config()
-        if cfg.async_control:
+        if self._replay_state is not None:
+            self.sim.set_state(self._replay_state[0], self._replay_state[1])
+            self._replay_state = None
+        elif cfg.async_control:
             self.sim.step(round(1 / cfg.frequency / self.sim.model.opt.timestep))
             if cfg.realtime:
                 self.frame_rate.frame_rate = cfg.frequency
@@ -235,6 +248,12 @@ class SimEnv(BaseEnv):
         else:
             self.apply_sim_state()
         return super().reset(seed=seed, options=options)
+
+    def observation(self, observation: dict[str, Any], info: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+        sim_state = self.sim.get_state()
+        info[self.STATE_KEY] = sim_state
+        info[self.STATE_SPEC_KEY] = self.sim.get_state_spec()
+        return observation, info
 
 
 class CoverWrapper(gym.Wrapper):
@@ -544,10 +563,11 @@ class RelativeTo(Enum):
     NONE = auto()
 
 
-class RelativeActionSpace(gym.ActionWrapper):
+class RelativeActionSpace(ActObsInfoWrapper):
     DEFAULT_MAX_CART_MOV = 0.5
     DEFAULT_MAX_CART_ROT = np.deg2rad(90)
     DEFAULT_MAX_JOINT_MOV = np.deg2rad(5)
+    ABSOLUTE_ACTION_KEY = "absolute_action"
 
     def __init__(
         self,
@@ -624,6 +644,7 @@ class RelativeActionSpace(gym.ActionWrapper):
         self.initial_obs: dict[str, Any] | None = None
         self._origin: common.Pose | VecType | None = None
         self._last_action: common.Pose | VecType | None = None
+        self._absolute_action: common.Pose | VecType | None = None
 
     def set_origin(self, origin: common.Pose | VecType):
         if self.get_wrapper_attr("get_control_mode")() == ControlMode.JOINTS:
@@ -669,7 +690,9 @@ class RelativeActionSpace(gym.ActionWrapper):
                 limited_joints_diff = np.clip(joints_diff, -self.max_mov, self.max_mov)
                 limited_joints = limited_joints_diff + self._last_action
                 self._last_action = limited_joints
-            action.update(JointsDictType(joints=np.clip(self._origin + limited_joints, low, high)))
+            clipped_joints = np.clip(self._origin + limited_joints, low, high)
+            action.update(JointsDictType(joints=clipped_joints))
+            self._absolute_action = clipped_joints
 
         elif self.get_wrapper_attr("get_control_mode")() == ControlMode.CARTESIAN_TRPY and self.trpy_key in action:
             assert isinstance(self._origin, common.Pose), "Invalid origin type given the control mode."
@@ -705,16 +728,15 @@ class RelativeActionSpace(gym.ActionWrapper):
                 translation=self._origin.translation() + clipped_pose_offset.translation(),  # type: ignore
                 rpy_vector=(clipped_pose_offset * self._origin).rotation_rpy().as_vector(),
             )
-            action.update(
-                TRPYDictType(
-                    xyzrpy=np.concatenate(  # type: ignore
-                        [
-                            np.clip(unclipped_pose.translation(), pose_space.low[:3], pose_space.high[:3]),
-                            unclipped_pose.rotation_rpy().as_vector(),
-                        ],
-                    )
-                )
+            clipped_pose = np.concatenate(  # type: ignore
+                [
+                    np.clip(unclipped_pose.translation(), pose_space.low[:3], pose_space.high[:3]),
+                    unclipped_pose.rotation_rpy().as_vector(),
+                ],
             )
+            action.update(TRPYDictType(xyzrpy=clipped_pose))
+            self._absolute_action = clipped_pose
+
         elif self.get_wrapper_attr("get_control_mode")() == ControlMode.CARTESIAN_TQuat and self.tquat_key in action:
             assert isinstance(self._origin, common.Pose), "Invalid origin type given the control mode."
             assert isinstance(self.max_mov, tuple)
@@ -749,21 +771,28 @@ class RelativeActionSpace(gym.ActionWrapper):
                 translation=self._origin.translation() + clipped_pose_offset.translation(),  # type: ignore
                 quaternion=(clipped_pose_offset * self._origin).rotation_q(),
             )
-
-            action.update(
-                TQuatDictType(
-                    tquat=np.concatenate(  # type: ignore
-                        [
-                            np.clip(unclipped_pose.translation(), pose_space.low[:3], pose_space.high[:3]),
-                            unclipped_pose.rotation_q(),
-                        ],
-                    )
-                )
+            clipped_pose = np.concatenate(  # type: ignore
+                [
+                    np.clip(unclipped_pose.translation(), pose_space.low[:3], pose_space.high[:3]),
+                    unclipped_pose.rotation_q(),
+                ],
             )
+            action.update(TQuatDictType(tquat=clipped_pose))  # type: ignore
+            self._absolute_action = clipped_pose
+
         else:
             msg = "Given type is not matching control mode!"
             raise RuntimeError(msg)
         return action
+
+    def observation(self, observation: dict, info: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+        if self._absolute_action is not None:
+            info[self.ABSOLUTE_ACTION_KEY] = (
+                list(self._absolute_action.translation()) + list(self._absolute_action.rotation_q())
+                if isinstance(self._absolute_action, common.Pose)
+                else self._absolute_action
+            )
+        return observation, info
 
 
 class CameraSetWrapper(ActObsInfoWrapper):
