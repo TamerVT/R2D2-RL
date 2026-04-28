@@ -10,8 +10,6 @@ from rcs.envs.tasks import PickTaskConfig
 from rcs.operator.gello import GelloConfig, GelloOperator
 from rcs.operator.interface import TeleopLoop
 from rcs.operator.quest import QuestConfig, QuestOperator
-from rcs_fr3.configs import DefaultFR3MultiHardwareEnv
-from rcs_fr3.creators import HardwareCameraCreatorConfig
 from simpub.sim.mj_publisher import MujocoPublisher
 
 import rcs
@@ -67,7 +65,9 @@ robot2world = {
 }
 
 config: QuestConfig | GelloConfig
-config = QuestConfig(mq3_addr=MQ3_ADDR, simulation=ROBOT_INSTANCE == RobotPlatform.SIMULATION, switched_left_right=True)
+config = QuestConfig(
+    mq3_addr=MQ3_ADDR, simulation=ROBOT_INSTANCE == RobotPlatform.SIMULATION, switched_left_right=False
+)
 # config = GelloConfig(
 #     arms={
 #         "right": GelloArmConfig(com_port="/dev/serial/by-id/usb-ROBOTIS_OpenRB-150_E505008B503059384C2E3120FF07332D-if00"),
@@ -79,6 +79,9 @@ config = QuestConfig(mq3_addr=MQ3_ADDR, simulation=ROBOT_INSTANCE == RobotPlatfo
 
 def get_env():
     if ROBOT_INSTANCE == RobotPlatform.HARDWARE:
+        from rcs_fr3.configs import DefaultFR3MultiHardwareEnv
+        from rcs_fr3.creators import HardwareCameraCreatorConfig
+
         env_creator = DefaultFR3MultiHardwareEnv()
         env_creator.left_ip = ROBOT2IP["left"]
         env_creator.right_ip = ROBOT2IP["right"]
@@ -151,7 +154,7 @@ def get_env():
         if sim_cfg_data.root_frame_objects is None:
             sim_cfg_data.root_frame_objects = {}
         # cfg.root_frame_objects["green_cube"] = (rcs.OBJECT_PATHS["green_cube"], Pose(translation=[0.5, 0, 0.5], quaternion=[0, 0, 0, 1]))
-        sim_cfg_data.task_cfg = PickTaskConfig(robot_name="left")
+        sim_cfg_data.task_cfg = PickTaskConfig(robot_name="right")
 
         env_rel = scene.create_env(sim_cfg_data)
         env_rel = StorageWrapper(

@@ -3,10 +3,9 @@ from typing import Annotated
 
 import typer
 from rcs.envs.storage_wrapper import StorageWrapper
-from rcs.sim_state_replay import replay as replay_command
+from rcs.sim.replayer import replay as replay_dataset
 
 app = typer.Typer()
-app.command()(replay_command)
 
 
 @app.command()
@@ -32,6 +31,40 @@ def consolidate(
     StorageWrapper.consolidate(str(path), schema=None)
 
     typer.echo("Done.")
+
+
+@app.command("replay")
+def replay(
+    dataset: Annotated[
+        Path,
+        typer.Argument(
+            exists=True,
+            help="Parquet dataset directory to replay.",
+        ),
+    ],
+    headless: Annotated[bool, typer.Option(help="Whether to run without GUI.")] = True,
+    frequency: Annotated[int, typer.Option(help="Simulation frequency to use during replay.")] = 30,
+    relative_to: Annotated[
+        str,
+        typer.Option(help="RelativeTo enum name: CONFIGURED_ORIGIN, LAST_STEP, or NONE."),
+    ] = "CONFIGURED_ORIGIN",
+    scene: Annotated[
+        str,
+        typer.Option(help="Python expression that evaluates to a scene instance."),
+    ] = "env_configs.EmptyWorldFR3Duo()",
+    task_cfg: Annotated[
+        str,
+        typer.Option(help="Python expression that evaluates to a task config."),
+    ] = 'env_tasks.PickTaskConfig(robot_name="right")',
+):
+    replay_dataset(
+        dataset=dataset,
+        headless=headless,
+        frequency=frequency,
+        relative_to=relative_to,
+        scene=scene,
+        task_cfg=task_cfg,
+    )
 
 
 if __name__ == "__main__":
