@@ -19,7 +19,7 @@ HF_DATA_DIR = "data_lerobot_joint_simple"
 REPO_ID = "rcs/grasp_joint_simple"
 ROBOT_TYPE = "fr3"
 FPS = 30
-ARM_KEY = "right"
+ROBOT_KEYS = ["right"]
 
 
 @dataclass(frozen=True)
@@ -47,6 +47,7 @@ CAMERAS = [
     CamConversionConfig(name="image_right_wrist", source_name="right_wrist", resolution=(256, 256)),
 ]
 IMAGE_BATCH_SIZE = 32
+PER_ROBOT_STATE_DIM = 8
 
 
 class JointDatasetConverter:
@@ -54,6 +55,7 @@ class JointDatasetConverter:
         self.root = Path(root)
         self.conn = duckdb.connect()
         self.source_sql = self._build_source_sql(DATASET_PATHS)
+        self.state_dim = len(ROBOT_KEYS) * PER_ROBOT_STATE_DIM
         self.camera_resizers = {
             camera.name: v2.Resize(camera.resolution) for camera in CAMERAS
         }
@@ -70,6 +72,11 @@ class JointDatasetConverter:
         )
 
     def _build_features(self) -> dict[str, dict[str, object]]:
+        state_names = []
+        for robot_key in ROBOT_KEYS:
+            state_names.extend([f"{robot_key}_joint_{i}" for i in range(7)])
+            state_names.append(f"{robot_key}_gripper")
+
         features = {
             camera.dataset_key: {
                 "dtype": "image",
@@ -80,13 +87,13 @@ class JointDatasetConverter:
         }
         features["observation.state"] = {
             "dtype": "float32",
-            "shape": (8,),
-            "names": [f"joint_{i}" for i in range(7)] + ["gripper"],
+            "shape": (self.state_dim,),
+            "names": state_names,
         }
         features["action"] = {
             "dtype": "float32",
-            "shape": (8,),
-            "names": [f"joint_{i}" for i in range(7)] + ["gripper"],
+            "shape": (self.state_dim,),
+            "names": state_names,
         }
         return features
 
@@ -112,48 +119,24 @@ class JointDatasetConverter:
         self.lrds.finalize()
 
     def _fetch_transition_table(self, episode_id: str) -> pd.DataFrame:
+        observation_selects = ",\n                    ".join(
+            f"obs.{robot_key}.joints AS observation_joints_{robot_key}" for robot_key in ROBOT_KEYS
+        )
+        action_selects = ",\n                    ".join(
+            f"info.{robot_key}.absolute_action AS absolute_action_{robot_key}" for robot_key in ROBOT_KEYS
+        )
+
         return self.conn.execute(
             f"""
-            WITH ordered AS (
-                SELECT
-                    uuid,
-                    step,
-                    success,
-                    instruction,
-                    obs.{ARM_KEY}.joints AS observation_joints,
-                    obs.{ARM_KEY}.gripper AS observation_gripper,
-                    action.{ARM_KEY}.gripper AS action_gripper,
-                    LEAD(obs.{ARM_KEY}.joints) OVER w AS next_joints,
-                    LEAD(obs.{ARM_KEY}.gripper) OVER w AS next_gripper
-                FROM ({self.source_sql}) AS src
-                WHERE uuid = ?
-                WINDOW w AS (PARTITION BY uuid ORDER BY step)
-            ),
-            action_annotated AS (
-                SELECT
-                    *,
-                    COALESCE(action_gripper, next_gripper) AS effective_action_gripper,
-                    LAG(next_joints) OVER (PARTITION BY uuid ORDER BY step) AS prev_action_joints,
-                    LAG(COALESCE(action_gripper, next_gripper)) OVER (PARTITION BY uuid ORDER BY step) AS prev_action_gripper
-                FROM ordered
-            )
             SELECT
                 uuid,
                 step,
                 success,
                 instruction,
-                observation_joints,
-                observation_gripper,
-                action_gripper,
-                next_joints,
-                next_gripper
-            FROM action_annotated
-            WHERE next_joints IS NOT NULL
-              AND NOT (
-                  prev_action_joints IS NOT NULL
-                  AND next_joints = prev_action_joints
-                  AND effective_action_gripper = prev_action_gripper
-              )
+                {observation_selects},
+                {action_selects}
+            FROM ({self.source_sql}) AS src
+            WHERE uuid = ?
             ORDER BY step
             """,
             [episode_id],
@@ -181,37 +164,59 @@ class JointDatasetConverter:
                 SELECT
                     uuid,
                     step,
-                    action.{ARM_KEY}.gripper AS action_gripper,
-                    {image_selects},
-                    LEAD(obs.{ARM_KEY}.joints) OVER w AS next_joints,
-                    LEAD(obs.{ARM_KEY}.gripper) OVER w AS next_gripper
+                    {image_selects}
                 FROM ({self.source_sql}) AS src
                 WHERE uuid = ?
                   {image_not_null_checks}
-                WINDOW w AS (PARTITION BY uuid ORDER BY step)
-            ),
-            action_annotated AS (
-                SELECT
-                    *,
-                    COALESCE(action_gripper, next_gripper) AS effective_action_gripper,
-                    LAG(next_joints) OVER (PARTITION BY uuid ORDER BY step) AS prev_action_joints,
-                    LAG(COALESCE(action_gripper, next_gripper)) OVER (PARTITION BY uuid ORDER BY step) AS prev_action_gripper
-                FROM ordered
             )
             SELECT
                 step,
                 {image_columns}
-            FROM action_annotated
-            WHERE next_joints IS NOT NULL
-              AND NOT (
-                  prev_action_joints IS NOT NULL
-                  AND next_joints = prev_action_joints
-                  AND effective_action_gripper = prev_action_gripper
-              )
+            FROM ordered
             ORDER BY step
         """
 
+    def _is_missing(self, value: object) -> bool:
+        if value is None or value is pd.NA:
+            return True
+        if isinstance(value, float):
+            return bool(np.isnan(value))
+        return False
+
+    def _concat_robot_vectors(self, row: pd.Series, prefix: str) -> np.ndarray | None:
+        vectors = []
+        for robot_key in ROBOT_KEYS:
+            value = row[f"{prefix}_{robot_key}"]
+            if self._is_missing(value):
+                return None
+            vectors.append(np.asarray(value, dtype=np.float32))
+        concatenated = np.concatenate(vectors).astype(np.float32)
+        if concatenated.shape != (self.state_dim,):
+            return None
+        return concatenated
+
+    def _prepare_transition_table(self, table: pd.DataFrame) -> pd.DataFrame:
+        if len(table) == 0:
+            return table
+
+        df = table.copy()
+        df["observation_state"] = df.apply(lambda row: self._concat_robot_vectors(row, "observation_joints"), axis=1)
+        df["action_vector"] = df.apply(lambda row: self._concat_robot_vectors(row, "absolute_action"), axis=1)
+        df = df[df["observation_state"].notna() & df["action_vector"].notna()].copy()
+        if len(df) == 0:
+            return df
+
+        prev_action: np.ndarray | None = None
+        keep_mask = []
+        for action_vec in df["action_vector"]:
+            assert isinstance(action_vec, np.ndarray)
+            keep_mask.append(prev_action is None or not np.array_equal(action_vec, prev_action))
+            prev_action = action_vec
+
+        return df.loc[keep_mask].reset_index(drop=True)
+
     def parse_episode(self, episode_id: str, table: pd.DataFrame, success: bool):
+        table = self._prepare_transition_table(table)
         if len(table) == 0:
             return False
 
@@ -229,43 +234,25 @@ class JointDatasetConverter:
         for batch in reader:
             self._decode_image_batch(batch, frames_by_step)
 
+        num_frames_added = 0
         for step in step_order:
             curr = rows_by_step[step]
+            if step not in frames_by_step:
+                continue
             images = frames_by_step[step]
-
-            state_vec = np.concatenate(
-                [
-                    np.asarray(curr["observation_joints"], dtype=np.float32),
-                    np.asarray(curr["observation_gripper"], dtype=np.float32),
-                ]
-            ).astype(np.float32)
-
-            action_gripper = curr["action_gripper"]
-            if (
-                action_gripper is None
-                or action_gripper is pd.NA
-                or (isinstance(action_gripper, float) and np.isnan(action_gripper))
-            ):
-                action_gripper_vec = np.asarray(curr["next_gripper"], dtype=np.float32)
-            else:
-                action_gripper_vec = np.asarray(action_gripper, dtype=np.float32)
-
-            action_vec = np.concatenate(
-                [
-                    np.asarray(curr["next_joints"], dtype=np.float32),
-                    action_gripper_vec,
-                ]
-            ).astype(np.float32)
 
             frame = {
                 camera.dataset_key: images[camera.name] for camera in CAMERAS
             }
-            frame["observation.state"] = state_vec
-            frame["action"] = action_vec
+            frame["observation.state"] = curr["observation_state"]
+            frame["action"] = curr["action_vector"]
             frame["task"] = str(curr["instruction"])
 
             self.lrds.add_frame(frame)
+            num_frames_added += 1
 
+        if num_frames_added == 0:
+            return False
         self.lrds.save_episode()
         return True
 
