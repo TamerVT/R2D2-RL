@@ -7,8 +7,10 @@ import duckdb
 import numpy as np
 import pandas as pd
 import pyarrow as pa
-import torch
+import rcs
+from rcs._core.common import RobotType
 from lerobot.datasets.lerobot_dataset import LeRobotDataset
+import torch
 from torchvision.io import decode_jpeg
 from torchvision.transforms import v2
 
@@ -19,7 +21,9 @@ HF_DATA_DIR = "data_lerobot_joint_simple"
 REPO_ID = "rcs/grasp_joint_simple"
 ROBOT_TYPE = "fr3"
 FPS = 30
-ROBOT_KEYS = ["right"]
+ROBOT_KEYS = ["left", "right"]
+JOINTS = False
+TCP_OFFSET = rcs.GRIPPER_OFFSETS[rcs.common.GripperType("Robotiq2F85")]
 
 
 @dataclass(frozen=True)
@@ -47,7 +51,13 @@ CAMERAS = [
     CamConversionConfig(name="image_right_wrist", source_name="right_wrist", resolution=(256, 256)),
 ]
 IMAGE_BATCH_SIZE = 32
-PER_ROBOT_STATE_DIM = 8
+PER_ROBOT_ARM_DIM = 7
+PER_ROBOT_STATE_DIM = PER_ROBOT_ARM_DIM + 1
+
+ik = rcs.common.Pin(
+    rcs.ROBOTS[RobotType.FR3].mjcf_model_path,
+    rcs.ROBOTS[RobotType.FR3].attachment_site,
+)
 
 
 class JointDatasetConverter:
@@ -56,9 +66,7 @@ class JointDatasetConverter:
         self.conn = duckdb.connect()
         self.source_sql = self._build_source_sql(DATASET_PATHS)
         self.state_dim = len(ROBOT_KEYS) * PER_ROBOT_STATE_DIM
-        self.camera_resizers = {
-            camera.name: v2.Resize(camera.resolution) for camera in CAMERAS
-        }
+        self.camera_resizers = {camera.name: v2.Resize(camera.resolution) for camera in CAMERAS}
 
         self.lrds = LeRobotDataset.create(
             repo_id=REPO_ID,
@@ -120,10 +128,24 @@ class JointDatasetConverter:
 
     def _fetch_transition_table(self, episode_id: str) -> pd.DataFrame:
         observation_selects = ",\n                    ".join(
-            f"obs.{robot_key}.joints AS observation_joints_{robot_key}" for robot_key in ROBOT_KEYS
+            [
+                f"obs.{robot_key}.joints AS observation_joints_{robot_key}"
+                for robot_key in ROBOT_KEYS
+            ]
+            + [
+                f"obs.{robot_key}.gripper AS observation_gripper_{robot_key}"
+                for robot_key in ROBOT_KEYS
+            ]
         )
         action_selects = ",\n                    ".join(
-            f"info.{robot_key}.absolute_action AS absolute_action_{robot_key}" for robot_key in ROBOT_KEYS
+            [
+                f"info.{robot_key}.absolute_action AS absolute_action_{robot_key}"
+                for robot_key in ROBOT_KEYS
+            ]
+            + [
+                f"env_action.{robot_key}.gripper AS action_gripper_{robot_key}"
+                for robot_key in ROBOT_KEYS
+            ]
         )
 
         return self.conn.execute(
@@ -183,16 +205,71 @@ class JointDatasetConverter:
             return bool(np.isnan(value))
         return False
 
-    def _concat_robot_vectors(self, row: pd.Series, prefix: str) -> np.ndarray | None:
+    def _build_observation_state(self, row: pd.Series) -> np.ndarray:
         vectors = []
         for robot_key in ROBOT_KEYS:
-            value = row[f"{prefix}_{robot_key}"]
-            if self._is_missing(value):
-                return None
-            vectors.append(np.asarray(value, dtype=np.float32))
-        concatenated = np.concatenate(vectors).astype(np.float32)
+            joints = row[f"observation_joints_{robot_key}"]
+            gripper = row[f"observation_gripper_{robot_key}"]
+            if self._is_missing(joints) or self._is_missing(gripper):
+                msg = f"Missing observation state for robot '{robot_key}' at step {row['step']}"
+                raise ValueError(msg)
+
+            joints_vec = np.asarray(joints, dtype=np.float32)
+            gripper_vec = np.asarray(gripper, dtype=np.float32)
+            if joints_vec.shape != (PER_ROBOT_ARM_DIM,) or gripper_vec.shape != (1,):
+                msg = (
+                    f"Unexpected observation shapes for robot '{robot_key}' at step {row['step']}: "
+                    f"joints={joints_vec.shape}, gripper={gripper_vec.shape}"
+                )
+                raise ValueError(msg)
+            vectors.append(np.concatenate([joints_vec, gripper_vec]).astype(np.float32))
+
+        return np.concatenate(vectors).astype(np.float32)
+
+    def _convert_action_to_joint_space(self, row: pd.Series) -> np.ndarray:
+        actions = []
+        for robot_key in ROBOT_KEYS:
+            observation_joints = row[f"observation_joints_{robot_key}"]
+            absolute_action = row[f"absolute_action_{robot_key}"]
+            action_gripper = row[f"action_gripper_{robot_key}"]
+            if self._is_missing(observation_joints) or self._is_missing(absolute_action) or self._is_missing(action_gripper):
+                msg = f"Missing action inputs for robot '{robot_key}' at step {row['step']}"
+                raise ValueError(msg)
+
+            observation_joints_vec = np.asarray(observation_joints, dtype=np.float64)
+            absolute_action_vec = np.asarray(absolute_action, dtype=np.float64)
+            action_gripper_vec = np.asarray(action_gripper, dtype=np.float32)
+            if (
+                observation_joints_vec.shape != (PER_ROBOT_ARM_DIM,)
+                or absolute_action_vec.shape != (PER_ROBOT_ARM_DIM,)
+                or action_gripper_vec.shape != (1,)
+            ):
+                msg = (
+                    f"Unexpected action shapes for robot '{robot_key}' at step {row['step']}: "
+                    f"observation_joints={observation_joints_vec.shape}, "
+                    f"absolute_action={absolute_action_vec.shape}, action_gripper={action_gripper_vec.shape}"
+                )
+                raise ValueError(msg)
+
+            if JOINTS:
+                arm_action_vec = absolute_action_vec.astype(np.float32)
+            else:
+                target_pose = rcs.common.Pose(
+                    translation=absolute_action_vec[:3],
+                    quaternion=absolute_action_vec[3:7],
+                )
+                ik_joints = ik.inverse(target_pose, observation_joints_vec, tcp_offset=TCP_OFFSET)
+                if ik_joints is None:
+                    msg = f"IK failed for robot '{robot_key}' at step {row['step']}"
+                    raise ValueError(msg)
+                arm_action_vec = np.asarray(ik_joints, dtype=np.float32)
+
+            actions.append(np.concatenate([arm_action_vec, action_gripper_vec]).astype(np.float32))
+
+        concatenated = np.concatenate(actions).astype(np.float32)
         if concatenated.shape != (self.state_dim,):
-            return None
+            msg = f"Unexpected concatenated action shape {concatenated.shape} at step {row['step']}"
+            raise ValueError(msg)
         return concatenated
 
     def _prepare_transition_table(self, table: pd.DataFrame) -> pd.DataFrame:
@@ -200,11 +277,8 @@ class JointDatasetConverter:
             return table
 
         df = table.copy()
-        df["observation_state"] = df.apply(lambda row: self._concat_robot_vectors(row, "observation_joints"), axis=1)
-        df["action_vector"] = df.apply(lambda row: self._concat_robot_vectors(row, "absolute_action"), axis=1)
-        df = df[df["observation_state"].notna() & df["action_vector"].notna()].copy()
-        if len(df) == 0:
-            return df
+        df["observation_state"] = df.apply(self._build_observation_state, axis=1)
+        df["action_vector"] = df.apply(self._convert_action_to_joint_space, axis=1)
 
         prev_action: np.ndarray | None = None
         keep_mask = []
