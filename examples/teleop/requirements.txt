@@ -3,4 +3,4 @@ dynamixel_sdk
 pynput
 scipy
 jupyter
-mutplotlib
+matplotlib

@@ -107,6 +107,12 @@ class QuestOperator(BaseOperator):
                 self._last_controller_pose[controller] = Pose()
                 self._grp_pos[controller] = 1
 
+    @staticmethod
+    def _normalize_axis(value: bool | float | int) -> float:
+        if isinstance(value, bool):
+            return float(value)
+        return float(np.clip(value, 0.0, 1.0))
+
     def consume_commands(self) -> TeleopCommands:
         # must be threadsafe
         with self._cmd_lock:
@@ -194,6 +200,7 @@ class QuestOperator(BaseOperator):
 
             # === Update Poses & Grippers ===
             for controller in self.controller_names:
+                prev_data = self._prev_data
                 last_controller_pose = Pose(
                     translation=np.array(input_data[controller]["pos"]),
                     quaternion=np.array(input_data[controller]["rot"]),
@@ -204,38 +211,33 @@ class QuestOperator(BaseOperator):
                 #         * last_controller_pose
                 #     )
 
-                if input_data[controller][self._trg_btn[controller]] and (
-                    self._prev_data is None or not self._prev_data[controller][self._trg_btn[controller]]
-                ):
+                trigger_pressed = self._normalize_axis(input_data[controller][self._trg_btn[controller]]) > 0.5
+                if prev_data is None:
+                    prev_trigger_pressed = False
+                else:
+                    prev_trigger_pressed = self._normalize_axis(prev_data[controller][self._trg_btn[controller]]) > 0.5
+
+                if trigger_pressed and not prev_trigger_pressed:
                     # trigger just pressed (first data sample with button pressed)
 
                     with self._resource_lock:
                         self._offset_pose[controller] = last_controller_pose
                         self._last_controller_pose[controller] = last_controller_pose
 
-                elif not input_data[controller][self._trg_btn[controller]] and (
-                    self._prev_data is None or self._prev_data[controller][self._trg_btn[controller]]
-                ):
+                elif not trigger_pressed and prev_trigger_pressed:
                     with self._resource_lock:
                         self._last_controller_pose[controller] = Pose()
                         self._offset_pose[controller] = Pose()
                     self._reset_origin_to_current(controller)
 
-                elif input_data[controller][self._trg_btn[controller]]:
+                elif trigger_pressed:
                     # button is pressed
                     with self._resource_lock:
                         self._last_controller_pose[controller] = last_controller_pose
 
-                if input_data[controller][self._grp_btn[controller]] and (
-                    self._prev_data is None or not self._prev_data[controller][self._grp_btn[controller]]
-                ):
-                    # just pressed
-                    self._grp_pos[controller] = 0
-                if not input_data[controller][self._grp_btn[controller]] and (
-                    self._prev_data is None or self._prev_data[controller][self._grp_btn[controller]]
-                ):
-                    # just released
-                    self._grp_pos[controller] = 1
+                gripper_axis = self._normalize_axis(input_data[controller][self._grp_btn[controller]])
+                # convert from IRIS to RCS gripper logic
+                self._grp_pos[controller] = 1.0 - gripper_axis
 
             self._prev_data = input_data
             rate_limiter()
