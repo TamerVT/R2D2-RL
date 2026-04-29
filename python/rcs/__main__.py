@@ -3,6 +3,21 @@ from typing import Annotated
 
 import typer
 from rcs.envs.storage_wrapper import StorageWrapper
+from rcs.lerobot_joint_converter import (
+    DEFAULT_CAMERAS,
+    DEFAULT_DATASET_PATHS,
+    DEFAULT_FPS,
+    DEFAULT_GRIPPER_TYPE,
+    DEFAULT_HF_DATA_DIR,
+    DEFAULT_IMAGE_BATCH_SIZE,
+    DEFAULT_JOINTS,
+    DEFAULT_PER_ROBOT_ARM_DIM,
+    DEFAULT_REPO_ID,
+    DEFAULT_ROBOT_KEYS,
+    DEFAULT_ROBOT_TYPE,
+    camera_specs_to_configs,
+    run_conversion,
+)
 from rcs.sim.replayer import replay as replay_dataset
 
 app = typer.Typer()
@@ -64,6 +79,81 @@ def replay(
         relative_to=relative_to,
         scene=scene,
         task_cfg=task_cfg,
+    )
+
+
+@app.command("lerobot-convert")
+def lerobot_convert(
+    output: Annotated[
+        Path,
+        typer.Argument(
+            help="Output directory for the LeRobot dataset. Example: --output ./data_lerobot",
+        ),
+    ] = Path(DEFAULT_HF_DATA_DIR),
+    dataset_paths: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--dataset-path",
+            help="Input parquet path or glob. Repeat for multiple datasets. Example: --dataset-path /data/session1 --dataset-path /data/session2",
+        ),
+    ] = None,
+    repo_id: Annotated[
+        str, typer.Option(help="LeRobot repo id metadata. Example: --repo-id myorg/grasp_v2")
+    ] = DEFAULT_REPO_ID,
+    robot_type: Annotated[
+        str, typer.Option(help="Robot type for metadata and IK model lookup. Example: --robot-type fr3")
+    ] = DEFAULT_ROBOT_TYPE,
+    fps: Annotated[int, typer.Option(help="Dataset frames per second. Example: --fps 30")] = DEFAULT_FPS,
+    robot_keys: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--robot-key",
+            help="Robot keys to concatenate. Repeat for multiple robots. Example: --robot-key left --robot-key right",
+        ),
+    ] = None,
+    joints: Annotated[
+        bool, typer.Option(help="Whether absolute_action is already in joint space. Example: --joints")
+    ] = DEFAULT_JOINTS,
+    gripper_type: Annotated[
+        str, typer.Option(help="Gripper type used to derive TCP offset. Example: --gripper-type Robotiq2F85")
+    ] = DEFAULT_GRIPPER_TYPE,
+    camera_specs: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--camera",
+            help=(
+                "Camera spec as name[:source_name][@HEIGHTxWIDTH]. Repeat for multiple cameras. "
+                "The name becomes the LeRobot output key (observation.images.<name>). "
+                "The optional source_name is the key in the source parquet (obs.frames.<source_name>.rgb.data); "
+                "if omitted, the image_ prefix is stripped from name to derive it. "
+                "Example: --camera head@256x256 --camera image_left_wrist:left_wrist@256x256"
+            ),
+        ),
+    ] = None,
+    image_batch_size: Annotated[
+        int, typer.Option(help="Batch size for image decoding. Example: --image-batch-size 32")
+    ] = DEFAULT_IMAGE_BATCH_SIZE,
+    per_robot_arm_dim: Annotated[
+        int, typer.Option(help="Per-robot arm joint/action dimension without gripper. Example: --per-robot-arm-dim 7")
+    ] = DEFAULT_PER_ROBOT_ARM_DIM,
+    success: Annotated[bool, typer.Option(help="Only include successful episodes. Example: --success")] = True,
+    n: Annotated[int, typer.Option(help="Maximum number of episodes to convert. -1 means all. Example: --n 50")] = -1,
+):
+    cameras = camera_specs_to_configs(camera_specs) if camera_specs is not None else list(DEFAULT_CAMERAS)
+    run_conversion(
+        root=output,
+        dataset_paths=dataset_paths or list(DEFAULT_DATASET_PATHS),
+        repo_id=repo_id,
+        robot_type=robot_type,
+        fps=fps,
+        robot_keys=robot_keys or list(DEFAULT_ROBOT_KEYS),
+        joints=joints,
+        gripper_type=gripper_type,
+        cameras=cameras,
+        image_batch_size=image_batch_size,
+        per_robot_arm_dim=per_robot_arm_dim,
+        success=success,
+        n=n,
     )
 
 
