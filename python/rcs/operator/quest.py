@@ -56,8 +56,8 @@ class QuestOperator(BaseOperator):
         self._resource_lock = threading.Lock()
         self._cmd_lock = threading.Lock()
 
-        self._trg_btn = {"left": "index_trigger", "right": "index_trigger"}
-        self._grp_btn = {"left": "hand_trigger", "right": "hand_trigger"}
+        self._trg_btn = {"left": "hand_trigger", "right": "hand_trigger"}
+        self._grp_btn = {"left": "index_trigger", "right": "index_trigger"}
         self._start_btn = "A"
         self._stop_btn = "B"
         self._unsuccessful_btn = "Y"
