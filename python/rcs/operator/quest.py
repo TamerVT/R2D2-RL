@@ -12,8 +12,8 @@ from rcs.sim.sim import Sim
 from rcs.utils import SimpleFrameRate
 
 try:
-    from simpub.core.simpub_server import SimPublisher
-    from simpub.parser.simdata import SimObject, SimScene
+    from simpub.core.simpub_server import RigidObjectUpdateData, SimPublisher
+    from simpub.parser.simdata import SimObject, SimScene, SimSceneConfig
     from simpub.xr_device.meta_quest3 import MetaQuest3
 
     HAS_SIMPUB = True
@@ -32,12 +32,30 @@ if HAS_SIMPUB:
 
     class FakeSimPublisher(SimPublisher):
         def get_update(self):
-            return {}
+            return RigidObjectUpdateData(data={})
 
     class FakeSimScene(SimScene):
-        def __init__(self):
-            super().__init__()
-            self.root = SimObject(name="root")
+        def __init__(self, name: str = "RCS"):
+            super().__init__(
+                SimSceneConfig(
+                    name=name,
+                    pos=[0.0, 0.0, 0.0],
+                    rot=[0.0, 0.0, 0.0, 1.0],
+                    scale=[1.0, 1.0, 1.0],
+                )
+            )
+            self.root.add_data(
+                SimObject(
+                    name="root",
+                    parent="root",
+                    trans={
+                        "pos": [0.0, 0.0, 0.0],
+                        "rot": [0.0, 0.0, 0.0, 1.0],
+                        "scale": [1.0, 1.0, 1.0],
+                    },
+                    visuals=[],
+                )
+            )
 
 
 class QuestOperator(BaseOperator):
