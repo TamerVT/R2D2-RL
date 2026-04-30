@@ -123,7 +123,7 @@ class JointDatasetConverter:
 
         self.lrds = LeRobotDataset.create(
             repo_id=self.repo_id,
-            robot_type=self.robot_type,
+            robot_type=self.robot_type.id,
             root=self.root,
             fps=self.fps,
             use_videos=False,

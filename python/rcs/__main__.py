@@ -87,7 +87,7 @@ def lerobot_convert(
     output: Annotated[
         Path,
         typer.Argument(
-            help="Output directory for the LeRobot dataset. Example: --output ./data_lerobot",
+            help="Output directory for the LeRobot dataset. Example: ./data_lerobot",
         ),
     ] = Path(DEFAULT_HF_DATA_DIR),
     dataset_paths: Annotated[
