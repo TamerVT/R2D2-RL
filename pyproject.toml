@@ -41,6 +41,7 @@ dependencies = [
   "pin==3.7.0",
   "greenlet",
   "duckdb",
+  "pandas",
 ]
 readme = "README.md"
 maintainers = [{ name = "Tobias Jülg", email = "tobias.juelg@utn.de" }]

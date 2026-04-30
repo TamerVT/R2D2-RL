@@ -5,6 +5,7 @@ import time
 from abc import ABC
 from dataclasses import dataclass, field
 from time import sleep
+from typing import Any
 
 import gymnasium as gym
 from rcs._core.common import RobotPlatform
@@ -49,6 +50,9 @@ class BaseOperator(ABC, threading.Thread):
     def consume_action(self) -> dict[str, ArmWithGripper]:
         """Returns the action dictionary to step the environment. Must be thread-safe."""
         raise NotImplementedError()
+
+    def set_camera(self, observation: dict[str, Any]) -> None:
+        """Optional hook for operators that want to consume camera observations."""
 
     def close(self):
         pass
@@ -123,6 +127,7 @@ class TeleopLoop:
 
         # 0. Initial Reset to get current positions for untracked robots
         self._last_obs, _ = self.env.reset()
+        self.operator.set_camera(self._last_obs)
 
         while True:
             if self._exit_requested:
@@ -140,6 +145,7 @@ class TeleopLoop:
                 self.env.get_wrapper_attr("success")()
                 sleep(1)  # sleep to let the robot reach the goal
                 self._last_obs, _ = self.env.reset()
+                self.operator.set_camera(self._last_obs)
                 self.operator.reset_operator_state()
                 self._synced = self.operator.control_mode[1] != RelativeTo.NONE
                 # consume new commands because of potential origin reset
@@ -148,6 +154,7 @@ class TeleopLoop:
             if cmds.failure:
                 print("Command: Failure! Resetting env...")
                 self._last_obs, _ = self.env.reset()
+                self.operator.set_camera(self._last_obs)
                 self.operator.reset_operator_state()
                 self._synced = self.operator.control_mode[1] != RelativeTo.NONE
                 # consume new commands because of potential origin reset
@@ -172,6 +179,7 @@ class TeleopLoop:
                         }
 
                 self._last_obs, _, _, _, _ = self.env.step(hold_actions)
+                self.operator.set_camera(self._last_obs)
                 rate_limiter()
                 continue
 
@@ -191,6 +199,7 @@ class TeleopLoop:
             actions = self.operator.consume_action()
             actions = self._translate_keys(actions)
             self._last_obs, _, _, _, _ = self.env.step(actions)
+            self.operator.set_camera(self._last_obs)
 
             rate_limiter()
 
@@ -228,6 +237,7 @@ class TeleopLoop:
                     continue
 
             self._last_obs, _, _, _, _ = self.env.step(interp_actions)
+            self.operator.set_camera(self._last_obs)
             rate_limiter()
 
         print("Sync Complete.")

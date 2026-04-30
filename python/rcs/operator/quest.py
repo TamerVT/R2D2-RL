@@ -13,6 +13,7 @@ from rcs.utils import SimpleFrameRate
 
 try:
     from simpub.core.simpub_server import RigidObjectUpdateData, SimPublisher
+    from simpub.core.video_streamer import VideoStreamerManager
     from simpub.parser.simdata import SimObject, SimScene, SimSceneConfig
     from simpub.xr_device.meta_quest3 import MetaQuest3
 
@@ -91,6 +92,8 @@ class QuestOperator(BaseOperator):
 
         self._step_env = False
         self._set_frame = {key: Pose() for key in self.controller_names}
+        self._video_stream_manager = None
+        self._video_streamers: dict[str, object] = {}
         # if self.config.simulation:
         #     self._publisher = MujocoPublisher(self.sim.model, self.sim.data, self.config.mq3_addr, visible_geoms_groups=list(range(1, 3)))
         if not self.config.simulation:
@@ -178,6 +181,29 @@ class QuestOperator(BaseOperator):
             if self.config.switched_left_right
             else transforms
         )
+
+    def set_camera(self, observation: dict) -> None:
+        frames = observation.get("frames")
+        if not isinstance(frames, dict):
+            return
+
+        if self._video_stream_manager is None:
+            self._video_stream_manager = VideoStreamerManager(self.config.mq3_addr)
+
+        for camera_name, camera_data in frames.items():
+            if not isinstance(camera_data, dict) or "rgb" not in camera_data:
+                continue
+            rgb = camera_data["rgb"]
+            if not isinstance(rgb, dict) or "data" not in rgb:
+                continue
+            frame = rgb["data"]
+            if camera_name not in self._video_streamers:
+                height, width = frame.shape[:2]
+                self._video_streamers[camera_name] = self._video_stream_manager.create_streamer(
+                    f"{camera_name}_camera", width, height
+                )
+            # self._video_streamers[camera_name].update_cv_image(np.ascontiguousarray(frame[:, :, ::-1]))
+            self._video_streamers[camera_name].update_cv_image(frame[:, :, ::-1])
 
     def close(self):
         self._reader.disconnect()
