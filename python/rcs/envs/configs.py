@@ -222,9 +222,10 @@ class EmptyWorldFR3Duo(SimEnvCreator):
             base="base",
             dof=rcs.ROBOTS[RobotType.FR3].dof,
             joint_limits=rcs.ROBOTS[RobotType.FR3].joint_limits,
-            q_home=rcs.ROBOTS[RobotType.FR3].q_home,
+            q_home=rcs.HOME_POSITIONS["FR3_DUO_LEFT"],
         )
         robot_cfg_right = copy.deepcopy(robot_cfg)
+        robot_cfg_right.q_home = rcs.HOME_POSITIONS["FR3_DUO_RIGHT"]
 
         robot_cfgs: dict[str, SimRobotConfig] = {"left": robot_cfg, "right": robot_cfg_right}
         sim_cfg: SimConfig = SimConfig(async_control=False, realtime=True, frequency=1, max_convergence_steps=500)
