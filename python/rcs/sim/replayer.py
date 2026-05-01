@@ -154,6 +154,7 @@ def replay(
         max_rows_per_group=100,
         max_rows_per_file=1000,
         always_record=True,
+        allow_wrapper_instruction=False,
     )
     try:
         for uuid in uuids:
