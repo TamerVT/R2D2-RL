@@ -146,6 +146,7 @@ def lerobot_convert(
     ] = DEFAULT_PER_ROBOT_ARM_DIM,
     success: Annotated[bool, typer.Option(help="Only include successful episodes. Example: --success")] = True,
     n: Annotated[int, typer.Option(help="Maximum number of episodes to convert. -1 means all. Example: --n 50")] = -1,
+    video_encoding: Annotated[bool, typer.Option(help="Should the image data be video encoded")] = False,
 ):
     cameras = camera_specs_to_configs(camera_specs) if camera_specs is not None else list(DEFAULT_CAMERAS)
     run_conversion(
@@ -162,6 +163,7 @@ def lerobot_convert(
         per_robot_arm_dim=per_robot_arm_dim,
         success=success,
         n=n,
+        video_encoding=video_encoding,
     )
 
 
