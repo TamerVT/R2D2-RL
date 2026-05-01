@@ -13,8 +13,6 @@ from rcs.envs.base import RelativeTo, SimEnv
 from rcs.envs.scenes import SimEnvCreator
 from rcs.envs.storage_wrapper import StorageWrapper
 
-DATASET_PATH = "recorded_iris"
-
 
 @dataclass(frozen=True)
 class RecordedSimStep:
@@ -118,6 +116,7 @@ def replay_trajectory(env: gym.Env, recorded_steps: list[RecordedSimStep], headl
 
 def replay(
     dataset: Path | str,
+    output: Path | str,
     headless: bool = True,
     frequency: int = 30,
     relative_to: str = RelativeTo.CONFIGURED_ORIGIN.name,
@@ -148,7 +147,7 @@ def replay(
     env_rel = sc.create_env(sim_cfg_data)
     env_rel = StorageWrapper(
         env_rel,
-        DATASET_PATH,
+        str(output),
         "",
         batch_size=32,
         max_rows_per_group=100,

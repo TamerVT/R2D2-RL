@@ -57,6 +57,13 @@ def replay(
             help="Parquet dataset directory to replay.",
         ),
     ],
+    output: Annotated[
+        Path,
+        typer.Argument(
+            exists=False,
+            help="Output dir for the new dataset.",
+        ),
+    ],
     headless: Annotated[bool, typer.Option(help="Whether to run without GUI.")] = True,
     frequency: Annotated[int, typer.Option(help="Simulation frequency to use during replay.")] = 30,
     relative_to: Annotated[
@@ -74,6 +81,7 @@ def replay(
 ):
     replay_dataset(
         dataset=dataset,
+        output=output,
         headless=headless,
         frequency=frequency,
         relative_to=relative_to,
