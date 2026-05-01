@@ -3,6 +3,7 @@ import logging
 import threading
 from dataclasses import dataclass, field
 from time import sleep
+from typing import Any
 
 import numpy as np
 from rcs._core.common import Pose
@@ -93,11 +94,10 @@ class QuestOperator(BaseOperator):
         self._step_env = False
         self._set_frame = {key: Pose() for key in self.controller_names}
         self._video_stream_manager = None
-        self._video_streamers: dict[str, object] = {}
-        # if self.config.simulation:
-        #     self._publisher = MujocoPublisher(self.sim.model, self.sim.data, self.config.mq3_addr, visible_geoms_groups=list(range(1, 3)))
+        self._video_streamers: dict[str, Any] = {}
         if not self.config.simulation:
             self._publisher = FakeSimPublisher(FakeSimScene(), self.config.mq3_addr)
+            # Not working code for digital twin:
             # robot_cfg = default_sim_robot_cfg("fr3_empty_world")
             # sim_cfg = SimConfig()
             # sim_cfg.async_control = True
@@ -200,9 +200,11 @@ class QuestOperator(BaseOperator):
             if camera_name not in self._video_streamers:
                 height, width = frame.shape[:2]
                 stream_topic = self._get_stream_topic_name(camera_name)
+                assert self._video_stream_manager is not None
                 self._video_streamers[camera_name] = self._video_stream_manager.create_streamer(
                     stream_topic, width, height
                 )
+            assert self._video_streamers[camera_name] is not None
             self._video_streamers[camera_name].update_cv_image(frame[:, :, ::-1])
 
     @staticmethod
