@@ -184,14 +184,17 @@ class ControlMode(Enum):
 class BaseEnv(gym.Env):
     PLATFORM: RobotPlatform
 
+    def _platform_info(self):
+        return {"platform": "simulation" if self.PLATFORM == RobotPlatform.SIMULATION else "hardware"}
+
     def step(self, action: dict[str, Any]) -> tuple[dict[str, Any], float, bool, bool, dict]:
-        return {}, 0, False, False, {}
+        return {}, 0, False, False, self._platform_info()
 
     def reset(
         self, *, seed: int | None = None, options: dict[str, Any] | None = None
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         super().reset(seed=seed, options=options)
-        return {}, {}
+        return {}, self._platform_info()
 
 
 class HardwareEnv(BaseEnv):
@@ -375,6 +378,7 @@ class RobotWrapper(ActObsInfoWrapper):
 
     def observation(self, observation: dict, info: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
         observation.update(self.get_robot_obs())
+        observation.update({"robot_type": self.robot.get_config().robot_type.id})
         return observation, info
 
     def reset(
@@ -947,6 +951,7 @@ class GripperWrapper(ActObsInfoWrapper):
             )
         else:
             observation[self.gripper_key] = [self.gripper.get_normalized_width()]
+        observation.update({"gripper_type": self.gripper.get_config().gripper_type.id})
 
         return observation, info
 

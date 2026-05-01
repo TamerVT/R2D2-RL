@@ -222,9 +222,10 @@ class EmptyWorldFR3Duo(SimEnvCreator):
             base="base",
             dof=rcs.ROBOTS[RobotType.FR3].dof,
             joint_limits=rcs.ROBOTS[RobotType.FR3].joint_limits,
-            q_home=rcs.ROBOTS[RobotType.FR3].q_home,
+            q_home=rcs.HOME_POSITIONS["FR3_DUO_LEFT"],
         )
         robot_cfg_right = copy.deepcopy(robot_cfg)
+        robot_cfg_right.q_home = rcs.HOME_POSITIONS["FR3_DUO_RIGHT"]
 
         robot_cfgs: dict[str, SimRobotConfig] = {"left": robot_cfg, "right": robot_cfg_right}
         sim_cfg: SimConfig = SimConfig(async_control=False, realtime=True, frequency=1, max_convergence_steps=500)
@@ -281,7 +282,7 @@ class EmptyWorldFR3Duo(SimEnvCreator):
             "left": DEFAULT_TRANSFORMS["FR3_DUOMOUNT_LEFT_ROBOT"],
             "right": DEFAULT_TRANSFORMS["FR3_DUOMOUNT_RIGHT_ROBOT"],
         }
-        wrapper_cfg: WrapperConfig = WrapperConfig(binary_gripper=True, home_on_reset=True)
+        wrapper_cfg: WrapperConfig = WrapperConfig(binary_gripper=False, home_on_reset=True)
         headless = False
         add_gravcomp = True
         shared_base_frame_to_root_frame = DEFAULT_TRANSFORMS["FR3_DUOMOUNT_HEIGHT_OFFSET"]

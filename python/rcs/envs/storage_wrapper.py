@@ -1,3 +1,4 @@
+import copy
 import datetime
 import io
 import operator
@@ -246,7 +247,8 @@ class StorageWrapper(gym.Wrapper):
                 msg = "Writer thread failed"
                 raise RuntimeError(msg) from exc
 
-        obs, reward, terminated, truncated, info = self.env.step(action)
+        obs_original, reward, terminated, truncated, info = self.env.step(action)
+        obs = copy.deepcopy(obs_original)
 
         if not self._pause:
             assert isinstance(obs, dict)
@@ -280,7 +282,7 @@ class StorageWrapper(gym.Wrapper):
             if len(self.buffer) == self.batch_size:
                 self._flush()
 
-        return obs, reward, terminated, truncated, info
+        return obs_original, reward, terminated, truncated, info
 
     def set_instruction(self, instruction: str):
         self.instruction = instruction

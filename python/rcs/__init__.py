@@ -172,6 +172,14 @@ DEFAULT_TRANSFORMS = {
     ),
 }
 
+HOME_POSITIONS = {
+    # calculated from
+    # "left": {"xyzrpy": [0.61, 0.21, 0.40, -np.pi, np.deg2rad(-20), 0], "gripper": [0]},
+    # "right": {"xyzrpy": [0.61, -0.21, 0.40, -np.pi, np.deg2rad(-20), 0], "gripper": [0]},
+    "FR3_DUO_LEFT": np.array([0.48797692, -0.57224476, -0.58536988, -2.57958827, 0.86400183, 2.0530809, -0.85965005]),
+    "FR3_DUO_RIGHT": np.array([-0.48797676, -0.57224472, 0.58536959, -2.57958788, -0.86400148, 2.05308196, 0.85965057]),
+}
+
 # Append RCS package prefix to all asset paths
 for path_dict in (SCENE_PATHS, OBJECT_PATHS, CAMERA_PATHS):
     for name, path in path_dict.items():
@@ -209,5 +217,6 @@ __all__ = [
     "SCENE_PATHS",
     "OBJECT_PATHS",
     "CAMERA_PATHS",
+    "HOME_POSITIONS",
     "TASKS",
 ]

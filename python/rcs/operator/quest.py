@@ -3,6 +3,7 @@ import logging
 import threading
 from dataclasses import dataclass, field
 from time import sleep
+from typing import Any
 
 import numpy as np
 from rcs._core.common import Pose
@@ -12,8 +13,9 @@ from rcs.sim.sim import Sim
 from rcs.utils import SimpleFrameRate
 
 try:
-    from simpub.core.simpub_server import SimPublisher
-    from simpub.parser.simdata import SimObject, SimScene
+    from simpub.core.simpub_server import RigidObjectUpdateData, SimPublisher
+    from simpub.core.video_streamer import VideoStreamerManager
+    from simpub.parser.simdata import SimObject, SimScene, SimSceneConfig
     from simpub.xr_device.meta_quest3 import MetaQuest3
 
     HAS_SIMPUB = True
@@ -32,12 +34,30 @@ if HAS_SIMPUB:
 
     class FakeSimPublisher(SimPublisher):
         def get_update(self):
-            return {}
+            return RigidObjectUpdateData(data={})
 
     class FakeSimScene(SimScene):
-        def __init__(self):
-            super().__init__()
-            self.root = SimObject(name="root")
+        def __init__(self, name: str = "RCS"):
+            super().__init__(
+                SimSceneConfig(
+                    name=name,
+                    pos=[0.0, 0.0, 0.0],
+                    rot=[0.0, 0.0, 0.0, 1.0],
+                    scale=[1.0, 1.0, 1.0],
+                )
+            )
+            self.root.add_data(
+                SimObject(
+                    name="root",
+                    parent="root",
+                    trans={
+                        "pos": [0.0, 0.0, 0.0],
+                        "rot": [0.0, 0.0, 0.0, 1.0],
+                        "scale": [1.0, 1.0, 1.0],
+                    },
+                    visuals=[],
+                )
+            )
 
 
 class QuestOperator(BaseOperator):
@@ -73,10 +93,11 @@ class QuestOperator(BaseOperator):
 
         self._step_env = False
         self._set_frame = {key: Pose() for key in self.controller_names}
-        # if self.config.simulation:
-        #     self._publisher = MujocoPublisher(self.sim.model, self.sim.data, self.config.mq3_addr, visible_geoms_groups=list(range(1, 3)))
+        self._video_stream_manager = None
+        self._video_streamers: dict[str, Any] = {}
         if not self.config.simulation:
             self._publisher = FakeSimPublisher(FakeSimScene(), self.config.mq3_addr)
+            # Not working code for digital twin:
             # robot_cfg = default_sim_robot_cfg("fr3_empty_world")
             # sim_cfg = SimConfig()
             # sim_cfg.async_control = True
@@ -106,6 +127,12 @@ class QuestOperator(BaseOperator):
                 self._offset_pose[controller] = Pose()
                 self._last_controller_pose[controller] = Pose()
                 self._grp_pos[controller] = 1
+
+    @staticmethod
+    def _normalize_axis(value: bool | float | int) -> float:
+        if isinstance(value, bool):
+            return float(value)
+        return float(np.clip(value, 0.0, 1.0))
 
     def consume_commands(self) -> TeleopCommands:
         # must be threadsafe
@@ -155,6 +182,41 @@ class QuestOperator(BaseOperator):
             else transforms
         )
 
+    def set_camera(self, observation: dict) -> None:
+        if not self.config.display_cameras:
+            return
+        frames = observation.get("frames")
+        if not isinstance(frames, dict):
+            return
+
+        if self._video_stream_manager is None:
+            self._video_stream_manager = VideoStreamerManager(self.config.mq3_addr)
+
+        for camera_name, camera_data in frames.items():
+            if not isinstance(camera_data, dict) or "rgb" not in camera_data:
+                continue
+            rgb = camera_data["rgb"]
+            if not isinstance(rgb, dict) or "data" not in rgb:
+                continue
+            frame = rgb["data"]
+            if camera_name not in self._video_streamers:
+                height, width = frame.shape[:2]
+                stream_topic = self._get_stream_topic_name(camera_name)
+                assert self._video_stream_manager is not None
+                self._video_streamers[camera_name] = self._video_stream_manager.create_streamer(
+                    stream_topic, width, height
+                )
+            assert self._video_streamers[camera_name] is not None
+            self._video_streamers[camera_name].update_cv_image(frame[:, :, ::-1])
+
+    @staticmethod
+    def _get_stream_topic_name(camera_name: str) -> str:
+        if camera_name.endswith("_left"):
+            return f"{camera_name[:-len('_left')]}_camera_left"
+        if camera_name.endswith("_right"):
+            return f"{camera_name[:-len('_right')]}_camera_right"
+        return f"{camera_name}_camera"
+
     def close(self):
         self._reader.disconnect()
         # self._publisher.shutdown()
@@ -194,6 +256,7 @@ class QuestOperator(BaseOperator):
 
             # === Update Poses & Grippers ===
             for controller in self.controller_names:
+                prev_data = self._prev_data
                 last_controller_pose = Pose(
                     translation=np.array(input_data[controller]["pos"]),
                     quaternion=np.array(input_data[controller]["rot"]),
@@ -204,38 +267,33 @@ class QuestOperator(BaseOperator):
                 #         * last_controller_pose
                 #     )
 
-                if input_data[controller][self._trg_btn[controller]] and (
-                    self._prev_data is None or not self._prev_data[controller][self._trg_btn[controller]]
-                ):
+                trigger_pressed = self._normalize_axis(input_data[controller][self._trg_btn[controller]]) > 0.5
+                if prev_data is None:
+                    prev_trigger_pressed = False
+                else:
+                    prev_trigger_pressed = self._normalize_axis(prev_data[controller][self._trg_btn[controller]]) > 0.5
+
+                if trigger_pressed and not prev_trigger_pressed:
                     # trigger just pressed (first data sample with button pressed)
 
                     with self._resource_lock:
                         self._offset_pose[controller] = last_controller_pose
                         self._last_controller_pose[controller] = last_controller_pose
 
-                elif not input_data[controller][self._trg_btn[controller]] and (
-                    self._prev_data is None or self._prev_data[controller][self._trg_btn[controller]]
-                ):
+                elif not trigger_pressed and prev_trigger_pressed:
                     with self._resource_lock:
                         self._last_controller_pose[controller] = Pose()
                         self._offset_pose[controller] = Pose()
                     self._reset_origin_to_current(controller)
 
-                elif input_data[controller][self._trg_btn[controller]]:
+                elif trigger_pressed:
                     # button is pressed
                     with self._resource_lock:
                         self._last_controller_pose[controller] = last_controller_pose
 
-                if input_data[controller][self._grp_btn[controller]] and (
-                    self._prev_data is None or not self._prev_data[controller][self._grp_btn[controller]]
-                ):
-                    # just pressed
-                    self._grp_pos[controller] = 0
-                if not input_data[controller][self._grp_btn[controller]] and (
-                    self._prev_data is None or self._prev_data[controller][self._grp_btn[controller]]
-                ):
-                    # just released
-                    self._grp_pos[controller] = 1
+                gripper_axis = self._normalize_axis(input_data[controller][self._grp_btn[controller]])
+                # convert from IRIS to RCS gripper logic
+                self._grp_pos[controller] = 1.0 - gripper_axis
 
             self._prev_data = input_data
             rate_limiter()
@@ -247,3 +305,4 @@ class QuestConfig(BaseOperatorConfig):
     include_rotation: bool = True
     mq3_addr: str = "10.42.0.1"
     switched_left_right: bool = False
+    display_cameras: bool = True

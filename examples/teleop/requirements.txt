@@ -1,6 +1,6 @@
-# simpub @ git+https://github.com/intuitive-robots/SimPublisher.git@a0ebdbfba86f58aaa6360eb3b9da7b74a9c9b1dd # doesnt work
+# simpub @ git+https://github.com/intuitive-robots/SimPublisher.git@af6560384f24520601798b47d900fee6fe27cf2d # doesnt work
 dynamixel_sdk
 pynput
 scipy
 jupyter
-mutplotlib
+matplotlib
