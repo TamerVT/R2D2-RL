@@ -109,7 +109,7 @@ def lerobot_convert(
         str, typer.Option(help="LeRobot repo id metadata. Example: --repo-id myorg/grasp_v2")
     ] = DEFAULT_REPO_ID,
     robot_type: Annotated[
-        str, typer.Option(help="Robot type for metadata and IK model lookup. Example: --robot-type fr3")
+        str, typer.Option(help="Robot type for metadata and IK model lookup. Example: --robot-type FR3")
     ] = DEFAULT_ROBOT_TYPE,
     fps: Annotated[int, typer.Option(help="Dataset frames per second. Example: --fps 30")] = DEFAULT_FPS,
     robot_keys: Annotated[

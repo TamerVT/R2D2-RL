@@ -21,7 +21,7 @@ DEFAULT_DATASET_PATHS = [
 ]
 DEFAULT_HF_DATA_DIR = "data_lerobot_joint_simple"
 DEFAULT_REPO_ID = "rcs/grasp_joint_simple"
-DEFAULT_ROBOT_TYPE = "fr3"
+DEFAULT_ROBOT_TYPE = "FR3"
 DEFAULT_FPS = 30
 DEFAULT_ROBOT_KEYS = ["left", "right"]
 DEFAULT_JOINTS = False
