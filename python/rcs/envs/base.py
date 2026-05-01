@@ -425,6 +425,8 @@ class MultiRobotWrapper(gym.Env):
         self.lead_env: gym.Env | None = None
         self.sim: simulation.Sim | None = None
 
+        self._rel_env: dict[str, bool] = {}
+
         # make sure all envs are the same type (sim/real)
         for env in self.envs:
             if self.PLATFORM is None:
@@ -434,11 +436,25 @@ class MultiRobotWrapper(gym.Env):
                 assert (
                     self.envs[env].get_wrapper_attr("PLATFORM") == self.PLATFORM
                 ), "all envs must have the same platform!"
+            self._rel_env[env] = self._env_relative(self.envs[env])  # type: ignore
+
         self._runs_in_sim = self.PLATFORM == RobotPlatform.SIMULATION
         if self._runs_in_sim:
             self._inject_main_greenlet()
             assert isinstance(self.lead_env, SimEnv), "something is wrong with the env, the base should be type SimEnv"
             self.sim = self.lead_env.get_wrapper_attr("sim")
+
+    def _env_relative(self, env: gym.Wrapper):
+        max_depth = 100
+        while True:
+            if isinstance(env, RelativeActionSpace):
+                return True
+            if isinstance(env, SimEnv | HardwareEnv):
+                return False
+            if max_depth < 0:
+                return False
+            max_depth -= 1
+            env = env.env  # type: ignore
 
     def _inject_main_greenlet(self):
         main_gr = getcurrent()
@@ -448,15 +464,19 @@ class MultiRobotWrapper(gym.Env):
             ), "something is wrong with the env, the base should be type SimEnv"
             env_item.unwrapped.main_greenlet = main_gr
 
-    def _translate_pose(self, key, dic, to_world=True):
+    def _translate_pose(self, key, dic, to_world=True, relative=True):
         r2w = self.robot_to_shared_base_frame.get(key, common.Pose())
         if not to_world:
             r2w = r2w.inverse()
         if "tquat" in dic:
-            p = r2w * common.Pose(translation=dic["tquat"][:3], quaternion=dic["tquat"][3:]) * r2w.inverse()
+            p = r2w * common.Pose(translation=dic["tquat"][:3], quaternion=dic["tquat"][3:])
+            if relative:
+                p *= r2w.inverse()
             dic["tquat"] = np.concatenate([p.translation(), p.rotation_q()])
         if "xyzrpy" in dic:
-            p = r2w * common.Pose(translation=dic["xyzrpy"][:3], rpy_vector=dic["xyzrpy"][3:]) * r2w.inverse()
+            p = r2w * common.Pose(translation=dic["xyzrpy"][:3], rpy_vector=dic["xyzrpy"][3:])
+            if relative:
+                p *= r2w.inverse()
             dic["xyzrpy"] = p.xyzrpy()
 
         return dic
@@ -474,7 +494,7 @@ class MultiRobotWrapper(gym.Env):
                 step_greenlets[key] = gr
 
                 # Translate action
-                act = self._translate_pose(key, action[key], to_world=False)
+                act = self._translate_pose(key, action[key], to_world=False, relative=self._rel_env[key])
 
                 # Switch to robot greenlet. It will run until RobotSimWrapper.step switches back.
                 gr.switch(act)
@@ -497,10 +517,10 @@ class MultiRobotWrapper(gym.Env):
                 ob, r, t, tr, info[key] = step_greenlets[key].switch()
             else:
                 # HARDWARE path
-                act = self._translate_pose(key, action[key], to_world=False)
+                act = self._translate_pose(key, action[key], to_world=False, relative=self._rel_env[key])
                 ob, r, t, tr, info[key] = env.step(act)
 
-            obs[key] = self._translate_pose(key, ob, to_world=True)
+            obs[key] = self._translate_pose(key, ob, to_world=True, relative=False)
             reward += float(r)
             terminated = terminated or t
             truncated = truncated or tr
@@ -543,7 +563,7 @@ class MultiRobotWrapper(gym.Env):
                 # HARDWARE path
                 ob, i = env.reset(seed=seed_[key], options=options_[key])
 
-            obs[key] = self._translate_pose(key, ob, to_world=True)
+            obs[key] = self._translate_pose(key, ob, to_world=True, relative=False)
             info[key] = i
 
         return obs, info
