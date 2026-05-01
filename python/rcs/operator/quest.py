@@ -75,8 +75,8 @@ class QuestOperator(BaseOperator):
         self._resource_lock = threading.Lock()
         self._cmd_lock = threading.Lock()
 
-        self._trg_btn = {"left": "hand_trigger", "right": "hand_trigger"}
-        self._grp_btn = {"left": "index_trigger", "right": "index_trigger"}
+        self._trg_btn = {"left": "index_trigger", "right": "index_trigger"}
+        self._grp_btn = {"left": "hand_trigger", "right": "hand_trigger"}
         self._start_btn = "A"
         self._stop_btn = "B"
         self._unsuccessful_btn = "Y"
@@ -199,11 +199,21 @@ class QuestOperator(BaseOperator):
             frame = rgb["data"]
             if camera_name not in self._video_streamers:
                 height, width = frame.shape[:2]
+                stream_topic = self._get_stream_topic_name(camera_name)
                 self._video_streamers[camera_name] = self._video_stream_manager.create_streamer(
-                    f"{camera_name}_camera", width, height
+                    stream_topic, width, height
                 )
-            # self._video_streamers[camera_name].update_cv_image(np.ascontiguousarray(frame[:, :, ::-1]))
-            self._video_streamers[camera_name].update_cv_image(frame[:, :, ::-1])
+            self._video_streamers[camera_name].update_cv_image(
+                frame[:, :, ::-1]
+            )
+
+    @staticmethod
+    def _get_stream_topic_name(camera_name: str) -> str:
+        if camera_name.endswith("_left"):
+            return f"{camera_name[:-len('_left')]}_camera_left"
+        if camera_name.endswith("_right"):
+            return f"{camera_name[:-len('_right')]}_camera_right"
+        return f"{camera_name}_camera"
 
     def close(self):
         self._reader.disconnect()
