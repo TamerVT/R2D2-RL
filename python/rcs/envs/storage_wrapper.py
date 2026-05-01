@@ -250,7 +250,6 @@ class StorageWrapper(gym.Wrapper):
         obs_original, reward, terminated, truncated, info = self.env.step(action)
         obs = copy.deepcopy(obs_original)
 
-
         if not self._pause:
             assert isinstance(obs, dict)
             if "frames" in obs and not obs["frames"]:

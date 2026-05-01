@@ -203,9 +203,7 @@ class QuestOperator(BaseOperator):
                 self._video_streamers[camera_name] = self._video_stream_manager.create_streamer(
                     stream_topic, width, height
                 )
-            self._video_streamers[camera_name].update_cv_image(
-                frame[:, :, ::-1]
-            )
+            self._video_streamers[camera_name].update_cv_image(frame[:, :, ::-1])
 
     @staticmethod
     def _get_stream_topic_name(camera_name: str) -> str:
