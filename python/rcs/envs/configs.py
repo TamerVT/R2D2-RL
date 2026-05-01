@@ -282,7 +282,7 @@ class EmptyWorldFR3Duo(SimEnvCreator):
             "left": DEFAULT_TRANSFORMS["FR3_DUOMOUNT_LEFT_ROBOT"],
             "right": DEFAULT_TRANSFORMS["FR3_DUOMOUNT_RIGHT_ROBOT"],
         }
-        wrapper_cfg: WrapperConfig = WrapperConfig(binary_gripper=True, home_on_reset=True)
+        wrapper_cfg: WrapperConfig = WrapperConfig(binary_gripper=False, home_on_reset=True)
         headless = False
         add_gravcomp = True
         shared_base_frame_to_root_frame = DEFAULT_TRANSFORMS["FR3_DUOMOUNT_HEIGHT_OFFSET"]
