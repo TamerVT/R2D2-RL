@@ -183,6 +183,8 @@ class QuestOperator(BaseOperator):
         )
 
     def set_camera(self, observation: dict) -> None:
+        if not self.config.display_cameras:
+            return
         frames = observation.get("frames")
         if not isinstance(frames, dict):
             return
@@ -303,3 +305,4 @@ class QuestConfig(BaseOperatorConfig):
     include_rotation: bool = True
     mq3_addr: str = "10.42.0.1"
     switched_left_right: bool = False
+    display_cameras: bool = True

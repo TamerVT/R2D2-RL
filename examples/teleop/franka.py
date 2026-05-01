@@ -66,7 +66,10 @@ robot2world = {
 
 config: QuestConfig | GelloConfig
 config = QuestConfig(
-    mq3_addr=MQ3_ADDR, simulation=ROBOT_INSTANCE == RobotPlatform.SIMULATION, switched_left_right=False
+    mq3_addr=MQ3_ADDR,
+    simulation=ROBOT_INSTANCE == RobotPlatform.SIMULATION,
+    switched_left_right=False,
+    display_cameras=True,
 )
 # config = GelloConfig(
 #     arms={
