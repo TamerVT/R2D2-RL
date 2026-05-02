@@ -21,7 +21,7 @@ DEFAULT_DATASET_PATHS = [
 ]
 DEFAULT_HF_DATA_DIR = "data_lerobot_joint_simple"
 DEFAULT_REPO_ID = "rcs/grasp_joint_simple"
-DEFAULT_ROBOT_TYPE = "fr3"
+DEFAULT_ROBOT_TYPE = "FR3"
 DEFAULT_FPS = 30
 DEFAULT_ROBOT_KEYS = ["left", "right"]
 DEFAULT_JOINTS = False
@@ -97,6 +97,7 @@ class JointDatasetConverter:
         cameras: list[CamConversionConfig] | None = None,
         image_batch_size: int = DEFAULT_IMAGE_BATCH_SIZE,
         per_robot_arm_dim: int = DEFAULT_PER_ROBOT_ARM_DIM,
+        video_encoding: bool = False,
     ):
         self.root = Path(root)
         self.conn = duckdb.connect()
@@ -113,6 +114,7 @@ class JointDatasetConverter:
         self.per_robot_state_dim = self.per_robot_arm_dim + 1
         self.state_dim = len(self.robot_keys) * self.per_robot_state_dim
         self.source_sql = self._build_source_sql(self.dataset_paths)
+        self.video_encoding = video_encoding
 
         self.tcp_offset = rcs.GRIPPER_OFFSETS[self.gripper_type]
         self.ik = rcs.common.Pin(
@@ -126,10 +128,10 @@ class JointDatasetConverter:
             robot_type=self.robot_type.id,
             root=self.root,
             fps=self.fps,
-            use_videos=False,
+            use_videos=self.video_encoding,
             features=self._build_features(),
-            image_writer_threads=0,
-            image_writer_processes=0,
+            image_writer_threads=10,
+            image_writer_processes=5,
         )
 
     def _build_features(self) -> dict[str, dict[str, Any]]:
@@ -140,7 +142,7 @@ class JointDatasetConverter:
 
         features = {
             camera.dataset_key: {
-                "dtype": "image",
+                "dtype": "video" if self.video_encoding else "image",
                 "shape": (*camera.resolution, 3),
                 "names": ["height", "width", "channel"],
             }
@@ -409,6 +411,7 @@ def run_conversion(
     per_robot_arm_dim: int = DEFAULT_PER_ROBOT_ARM_DIM,
     success: bool = True,
     n: int = -1,
+    video_encoding: bool = False,
 ) -> None:
     robot_type_converted = RobotType(robot_type)
     gripper_type_converted = GripperType(gripper_type)
@@ -424,6 +427,7 @@ def run_conversion(
         cameras=cameras,
         image_batch_size=image_batch_size,
         per_robot_arm_dim=per_robot_arm_dim,
+        video_encoding=video_encoding,
     )
     converter.generate_examples(success=success, n=n)
 

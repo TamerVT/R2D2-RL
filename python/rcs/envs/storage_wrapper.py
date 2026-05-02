@@ -24,7 +24,8 @@ class StorageWrapper(gym.Wrapper):
         self,
         env: gym.Env,
         base_dir: str,
-        instruction: str,
+        instruction: str | None = None,
+        allow_wrapper_instruction: bool = True,
         batch_size: int = 32,
         schema: Optional[pa.Schema] = None,
         always_record: bool = False,
@@ -93,6 +94,7 @@ class StorageWrapper(gym.Wrapper):
         self._prev_action = None
         self._prev_absolute_action = None
         self.success_from_env = success_from_env
+        self.allow_wrapper_instruction = allow_wrapper_instruction
 
         self.thread_pool = ThreadPoolExecutor()
         self.queue: Queue[pa.Table | pa.RecordBatch] = Queue(maxsize=2)
@@ -259,6 +261,8 @@ class StorageWrapper(gym.Wrapper):
             self._flatten_arrays(obs)
             if info.get("success") and self.success_from_env:
                 self.success()
+            if info.get("instruction") is not None and self.allow_wrapper_instruction:
+                self.instruction = info.get("instruction")
 
             frame = {
                 "obs": obs,
