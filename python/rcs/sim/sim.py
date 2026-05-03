@@ -13,8 +13,7 @@ from typing import Optional
 import mujoco as mj
 import mujoco.viewer
 import numpy as np
-from rcs._core.sim import DynamicJointSchema
-from rcs._core.sim import DynamicJointState
+from rcs._core.sim import DynamicJointSchema, DynamicJointState
 from rcs._core.sim import GuiClient as _GuiClient
 from rcs._core.sim import Sim as _Sim
 from rcs.sim import SimConfig, egl_bootstrap
@@ -105,14 +104,13 @@ class Sim(_Sim):
 
         qpos_size = sum(int(value) for value in state_schema["qpos_sizes"])
 
-
         dynamic_joint_schema = DynamicJointSchema()
         dynamic_joint_schema.joint_names = typing.cast(list[str], list(state_schema["joint_names"]))
         dynamic_joint_schema.joint_types = [int(value) for value in state_schema["joint_types"]]
         dynamic_joint_schema.qpos_sizes = [int(value) for value in state_schema["qpos_sizes"]]
         dynamic_joint_schema.qvel_sizes = [int(value) for value in state_schema["qvel_sizes"]]
 
-        dynamic_joint_state = DynamicJointState() # type: ignore
+        dynamic_joint_state = DynamicJointState()  # type: ignore
         dynamic_joint_state.qpos = state_array[:qpos_size]
         dynamic_joint_state.qvel = state_array[qpos_size:]
         super().set_dynamic_joint_state(dynamic_joint_schema, dynamic_joint_state)

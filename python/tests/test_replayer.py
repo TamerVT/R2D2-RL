@@ -3,24 +3,22 @@ from pathlib import Path
 from typing import Any
 
 import duckdb
-import gymnasium as gym
-import mujoco as mj
 import numpy as np
 from rcs._core.sim import SimConfig
-from rcs.envs.base import RelativeTo, SimEnv
+from rcs.envs.base import RelativeTo
 from rcs.envs.configs import EmptyWorldFR3Duo
 from rcs.envs.storage_wrapper import StorageWrapper
 from rcs.envs.tasks import PickTaskConfig
-from rcs.sim.replayer import (
-    RecordedSimStep,
-    load_distinct_uuids,
-    load_trajectory,
-    replay_trajectory,
-)
-from rcs.sim.sim import Sim
+from rcs.sim.replayer import load_distinct_uuids, load_trajectory, replay_trajectory
 
 
-def _build_env(output_dir: Path, *, with_cameras: bool, instruction: str = "") -> StorageWrapper:
+def _build_env(
+    output_dir: Path,
+    *,
+    with_cameras: bool,
+    instruction: str = "",
+    scene_path: Path | None = None,
+) -> StorageWrapper:
     scene = EmptyWorldFR3Duo()
     cfg = scene.config()
     cfg.sim_cfg = SimConfig(async_control=True, realtime=False, frequency=30, max_convergence_steps=500)
@@ -29,6 +27,8 @@ def _build_env(output_dir: Path, *, with_cameras: bool, instruction: str = "") -
     if cfg.root_frame_objects is None:
         cfg.root_frame_objects = {}
     cfg.task_cfg = PickTaskConfig(robot_name="right")
+    if scene_path is not None:
+        cfg.scene = str(scene_path)
     if not with_cameras:
         cfg.camera_cfgs = {}
     else:
@@ -50,8 +50,14 @@ def _build_env(output_dir: Path, *, with_cameras: bool, instruction: str = "") -
     )
 
 
-def _record_source_dataset(dataset_dir: Path, *, limit: int, instruction: str) -> None:
-    env = _build_env(dataset_dir, with_cameras=False, instruction=instruction)
+def _record_source_dataset(
+    dataset_dir: Path,
+    *,
+    limit: int,
+    instruction: str,
+    scene_path: Path | None = None,
+) -> None:
+    env = _build_env(dataset_dir, with_cameras=False, instruction=instruction, scene_path=scene_path)
     try:
         env.reset()
         action = {
@@ -103,9 +109,9 @@ def _replay_rows(dataset_dir: Path):
         connection.close()
 
 
-def _replay_prefix(output_dir: Path, *, with_cameras: bool, limit: int) -> None:
+def _replay_prefix(output_dir: Path, *, with_cameras: bool, limit: int, scene_path: Path | None = None) -> None:
     source_dir = output_dir.parent / "source"
-    env = _build_env(output_dir, with_cameras=with_cameras)
+    env = _build_env(output_dir, with_cameras=with_cameras, scene_path=scene_path)
     try:
         uuid = load_distinct_uuids(source_dir)[0]
         recorded_steps = load_trajectory(source_dir, uuid)[:limit]
@@ -113,48 +119,6 @@ def _replay_prefix(output_dir: Path, *, with_cameras: bool, limit: int) -> None:
         replay_trajectory(env, recorded_steps, True)
     finally:
         env.close()
-
-
-MINIMAL_XML = """
-<mujoco>
-  <worldbody>
-    <camera name="main" pos="1 0 0.7" xyaxes="0 1 0 -0.5 0 1"/>
-    <body name="box" pos="0 0 0.1">
-      <freejoint name="box_free"/>
-      <geom type="box" size="0.05 0.05 0.05" rgba="0.2 0.6 0.9 1"/>
-    </body>
-  </worldbody>
-</mujoco>
-"""
-
-
-class DummyReplayEnv(gym.Env):
-    def __init__(self, sim: Sim):
-        super().__init__()
-        self.sim = sim
-        self._replay_state = None
-
-    def get_wrapper_attr(self, name: str):
-        return getattr(self, name)
-
-    def set_replay_state(self, state: np.ndarray, spec=None):
-        self._replay_state = (state, spec)
-
-    def reset(self, *, seed: int | None = None, options: dict[str, Any] | None = None):
-        super().reset(seed=seed)
-        mj.mj_resetData(self.sim.model, self.sim.data)
-        mj.mj_forward(self.sim.model, self.sim.data)
-        return {}, {}
-
-    def step(self, action: dict[str, np.ndarray]):
-        if self._replay_state is not None:
-            state, spec = self._replay_state
-            self.sim.set_state(state, spec)
-            self._replay_state = None
-        self.sim.data.qpos[0] += float(action["delta"][0])
-        self.sim.data.qvel[:] = 0.0
-        mj.mj_forward(self.sim.model, self.sim.data)
-        return {}, 0.0, False, False, {}
 
 
 def _write_scene_with_extra_fixed_body_and_camera(src: Path, dst: Path):
@@ -181,26 +145,6 @@ def _write_scene_with_extra_fixed_body_and_camera(src: Path, dst: Path):
     body = ET.SubElement(worldbody, "body", {"name": "replay_extra_bg", "pos": "3 3 3"})
     ET.SubElement(body, "geom", {"name": "replay_extra_bg_geom", "type": "box", "size": "0.1 0.1 0.1"})
     tree.write(dst)
-
-
-def _recorded_dummy_step(model_path: Path) -> RecordedSimStep:
-    sim = Sim(model_path)
-    state = sim.get_state().copy()
-    state[0] = 0.125
-    sim.set_state(state, sim.get_state_schema())
-    return RecordedSimStep(
-        step=0,
-        uuid="dummy-trajectory",
-        timestamp=None,
-        observation={},
-        info={
-            SimEnv.STATE_KEY: sim.get_state(),
-            SimEnv.STATE_SCHEMA_KEY: sim.get_state_schema(),
-        },
-        action={"delta": np.array([0.0], dtype=np.float64)},
-        instruction="",
-        success=False,
-    )
 
 
 def _assert_nested_close(actual: Any, expected: Any, *, atol: float = 1e-6):
@@ -296,21 +240,30 @@ def test_replayer_reproduces_existing_parquet_prefix_without_cameras(tmp_path: P
 
 
 def test_replayer_restores_sim_state_across_fixed_scene_changes(tmp_path: Path):
-    base_model_path = tmp_path / "base.xml"
-    base_model_path.write_text(MINIMAL_XML)
-    modified_model_path = tmp_path / "modified.xml"
-    _write_scene_with_extra_fixed_body_and_camera(base_model_path, modified_model_path)
+    source_scene_path = Path(EmptyWorldFR3Duo().config().scene)
+    modified_scene_path = tmp_path / "modified_scene.xml"
+    _write_scene_with_extra_fixed_body_and_camera(source_scene_path, modified_scene_path)
 
-    for record_model_path, replay_model_path in (
-        (base_model_path, modified_model_path),
-        (modified_model_path, base_model_path),
+    for record_scene_path, replay_scene_path in (
+        (source_scene_path, modified_scene_path),
+        (modified_scene_path, source_scene_path),
     ):
-        recorded_step = _recorded_dummy_step(record_model_path)
-        replay_env = DummyReplayEnv(Sim(replay_model_path))
+        case_dir = tmp_path / f"{record_scene_path.stem}-to-{replay_scene_path.stem}"
+        source_dir = case_dir / "source"
+        replay_dir = case_dir / "replayed"
 
-        replay_trajectory(replay_env, [recorded_step], True)
+        _record_source_dataset(source_dir, limit=3, instruction="pick up cube", scene_path=record_scene_path)
+        _replay_prefix(replay_dir, with_cameras=False, limit=3, scene_path=replay_scene_path)
 
-        assert np.allclose(replay_env.sim.get_state(), recorded_step.sim_state, atol=1e-9, rtol=0)
+        source_uuid = load_distinct_uuids(source_dir)[0]
+        replay_uuid = load_distinct_uuids(replay_dir)[0]
+        source_steps = load_trajectory(source_dir, source_uuid)
+        replay_steps = load_trajectory(replay_dir, replay_uuid)
+
+        assert len(source_steps) == len(replay_steps) == 3
+        for replay_step, source_step in zip(replay_steps, source_steps, strict=True):
+            assert replay_step.sim_state_schema == source_step.sim_state_schema
+            assert np.allclose(replay_step.sim_state, source_step.sim_state, atol=1e-5, rtol=0)
 
 
 def test_replayer_adds_cameras_to_existing_episode_without_cameras(tmp_path: Path):

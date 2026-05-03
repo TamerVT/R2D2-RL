@@ -47,7 +47,7 @@ class RecordedSimStep:
         raise KeyError(msg)
 
     @property
-    def sim_state_spec(self) -> SimStateSchema | None:
+    def sim_state_schema(self) -> SimStateSchema | None:
         if SimEnv.STATE_SCHEMA_KEY in self.info:
             return _normalize_sim_state_schema(self.info[SimEnv.STATE_SCHEMA_KEY])
 
@@ -103,9 +103,9 @@ def restore_sim_step(env: gym.Env, recorded_step: RecordedSimStep):
         lead_env = None
 
     if lead_env is not None:
-        lead_env.set_replay_state(recorded_step.sim_state, spec=recorded_step.sim_state_spec)
+        lead_env.set_replay_state(recorded_step.sim_state, schema=recorded_step.sim_state_schema)
     else:
-        env.get_wrapper_attr("set_replay_state")(recorded_step.sim_state, spec=recorded_step.sim_state_spec)
+        env.get_wrapper_attr("set_replay_state")(recorded_step.sim_state, schema=recorded_step.sim_state_schema)
 
 
 def replay_trajectory(env: gym.Env, recorded_steps: list[RecordedSimStep], headless: bool):
