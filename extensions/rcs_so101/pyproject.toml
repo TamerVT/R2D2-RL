@@ -18,7 +18,7 @@ dependencies = ["rcs>=0.6.3", "lerobot==0.3.3"]
 readme = "README.md"
 maintainers = [{ name = "Tobias Jülg", email = "tobias.juelg@utn.de" }]
 authors = [{ name = "Tobias Jülg", email = "tobias.juelg@utn.de" }]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 
 [tool.scikit-build]
 build.verbose = true

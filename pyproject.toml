@@ -50,7 +50,7 @@ authors = [
   { name = "Pierre Krack", email = "pierre.krack@utn.de" },
   { name = "Seongjin Bien", email = "seongjin.bien@utn.de" },
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = { file = "LICENSE" }
 
 [dependency-groups]

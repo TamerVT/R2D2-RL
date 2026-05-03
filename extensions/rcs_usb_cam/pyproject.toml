@@ -12,7 +12,7 @@ maintainers = [
   { name = "Seongjin Bien", email = "seongjin.bien@utn.de" },
 ]
 authors = [{ name = "Seongjin Bien", email = "seongjin.bien@utn.de" }]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 
 [tool.black]
 line-length = 120
