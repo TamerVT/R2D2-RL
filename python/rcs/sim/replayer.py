@@ -12,14 +12,17 @@ from rcs._core.sim import SimConfig
 from rcs.envs.base import RelativeTo, SimEnv, SimStateSchema
 from rcs.envs.scenes import SimEnvCreator
 from rcs.envs.storage_wrapper import StorageWrapper
+from rcs.sim.sim import RAW_STATE_ENCODING
 
 
 def _normalize_sim_state_schema(value: Any) -> SimStateSchema:
+    joint_names = [str(item) for item in value["joint_names"]]
     return {
-        "joint_names": [str(item) for item in value["joint_names"]],
+        "joint_names": joint_names,
         "joint_types": [int(item) for item in value["joint_types"]],
         "qpos_sizes": [int(item) for item in value["qpos_sizes"]],
         "qvel_sizes": [int(item) for item in value["qvel_sizes"]],
+        "encodings": [str(item) for item in value.get("encodings", [RAW_STATE_ENCODING] * len(joint_names))],
     }
 
 

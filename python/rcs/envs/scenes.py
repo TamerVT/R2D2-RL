@@ -239,7 +239,13 @@ class SimEnvCreator(RCSEnvCreator[SimEnvCreatorConfig], typing.Generic[TaskConfi
         if cfg.root_frame_objects is not None:
             for object_id, (object_xml, object2root_frame) in cfg.root_frame_objects.items():
                 object2world = cfg.root_frame_to_world * object2root_frame
-                self.add_object_mujoco(composer, object_id, object_xml, object2world)
+                self.add_object_mujoco(
+                    composer,
+                    object_id,
+                    object_xml,
+                    object2world,
+                    register_root_relative_replay_free_joints=True,
+                )
         # add external objects
         if cfg.world_frame_objects is not None:
             for object_id, (object_xml, object2world) in cfg.world_frame_objects.items():
@@ -324,6 +330,11 @@ class SimEnvCreator(RCSEnvCreator[SimEnvCreatorConfig], typing.Generic[TaskConfi
             prefixed_cfg = self.prefixed_cfg(cfg)
 
         simulation = Sim(mjmodel, prefixed_cfg.sim_cfg)
+        if isinstance(mjmodel, ModelComposer):
+            simulation.configure_state_encodings(
+                root_frame_to_world=cfg.root_frame_to_world,
+                root_relative_free_joints=mjmodel.root_relative_replay_free_joints,
+            )
 
         envs: dict[str, gym.Env] = {}
         env: gym.Env
@@ -373,14 +384,22 @@ class SimEnvCreator(RCSEnvCreator[SimEnvCreatorConfig], typing.Generic[TaskConfi
         return env
 
     def add_object_mujoco(
-        self, composer: ModelComposer, object_id: str, object_xml: str, object2world: rcs.common.Pose
+        self,
+        composer: ModelComposer,
+        object_id: str,
+        object_xml: str,
+        object2world: rcs.common.Pose,
+        *,
+        register_root_relative_replay_free_joints: bool = False,
     ):
         """Add an object to the Mujoco scene."""
-        composer.add_object_world_frame(
+        added_object = composer.add_object_world_frame(
             object_xml,
             object_prefix=object_id + "_",
             pose=object2world,
         )
+        if register_root_relative_replay_free_joints:
+            composer.register_root_relative_replay_free_joints(added_object.prefixed_free_joint_names)
 
     def add_object_robot_frame_mujoco(
         self,
