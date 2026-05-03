@@ -138,7 +138,7 @@ class DummyReplayEnv(gym.Env):
         return getattr(self, name)
 
     def set_replay_state(self, state: np.ndarray, spec=None):
-        self._replay_state = (np.asarray(state, dtype=np.float64), spec)
+        self._replay_state = (state, spec)
 
     def reset(self, *, seed: int | None = None, options: dict[str, Any] | None = None):
         super().reset(seed=seed)
@@ -187,7 +187,7 @@ def _recorded_dummy_step(model_path: Path) -> RecordedSimStep:
     sim = Sim(model_path)
     state = sim.get_state().copy()
     state[0] = 0.125
-    sim.set_state(state, sim.get_state_spec())
+    sim.set_state(state, sim.get_state_schema())
     return RecordedSimStep(
         step=0,
         uuid="dummy-trajectory",
@@ -195,7 +195,7 @@ def _recorded_dummy_step(model_path: Path) -> RecordedSimStep:
         observation={},
         info={
             SimEnv.STATE_KEY: sim.get_state(),
-            SimEnv.STATE_SPEC_KEY: sim.get_state_spec(),
+            SimEnv.STATE_SCHEMA_KEY: sim.get_state_schema(),
         },
         action={"delta": np.array([0.0], dtype=np.float64)},
         instruction="",

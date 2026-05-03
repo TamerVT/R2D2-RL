@@ -9,12 +9,12 @@ import numpy as np
 import rcs.envs.configs as env_configs
 import rcs.envs.tasks as env_tasks
 from rcs._core.sim import SimConfig
-from rcs.envs.base import RelativeTo, SimEnv, SimStateSpec
+from rcs.envs.base import RelativeTo, SimEnv, SimStateSchema
 from rcs.envs.scenes import SimEnvCreator
 from rcs.envs.storage_wrapper import StorageWrapper
 
 
-def _normalize_sim_state_spec(value: Any) -> SimStateSpec:
+def _normalize_sim_state_schema(value: Any) -> SimStateSchema:
     return {
         "joint_names": [str(item) for item in value["joint_names"]],
         "joint_types": [int(item) for item in value["joint_types"]],
@@ -47,13 +47,13 @@ class RecordedSimStep:
         raise KeyError(msg)
 
     @property
-    def sim_state_spec(self) -> SimStateSpec | None:
-        if SimEnv.STATE_SPEC_KEY in self.info:
-            return _normalize_sim_state_spec(self.info[SimEnv.STATE_SPEC_KEY])
+    def sim_state_spec(self) -> SimStateSchema | None:
+        if SimEnv.STATE_SCHEMA_KEY in self.info:
+            return _normalize_sim_state_schema(self.info[SimEnv.STATE_SCHEMA_KEY])
 
         for value in self.info.values():
-            if isinstance(value, dict) and SimEnv.STATE_SPEC_KEY in value:
-                return _normalize_sim_state_spec(value[SimEnv.STATE_SPEC_KEY])
+            if isinstance(value, dict) and SimEnv.STATE_SCHEMA_KEY in value:
+                return _normalize_sim_state_schema(value[SimEnv.STATE_SCHEMA_KEY])
 
         return None
 

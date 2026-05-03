@@ -1,6 +1,7 @@
 import atexit
 import contextlib
 import multiprocessing as mp
+import typing
 import uuid
 from logging import getLogger
 from multiprocessing.synchronize import Event as EventClass
@@ -12,8 +13,8 @@ from typing import Optional
 import mujoco as mj
 import mujoco.viewer
 import numpy as np
-from rcs._core.sim import DynamicJointSchema as _DynamicJointSchema
-from rcs._core.sim import DynamicJointState as _DynamicJointState
+from rcs._core.sim import DynamicJointSchema
+from rcs._core.sim import DynamicJointState
 from rcs._core.sim import GuiClient as _GuiClient
 from rcs._core.sim import Sim as _Sim
 from rcs.sim import SimConfig, egl_bootstrap
@@ -71,40 +72,7 @@ class Sim(_Sim):
         if cfg is not None:
             self.set_config(cfg)
 
-    def get_state_spec(self) -> dict[str, list[str] | list[int]]:
-        return self.get_dynamic_joint_schema()
-
-    def get_state_size(self, spec: dict[str, list[str] | list[int]] | None = None) -> int:
-        state_spec = self.get_state_spec() if spec is None else spec
-        qpos_size = sum(int(value) for value in state_spec["qpos_sizes"])
-        qvel_size = sum(int(value) for value in state_spec["qvel_sizes"])
-        return qpos_size + qvel_size
-
-    def get_state(self, spec: dict[str, list[str] | list[int]] | None = None) -> np.ndarray:
-        del spec
-        dynamic_joint_state = self.get_dynamic_joint_state()
-        return np.concatenate((dynamic_joint_state["qpos"], dynamic_joint_state["qvel"]))
-
-    def set_state(
-        self,
-        state: np.ndarray,
-        spec: dict[str, list[str] | list[int]] | None = None,
-    ):
-        state_spec = self.get_state_spec() if spec is None else spec
-        state_array = np.asarray(state, dtype=np.float64)
-        expected_size = self.get_state_size(state_spec)
-        if state_array.shape != (expected_size,):
-            msg = f"Expected state with shape ({expected_size},), got {state_array.shape}."
-            raise ValueError(msg)
-
-        qpos_size = sum(int(value) for value in state_spec["qpos_sizes"])
-        dynamic_joint_state = {
-            "qpos": state_array[:qpos_size],
-            "qvel": state_array[qpos_size:],
-        }
-        self.set_dynamic_joint_state(state_spec, dynamic_joint_state)
-
-    def get_dynamic_joint_schema(self) -> dict[str, list[str] | list[int]]:
+    def get_state_schema(self) -> dict[str, list[str] | list[int]]:
         schema = super().get_dynamic_joint_schema()
         return {
             "joint_names": list(schema.joint_names),
@@ -113,27 +81,40 @@ class Sim(_Sim):
             "qvel_sizes": list(schema.qvel_sizes),
         }
 
-    def get_dynamic_joint_state(self) -> dict[str, np.ndarray]:
+    def get_state_size(self, schema: dict[str, list[str] | list[int]] | None = None) -> int:
+        state_schema = self.get_state_schema() if schema is None else schema
+        qpos_size = sum(int(value) for value in state_schema["qpos_sizes"])
+        qvel_size = sum(int(value) for value in state_schema["qvel_sizes"])
+        return qpos_size + qvel_size
+
+    def get_state(self) -> np.ndarray:
         state = super().get_dynamic_joint_state()
-        return {
-            "qpos": np.asarray(state.qpos, dtype=np.float64),
-            "qvel": np.asarray(state.qvel, dtype=np.float64),
-        }
+        return np.concatenate((state.qpos, state.qvel))
 
-    def set_dynamic_joint_state(
+    def set_state(
         self,
-        schema: dict[str, list[str] | list[int]],
-        state: dict[str, np.ndarray],
+        state: np.ndarray,
+        schema: dict[str, list[str] | list[int]] | None = None,
     ):
-        dynamic_joint_schema = _DynamicJointSchema()
-        dynamic_joint_schema.joint_names = list(schema["joint_names"])
-        dynamic_joint_schema.joint_types = [int(value) for value in schema["joint_types"]]
-        dynamic_joint_schema.qpos_sizes = [int(value) for value in schema["qpos_sizes"]]
-        dynamic_joint_schema.qvel_sizes = [int(value) for value in schema["qvel_sizes"]]
+        state_schema = self.get_state_schema() if schema is None else schema
+        state_array = np.asarray(state, dtype=np.float64)
+        expected_size = self.get_state_size(state_schema)
+        if state_array.shape != (expected_size,):
+            msg = f"Expected state with shape ({expected_size},), got {state_array.shape}."
+            raise ValueError(msg)
 
-        dynamic_joint_state = _DynamicJointState()
-        dynamic_joint_state.qpos = np.asarray(state["qpos"], dtype=np.float64)
-        dynamic_joint_state.qvel = np.asarray(state["qvel"], dtype=np.float64)
+        qpos_size = sum(int(value) for value in state_schema["qpos_sizes"])
+
+
+        dynamic_joint_schema = DynamicJointSchema()
+        dynamic_joint_schema.joint_names = typing.cast(list[str], list(state_schema["joint_names"]))
+        dynamic_joint_schema.joint_types = [int(value) for value in state_schema["joint_types"]]
+        dynamic_joint_schema.qpos_sizes = [int(value) for value in state_schema["qpos_sizes"]]
+        dynamic_joint_schema.qvel_sizes = [int(value) for value in state_schema["qvel_sizes"]]
+
+        dynamic_joint_state = DynamicJointState() # type: ignore
+        dynamic_joint_state.qpos = state_array[:qpos_size]
+        dynamic_joint_state.qvel = state_array[qpos_size:]
         super().set_dynamic_joint_state(dynamic_joint_schema, dynamic_joint_state)
 
     def close_gui(self):
