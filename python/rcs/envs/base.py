@@ -170,6 +170,7 @@ class ArmObsType(TQuatDictType, JointsDictType, TRPYDictType): ...
 
 CartOrJointContType: TypeAlias = TQuatDictType | JointsDictType | TRPYDictType
 LimitedCartOrJointContType: TypeAlias = LimitedTQuatRelDictType | LimitedJointsRelDictType | LimitedTRPYRelDictType
+SimStateSpec: TypeAlias = dict[str, list[str] | list[int]]
 
 
 class ArmWithGripper(TQuatDictType, GripperDictType): ...
@@ -212,9 +213,9 @@ class SimEnv(BaseEnv):
         self.frame_rate = SimpleFrameRate(cfg.frequency, "MoJoCo Simulation Loop")
         self.main_greenlet: greenlet | None = None
         self.return_state = return_state
-        self._replay_state: tuple[np.ndarray, int | None] | None = None
+        self._replay_state: tuple[np.ndarray, SimStateSpec | None] | None = None
 
-    def set_replay_state(self, state: np.ndarray, spec: int | None = None):
+    def set_replay_state(self, state: np.ndarray, spec: SimStateSpec | None = None):
         self._replay_state = (state, spec)
 
     def step(self, action: dict[str, Any]) -> tuple[dict[str, Any], float, bool, bool, dict]:

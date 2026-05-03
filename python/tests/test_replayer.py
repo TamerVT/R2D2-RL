@@ -1,14 +1,23 @@
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
 
 import duckdb
+import gymnasium as gym
+import mujoco as mj
 import numpy as np
 from rcs._core.sim import SimConfig
-from rcs.envs.base import RelativeTo
+from rcs.envs.base import RelativeTo, SimEnv
 from rcs.envs.configs import EmptyWorldFR3Duo
 from rcs.envs.storage_wrapper import StorageWrapper
 from rcs.envs.tasks import PickTaskConfig
-from rcs.sim.replayer import load_distinct_uuids, load_trajectory, replay_trajectory
+from rcs.sim.replayer import (
+    RecordedSimStep,
+    load_distinct_uuids,
+    load_trajectory,
+    replay_trajectory,
+)
+from rcs.sim.sim import Sim
 
 
 def _build_env(output_dir: Path, *, with_cameras: bool, instruction: str = "") -> StorageWrapper:
@@ -106,6 +115,94 @@ def _replay_prefix(output_dir: Path, *, with_cameras: bool, limit: int) -> None:
         env.close()
 
 
+MINIMAL_XML = """
+<mujoco>
+  <worldbody>
+    <camera name="main" pos="1 0 0.7" xyaxes="0 1 0 -0.5 0 1"/>
+    <body name="box" pos="0 0 0.1">
+      <freejoint name="box_free"/>
+      <geom type="box" size="0.05 0.05 0.05" rgba="0.2 0.6 0.9 1"/>
+    </body>
+  </worldbody>
+</mujoco>
+"""
+
+
+class DummyReplayEnv(gym.Env):
+    def __init__(self, sim: Sim):
+        super().__init__()
+        self.sim = sim
+        self._replay_state = None
+
+    def get_wrapper_attr(self, name: str):
+        return getattr(self, name)
+
+    def set_replay_state(self, state: np.ndarray, spec=None):
+        self._replay_state = (np.asarray(state, dtype=np.float64), spec)
+
+    def reset(self, *, seed: int | None = None, options: dict[str, Any] | None = None):
+        super().reset(seed=seed)
+        mj.mj_resetData(self.sim.model, self.sim.data)
+        mj.mj_forward(self.sim.model, self.sim.data)
+        return {}, {}
+
+    def step(self, action: dict[str, np.ndarray]):
+        if self._replay_state is not None:
+            state, spec = self._replay_state
+            self.sim.set_state(state, spec)
+            self._replay_state = None
+        self.sim.data.qpos[0] += float(action["delta"][0])
+        self.sim.data.qvel[:] = 0.0
+        mj.mj_forward(self.sim.model, self.sim.data)
+        return {}, 0.0, False, False, {}
+
+
+def _write_scene_with_extra_fixed_body_and_camera(src: Path, dst: Path):
+    tree = ET.parse(src)
+    root = tree.getroot()
+    for include in root.findall("include"):
+        include_file = include.get("file")
+        if include_file is not None and not Path(include_file).is_absolute():
+            include.set("file", str((src.parent / include_file).resolve()))
+
+    worldbody = root.find("worldbody")
+    assert worldbody is not None
+
+    worldbody.append(
+        ET.Element(
+            "camera",
+            {
+                "name": "replay_extra_cam",
+                "pos": "1.4 0.0 0.9",
+                "xyaxes": "0 1 0 -0.3 0 1",
+            },
+        )
+    )
+    body = ET.SubElement(worldbody, "body", {"name": "replay_extra_bg", "pos": "3 3 3"})
+    ET.SubElement(body, "geom", {"name": "replay_extra_bg_geom", "type": "box", "size": "0.1 0.1 0.1"})
+    tree.write(dst)
+
+
+def _recorded_dummy_step(model_path: Path) -> RecordedSimStep:
+    sim = Sim(model_path)
+    state = sim.get_state().copy()
+    state[0] = 0.125
+    sim.set_state(state, sim.get_state_spec())
+    return RecordedSimStep(
+        step=0,
+        uuid="dummy-trajectory",
+        timestamp=None,
+        observation={},
+        info={
+            SimEnv.STATE_KEY: sim.get_state(),
+            SimEnv.STATE_SPEC_KEY: sim.get_state_spec(),
+        },
+        action={"delta": np.array([0.0], dtype=np.float64)},
+        instruction="",
+        success=False,
+    )
+
+
 def _assert_nested_close(actual: Any, expected: Any, *, atol: float = 1e-6):
     if isinstance(expected, dict):
         assert isinstance(actual, dict)
@@ -196,6 +293,24 @@ def test_replayer_reproduces_existing_parquet_prefix_without_cameras(tmp_path: P
         _assert_nested_close(replay_action, source_action, atol=1e-8)
         _assert_nested_close(replay_env_action, source_env_action, atol=1e-8)
         _assert_nested_close(replay_instruction, source_instruction)
+
+
+def test_replayer_restores_sim_state_across_fixed_scene_changes(tmp_path: Path):
+    base_model_path = tmp_path / "base.xml"
+    base_model_path.write_text(MINIMAL_XML)
+    modified_model_path = tmp_path / "modified.xml"
+    _write_scene_with_extra_fixed_body_and_camera(base_model_path, modified_model_path)
+
+    for record_model_path, replay_model_path in (
+        (base_model_path, modified_model_path),
+        (modified_model_path, base_model_path),
+    ):
+        recorded_step = _recorded_dummy_step(record_model_path)
+        replay_env = DummyReplayEnv(Sim(replay_model_path))
+
+        replay_trajectory(replay_env, [recorded_step], True)
+
+        assert np.allclose(replay_env.sim.get_state(), recorded_step.sim_state, atol=1e-9, rtol=0)
 
 
 def test_replayer_adds_cameras_to_existing_episode_without_cameras(tmp_path: Path):

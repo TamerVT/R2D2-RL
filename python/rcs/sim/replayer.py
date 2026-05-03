@@ -9,9 +9,18 @@ import numpy as np
 import rcs.envs.configs as env_configs
 import rcs.envs.tasks as env_tasks
 from rcs._core.sim import SimConfig
-from rcs.envs.base import RelativeTo, SimEnv
+from rcs.envs.base import RelativeTo, SimEnv, SimStateSpec
 from rcs.envs.scenes import SimEnvCreator
 from rcs.envs.storage_wrapper import StorageWrapper
+
+
+def _normalize_sim_state_spec(value: Any) -> SimStateSpec:
+    return {
+        "joint_names": [str(item) for item in value["joint_names"]],
+        "joint_types": [int(item) for item in value["joint_types"]],
+        "qpos_sizes": [int(item) for item in value["qpos_sizes"]],
+        "qvel_sizes": [int(item) for item in value["qvel_sizes"]],
+    }
 
 
 @dataclass(frozen=True)
@@ -38,13 +47,13 @@ class RecordedSimStep:
         raise KeyError(msg)
 
     @property
-    def sim_state_spec(self) -> int | None:
+    def sim_state_spec(self) -> SimStateSpec | None:
         if SimEnv.STATE_SPEC_KEY in self.info:
-            return int(self.info[SimEnv.STATE_SPEC_KEY])
+            return _normalize_sim_state_spec(self.info[SimEnv.STATE_SPEC_KEY])
 
         for value in self.info.values():
             if isinstance(value, dict) and SimEnv.STATE_SPEC_KEY in value:
-                return int(value[SimEnv.STATE_SPEC_KEY])
+                return _normalize_sim_state_spec(value[SimEnv.STATE_SPEC_KEY])
 
         return None
 
