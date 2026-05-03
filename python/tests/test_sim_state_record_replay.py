@@ -11,12 +11,8 @@ import mujoco as mj
 import numpy as np
 import pyarrow.dataset as ds
 from rcs._core.common import RobotPlatform
-from rcs._core.sim import SimConfig
 from rcs.camera.interface import CameraFrame, DataFrame, Frame, FrameSet
-from rcs.envs.base import ControlMode, JointsDictType
-from rcs.envs.creators import SimMultiEnvCreator
 from rcs.envs.storage_wrapper import StorageWrapper
-from rcs.envs.utils import default_sim_gripper_cfg, default_sim_robot_cfg
 
 import rcs
 
@@ -117,13 +113,13 @@ class DummySimEnv(gym.Env):
         super().reset(seed=seed)
         mj.mj_resetData(self.sim.model, self.sim.data)
         mj.mj_forward(self.sim.model, self.sim.data)
-        return self._obs(), {}
+        return self._obs(), {"collision": False}
 
     def step(self, action: dict[str, np.ndarray]):
         self.sim.data.qpos[0] += float(action["delta"][0])
         self.sim.data.qvel[:] = 0.0
         mj.mj_forward(self.sim.model, self.sim.data)
-        return self._obs(), 0.0, False, False, {}
+        return self._obs(), 0.0, False, False, {"collision": False}
 
     def close(self):
         return None
@@ -139,7 +135,7 @@ def test_record_and_replay_sim_state(tmp_path: Path):
     record_env = StorageWrapper(record_env, str(dataset_path), "test sim replay", batch_size=1, always_record=True)
 
     obs, _ = record_env.reset()
-    assert SimStateObservationWrapper.DYNAMIC_JOINT_SCHEMA_KEY in obs
+    assert SimStateObservationWrapper.STATE_KEY in obs
 
     record_env.step({"delta": np.array([0.125], dtype=np.float64)})
     record_env.close()
@@ -149,17 +145,18 @@ def test_record_and_replay_sim_state(tmp_path: Path):
     assert len(rows) == 1
 
     recorded_obs = rows[0]["obs"]
-    assert SimStateObservationWrapper.DYNAMIC_JOINT_SCHEMA_KEY in recorded_obs
-    assert SimStateObservationWrapper.DYNAMIC_JOINT_QPOS_KEY in recorded_obs
-    assert SimStateObservationWrapper.DYNAMIC_JOINT_QVEL_KEY in recorded_obs
+    assert SimStateObservationWrapper.STATE_KEY in recorded_obs
+    assert SimStateObservationWrapper.STATE_SPEC_KEY in recorded_obs
+    assert SimStateObservationWrapper.STATE_SIZE_KEY in recorded_obs
+    assert (
+        len(recorded_obs[SimStateObservationWrapper.STATE_KEY])
+        == recorded_obs[SimStateObservationWrapper.STATE_SIZE_KEY]
+    )
 
     recorded_steps = load_trajectory(dataset_path, rows[0]["uuid"], prefer_duckdb=True)
     assert len(recorded_steps) == 1
-    assert recorded_steps[0].dynamic_joint_schema is not None
-    assert np.allclose(
-        recorded_steps[0].dynamic_joint_state["qpos"],  # type: ignore[index]
-        np.asarray(recorded_obs[SimStateObservationWrapper.DYNAMIC_JOINT_QPOS_KEY]),
-    )
+    assert recorded_steps[0].sim_state_spec is not None
+    assert np.allclose(recorded_steps[0].sim_state, np.asarray(recorded_obs[SimStateObservationWrapper.STATE_KEY]))
 
     replay_sim = Sim(model_path)
     replay_env: gym.Env = DummySimEnv(replay_sim, camera_set=DummyCameraSet(replay_sim))
@@ -167,7 +164,7 @@ def test_record_and_replay_sim_state(tmp_path: Path):
     render_dir = tmp_path / "rendered"
 
     replay_env.reset()
-    restore_sim_step(replay_env, recorded_steps[0], dynamic_joint_schema=recorded_steps[0].dynamic_joint_schema)
+    restore_sim_step(replay_env, recorded_steps[0], sim_state_spec=recorded_steps[0].sim_state_spec)
     assert np.allclose(
         replay_env.get_wrapper_attr("sim").data.qpos, np.asarray(recorded_obs["qpos"]), atol=1e-9, rtol=0
     )
@@ -221,7 +218,7 @@ def _record_dummy_trajectory(dataset_path: Path, model_path: Path) -> tuple[list
     return recorded_steps, rows[0]["obs"]
 
 
-def test_dynamic_joint_replay_tolerates_added_and_removed_fixed_scene_elements(tmp_path: Path):
+def test_sim_state_replay_tolerates_added_and_removed_fixed_scene_elements(tmp_path: Path):
     base_model_path = tmp_path / "base.xml"
     base_model_path.write_text(XML)
     modified_model_path = tmp_path / "modified.xml"
@@ -238,10 +235,8 @@ def test_dynamic_joint_replay_tolerates_added_and_removed_fixed_scene_elements(t
         replay_env: gym.Env = DummySimEnv(replay_sim)
         replay_env = SimStateObservationWrapper(replay_env)
         replay_env.reset()
-        dynamic_joint_schema = next(
-            step.dynamic_joint_schema for step in recorded_steps if step.dynamic_joint_schema is not None
-        )
-        restore_sim_step(replay_env, recorded_steps[0], dynamic_joint_schema=dynamic_joint_schema)
+        sim_state_spec = next(step.sim_state_spec for step in recorded_steps if step.sim_state_spec is not None)
+        restore_sim_step(replay_env, recorded_steps[0], sim_state_spec=sim_state_spec)
 
         assert np.allclose(
             replay_env.get_wrapper_attr("sim").data.qpos, np.asarray(recorded_obs["qpos"]), atol=1e-9, rtol=0
@@ -251,60 +246,64 @@ def test_dynamic_joint_replay_tolerates_added_and_removed_fixed_scene_elements(t
         )
 
 
-DUAL_ARM_ROBOT2ID = {"left": "0", "right": "1"}
+def _write_repo_scene_with_dynamic_body(src: Path, dst: Path, *, add_extra_fixed_scene_elements: bool = False):
+    tree = ET.parse(src)
+    root = tree.getroot()
+    worldbody = root.find("worldbody")
+    assert worldbody is not None
 
-
-def _create_dual_arm_env(scene_name: str):
-    robot_cfg = default_sim_robot_cfg(scene_name, idx="")
-    sim_cfg = SimConfig()
-    sim_cfg.async_control = False
-    return SimMultiEnvCreator()(
-        name2id=DUAL_ARM_ROBOT2ID,
-        robot_cfg=robot_cfg,
-        control_mode=ControlMode.JOINTS,
-        gripper_cfg=default_sim_gripper_cfg(idx=""),
-        sim_cfg=sim_cfg,
-        max_relative_movement=None,
+    dynamic_body = ET.SubElement(worldbody, "body", {"name": "replay_dynamic_box", "pos": "0 0 0.1"})
+    ET.SubElement(dynamic_body, "freejoint", {"name": "replay_dynamic_box_free"})
+    ET.SubElement(
+        dynamic_body,
+        "geom",
+        {
+            "name": "replay_dynamic_box_geom",
+            "type": "box",
+            "size": "0.05 0.05 0.05",
+            "rgba": "0.2 0.6 0.9 1",
+        },
     )
 
+    if add_extra_fixed_scene_elements:
+        worldbody.append(
+            ET.Element(
+                "camera",
+                {
+                    "name": "replay_extra_cam",
+                    "pos": "1.4 0.0 0.9",
+                    "xyaxes": "0 1 0 -0.3 0 1",
+                },
+            )
+        )
+        fixed_body = ET.SubElement(worldbody, "body", {"name": "replay_extra_bg", "pos": "3 3 3"})
+        ET.SubElement(
+            fixed_body,
+            "geom",
+            {"name": "replay_extra_bg_geom", "type": "box", "size": "0.1 0.1 0.1"},
+        )
 
-def test_dynamic_joint_state_roundtrip_on_fr3_dual_arm_scene(tmp_path: Path):
-    source_scene_path = REPO_ROOT / "assets/scenes/fr3_dual_arm/scene.xml"
-    source_robot_path = REPO_ROOT / "assets/scenes/fr3_empty_world/robot.xml"
-    source_urdf_path = REPO_ROOT / "assets/scenes/fr3_empty_world/robot.urdf"
-    modified_scene_path = source_scene_path.parent / "scene_dynamic_joint_test.xml"
-    _write_scene_with_extra_fixed_body_and_camera(source_scene_path, modified_scene_path)
+    tree.write(dst)
 
-    base_scene_name = "fr3_dual_arm_dynamic_joint_base_test"
-    test_scene_name = "fr3_dual_arm_dynamic_joint_test"
-    scene_kwargs = {
-        "mjcf_robot": str(source_robot_path),
-        "urdf": str(source_urdf_path),
-        "robot_type": rcs.scenes["fr3_dual_arm"].robot_type,
-        "mjb": None,
-    }
-    rcs.scenes[base_scene_name] = rcs.Scene(mjcf_scene=str(source_scene_path), **scene_kwargs)
-    rcs.scenes[test_scene_name] = rcs.Scene(mjcf_scene=str(modified_scene_path), **scene_kwargs)
 
-    base_env = _create_dual_arm_env(base_scene_name)
-    modified_env = _create_dual_arm_env(test_scene_name)
-    try:
-        base_env.reset()
-        base_sim = base_env.get_wrapper_attr("sim")
-        dynamic_joint_schema = base_sim.get_dynamic_joint_schema()
-        dynamic_joint_state = base_sim.get_dynamic_joint_state()
+def test_sim_state_roundtrip_on_repo_scene_layout(tmp_path: Path):
+    source_scene_path = REPO_ROOT / "assets/scenes/empty_world/scene.xml"
+    base_scene_path = tmp_path / "empty_world_dynamic.xml"
+    modified_scene_path = tmp_path / "empty_world_dynamic_modified.xml"
+    _write_repo_scene_with_dynamic_body(source_scene_path, base_scene_path)
+    _write_repo_scene_with_dynamic_body(source_scene_path, modified_scene_path, add_extra_fixed_scene_elements=True)
 
-        modified_env.reset()
-        modified_sim = modified_env.get_wrapper_attr("sim")
-        modified_sim.set_dynamic_joint_state(dynamic_joint_schema, dynamic_joint_state)
-        restored_dynamic_joint_state = modified_sim.get_dynamic_joint_state()
+    base_sim = Sim(base_scene_path)
+    sim_state_spec = base_sim.get_state_spec()
+    sim_state = base_sim.get_state().copy()
+    num_seed_values = min(8, sim_state.shape[0])
+    sim_state[:num_seed_values] = np.linspace(0.01, 0.01 * num_seed_values, num_seed_values)
+    base_sim.set_state(sim_state, sim_state_spec)
+    seeded_sim_state = base_sim.get_state()
 
-        assert dynamic_joint_schema == modified_sim.get_dynamic_joint_schema()
-        assert np.allclose(restored_dynamic_joint_state["qpos"], dynamic_joint_state["qpos"], atol=1e-9, rtol=0)
-        assert np.allclose(restored_dynamic_joint_state["qvel"], dynamic_joint_state["qvel"], atol=1e-9, rtol=0)
-    finally:
-        base_env.close()
-        modified_env.close()
-        del rcs.scenes[test_scene_name]
-        del rcs.scenes[base_scene_name]
-        modified_scene_path.unlink(missing_ok=True)
+    modified_sim = Sim(modified_scene_path)
+    modified_sim.set_state(seeded_sim_state, sim_state_spec)
+    restored_sim_state = modified_sim.get_state()
+
+    assert sim_state_spec == modified_sim.get_state_spec()
+    assert np.allclose(restored_sim_state, seeded_sim_state, atol=1e-9, rtol=0)
