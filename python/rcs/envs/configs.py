@@ -1,6 +1,6 @@
 import copy
 import time
-from typing import ClassVar
+from typing import ClassVar, Literal
 
 import numpy as np
 from rcs._core.common import FrankaHandTCPOffset, GripperType, RobotType
@@ -37,7 +37,7 @@ class EmptyWorldFR3(SimEnvCreator):
     def config(self) -> SimEnvCreatorConfig:
         q_home = rcs.ROBOTS[RobotType.FR3].q_home
         q_home[-1] = np.pi / 4
-        robot_cfg = SimRobotConfig(
+        robot_cfg = SimRobotConfig[Literal[7]](
             robot_type=RobotType.FR3,
             tcp_offset=GRIPPER_OFFSETS[rcs.common.GripperType.FrankaHand],
             attachment_site=rcs.ROBOTS[RobotType.FR3].attachment_site,
@@ -183,7 +183,7 @@ class EmptyWorldFR3Duo(SimEnvCreator):
     gripper_mesh_quaternion_offset: ClassVar[list[float]] = [0, 0, 0.7071068, 0.7071068]
 
     def config(self) -> SimEnvCreatorConfig:
-        robot_cfg = SimRobotConfig(
+        robot_cfg = SimRobotConfig[Literal[7]](
             tcp_offset=GRIPPER_OFFSETS[rcs.common.GripperType("Robotiq2F85")],
             robot_type=RobotType.FR3,
             attachment_site=rcs.ROBOTS[RobotType.FR3].attachment_site,

@@ -41,7 +41,6 @@ __all__: list[str] = [
     "TRIPOD_GRASP",
 ]
 M = typing.TypeVar("M", bound=int)
-N = typing.TypeVar("N", bound=int)
 
 class BaseCameraConfig:
     frame_rate: int
@@ -239,10 +238,10 @@ class Robot:
     def to_pose_in_robot_coordinates(self, pose_in_world_coordinates: Pose) -> Pose: ...
     def to_pose_in_world_coordinates(self, pose_in_robot_coordinates: Pose) -> Pose: ...
 
-class RobotConfig(typing.Generic[M, N]):
+class RobotConfig(typing.Generic[M]):
     attachment_site: str
     dof: int
-    joint_limits: numpy.ndarray[tuple[typing.Literal[2], N], numpy.dtype[numpy.float64]]
+    joint_limits: numpy.ndarray[tuple[typing.Literal[2], M], numpy.dtype[numpy.float64]]
     kinematic_model_path: str
     q_home: numpy.ndarray[tuple[M], numpy.dtype[numpy.float64]] | None
     robot_platform: RobotPlatform
@@ -252,7 +251,7 @@ class RobotConfig(typing.Generic[M, N]):
         self,
         robot_type: RobotType = ...,
         dof: int = 7,
-        joint_limits: numpy.ndarray[tuple[typing.Literal[2], N], numpy.dtype[numpy.float64]] = ...,
+        joint_limits: numpy.ndarray[tuple[typing.Literal[2], M], numpy.dtype[numpy.float64]] = ...,
         robot_platform: RobotPlatform = ...,
         tcp_offset: Pose = ...,
         attachment_site: str = "attachment_site",

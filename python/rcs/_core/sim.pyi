@@ -34,7 +34,6 @@ __all__: list[str] = [
     "tracking",
 ]
 M = typing.TypeVar("M", bound=int)
-N = typing.TypeVar("N", bound=int)
 
 class CameraType:
     """
@@ -214,12 +213,12 @@ class SimRobot(rcs._core.common.Robot):
     def set_config(self, cfg: SimRobotConfig) -> bool: ...
     def set_joints_hard(self, q: numpy.ndarray[tuple[M], numpy.dtype[numpy.float64]]) -> None: ...
 
-class SimRobotConfig(rcs._core.common.RobotConfig, typing.Generic[N]):
+class SimRobotConfig(rcs._core.common.RobotConfig[M]):
     actuators: list[str]
     arm_collision_geoms: list[str]
     base: str
     dof: int
-    joint_limits: numpy.ndarray[tuple[typing.Literal[2], N], numpy.dtype[numpy.float64]]
+    joint_limits: numpy.ndarray[tuple[typing.Literal[2], M], numpy.dtype[numpy.float64]]
     joint_rotational_tolerance: float
     joints: list[str]
     seconds_between_callbacks: float
@@ -266,7 +265,7 @@ class SimRobotConfig(rcs._core.common.RobotConfig, typing.Generic[N]):
         ],
         base: str = "base",
         dof: int = 7,
-        joint_limits: numpy.ndarray[tuple[typing.Literal[2], N], numpy.dtype[numpy.float64]] = ...,
+        joint_limits: numpy.ndarray[tuple[typing.Literal[2], M], numpy.dtype[numpy.float64]] = ...,
     ) -> None: ...
     def add_prefix(self, id: str) -> None: ...
 
