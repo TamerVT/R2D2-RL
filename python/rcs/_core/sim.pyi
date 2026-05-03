@@ -11,6 +11,8 @@ import rcs._core.common
 
 __all__: list[str] = [
     "CameraType",
+    "DynamicJointSchema",
+    "DynamicJointState",
     "FrameSet",
     "GuiClient",
     "Sim",
@@ -69,6 +71,18 @@ class CameraType:
     @property
     def value(self) -> int: ...
 
+class DynamicJointSchema:
+    joint_names: list[str]
+    joint_types: list[int]
+    qpos_sizes: list[int]
+    qvel_sizes: list[int]
+    def __init__(self) -> None: ...
+
+class DynamicJointState(typing.Generic[M]):
+    qpos: numpy.ndarray[tuple[M], numpy.dtype[numpy.float64]]
+    qvel: numpy.ndarray[tuple[M], numpy.dtype[numpy.float64]]
+    def __init__(self) -> None: ...
+
 class FrameSet:
     def __init__(
         self,
@@ -88,18 +102,6 @@ class GuiClient:
     def get_model_bytes(self) -> bytes: ...
     def set_model_and_data(self, arg0: int, arg1: int) -> None: ...
     def sync(self) -> None: ...
-
-class DynamicJointSchema:
-    joint_names: list[str]
-    joint_types: list[int]
-    qpos_sizes: list[int]
-    qvel_sizes: list[int]
-    def __init__(self) -> None: ...
-
-class DynamicJointState:
-    qpos: numpy.ndarray[tuple[M], numpy.dtype[numpy.float64]]
-    qvel: numpy.ndarray[tuple[M], numpy.dtype[numpy.float64]]
-    def __init__(self) -> None: ...
 
 class Sim:
     def __init__(self, mjmdl: int, mjdata: int) -> None: ...
@@ -125,7 +127,9 @@ class SimCameraConfig(rcs._core.common.BaseCameraConfig):
     ) -> None: ...
 
 class SimCameraSet:
-    def __init__(self, sim: Sim, cameras: dict[str, SimCameraConfig], render_on_demand: bool = True) -> None: ...
+    def __init__(
+        self, sim: Sim, cameras: dict[str, SimCameraConfig], render_on_demand: bool = True, max_buffer_frames: int = 100
+    ) -> None: ...
     def buffer_size(self) -> int: ...
     def clear_buffer(self) -> None: ...
     def get_latest_frameset(self) -> FrameSet | None: ...
@@ -210,12 +214,12 @@ class SimRobot(rcs._core.common.Robot):
     def set_config(self, cfg: SimRobotConfig) -> bool: ...
     def set_joints_hard(self, q: numpy.ndarray[tuple[M], numpy.dtype[numpy.float64]]) -> None: ...
 
-class SimRobotConfig(rcs._core.common.RobotConfig):
+class SimRobotConfig(rcs._core.common.RobotConfig, typing.Generic[N]):
     actuators: list[str]
     arm_collision_geoms: list[str]
     base: str
     dof: int
-    joint_limits: numpy.ndarray[tuple[typing.Literal[2], typing.Any], numpy.dtype[numpy.float64]]
+    joint_limits: numpy.ndarray[tuple[typing.Literal[2], N], numpy.dtype[numpy.float64]]
     joint_rotational_tolerance: float
     joints: list[str]
     seconds_between_callbacks: float
@@ -262,7 +266,7 @@ class SimRobotConfig(rcs._core.common.RobotConfig):
         ],
         base: str = "base",
         dof: int = 7,
-        joint_limits: numpy.ndarray[tuple[typing.Literal[2], typing.Any], numpy.dtype[numpy.float64]] = ...,
+        joint_limits: numpy.ndarray[tuple[typing.Literal[2], N], numpy.dtype[numpy.float64]] = ...,
     ) -> None: ...
     def add_prefix(self, id: str) -> None: ...
 
