@@ -75,6 +75,7 @@ class Sim(_Sim):
         self._root_relative_replay_free_joints: set[str] = set()
         if cfg is not None:
             self.set_config(cfg)
+        self._state_schema = self._compute_state_schema()
 
     def configure_state_encodings(
         self,
@@ -84,8 +85,12 @@ class Sim(_Sim):
     ):
         self._root_frame_to_world = common.Pose(root_frame_to_world)
         self._root_relative_replay_free_joints = set(root_relative_free_joints)
+        self._state_schema = self._compute_state_schema()
 
     def get_state_schema(self) -> dict[str, list[str] | list[int]]:
+        return self._state_schema
+
+    def _compute_state_schema(self) -> dict[str, list[str] | list[int]]:
         schema = super().get_dynamic_joint_schema()
         return {
             "joint_names": list(schema.joint_names),
