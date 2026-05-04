@@ -110,9 +110,12 @@ class Sim(_Sim):
 
     def get_state(self) -> np.ndarray:
         state = super().get_dynamic_joint_state()
-        qpos = np.array(state.qpos, copy=True)
-        qvel = np.array(state.qvel, copy=True)
-        self._encode_state_in_place(qpos, qvel, self.get_state_schema())
+        qpos, qvel = self._transform_state(
+            np.array(state.qpos, copy=True),
+            np.array(state.qvel, copy=True),
+            self.get_state_schema(),
+            encode=True,
+        )
         return np.concatenate((qpos, qvel))
 
     def set_state(
@@ -128,9 +131,12 @@ class Sim(_Sim):
             raise ValueError(msg)
 
         qpos_size = sum(int(value) for value in state_schema["qpos_sizes"])
-        qpos = np.array(state_array[:qpos_size], copy=True)
-        qvel = np.array(state_array[qpos_size:], copy=True)
-        self._decode_state_in_place(qpos, qvel, state_schema)
+        qpos, qvel = self._transform_state(
+            np.array(state_array[:qpos_size], copy=True),
+            np.array(state_array[qpos_size:], copy=True),
+            state_schema,
+            encode=False,
+        )
 
         dynamic_joint_schema = DynamicJointSchema()
         dynamic_joint_schema.joint_names = typing.cast(list[str], list(state_schema["joint_names"]))
@@ -143,39 +149,25 @@ class Sim(_Sim):
         dynamic_joint_state.qvel = qvel
         super().set_dynamic_joint_state(dynamic_joint_schema, dynamic_joint_state)
 
-    def _encode_state_in_place(
-        self,
-        qpos: np.ndarray,
-        qvel: np.ndarray,
-        schema: dict[str, list[str] | list[int]],
-    ):
-        self._transform_state_in_place(qpos, qvel, schema, encode=True)
-
-    def _decode_state_in_place(
-        self,
-        qpos: np.ndarray,
-        qvel: np.ndarray,
-        schema: dict[str, list[str] | list[int]],
-    ):
-        self._transform_state_in_place(qpos, qvel, schema, encode=False)
-
-    def _transform_state_in_place(
+    def _transform_state(
         self,
         qpos: np.ndarray,
         qvel: np.ndarray,
         schema: dict[str, list[str] | list[int]],
         *,
         encode: bool,
-    ):
+    ) -> tuple[np.ndarray, np.ndarray]:
         joint_names = typing.cast(list[str], list(schema["joint_names"]))
         joint_types = [int(value) for value in schema["joint_types"]]
         qpos_sizes = [int(value) for value in schema["qpos_sizes"]]
         qvel_sizes = [int(value) for value in schema["qvel_sizes"]]
         encodings = typing.cast(list[str], list(schema.get("encodings", [RAW_STATE_ENCODING] * len(joint_names))))
+        root_transform = self._root_frame_to_world.inverse() if encode else self._root_frame_to_world
+        root_rotation = root_transform.rotation_m()
+        free_joint_type = int(mj.mjtJoint.mjJNT_FREE)
 
         qpos_offset = 0
         qvel_offset = 0
-        free_joint_type = int(mj.mjtJoint.mjJNT_FREE)
         for joint_name, joint_type, joint_qpos_size, joint_qvel_size, encoding in zip(
             joint_names, joint_types, qpos_sizes, qvel_sizes, encodings, strict=True
         ):
@@ -188,13 +180,14 @@ class Sim(_Sim):
                         "but is not a free joint."
                     )
                     raise ValueError(msg)
-                joint_qpos = qpos[qpos_offset : qpos_offset + joint_qpos_size]
-                joint_qvel = qvel[qvel_offset : qvel_offset + joint_qvel_size]
-                transformed_qpos, transformed_qvel = self._transform_root_relative_free_joint(
-                    joint_qpos, joint_qvel, encode=encode
+                qpos[qpos_offset : qpos_offset + joint_qpos_size], qvel[qvel_offset : qvel_offset + joint_qvel_size] = (
+                    self._transform_root_relative_free_joint(
+                        qpos[qpos_offset : qpos_offset + joint_qpos_size],
+                        qvel[qvel_offset : qvel_offset + joint_qvel_size],
+                        root_transform=root_transform,
+                        root_rotation=root_rotation,
+                    )
                 )
-                qpos[qpos_offset : qpos_offset + joint_qpos_size] = transformed_qpos
-                qvel[qvel_offset : qvel_offset + joint_qvel_size] = transformed_qvel
             else:
                 msg = f"Unsupported sim state encoding '{encoding}' for joint '{joint_name}'."
                 raise ValueError(msg)
@@ -202,26 +195,24 @@ class Sim(_Sim):
             qpos_offset += joint_qpos_size
             qvel_offset += joint_qvel_size
 
+        return qpos, qvel
+
     def _transform_root_relative_free_joint(
         self,
         joint_qpos: np.ndarray,
         joint_qvel: np.ndarray,
         *,
-        encode: bool,
+        root_transform: common.Pose,
+        root_rotation: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-        joint_pose_world = common.Pose(
+        joint_pose = common.Pose(
             translation=np.asarray(joint_qpos[:3], dtype=np.float64),
             quaternion=np.asarray([joint_qpos[4], joint_qpos[5], joint_qpos[6], joint_qpos[3]], dtype=np.float64),
         )
-        root_inverse = self._root_frame_to_world.inverse()
-        joint_pose = root_inverse * joint_pose_world if encode else self._root_frame_to_world * joint_pose_world
-
-        rotation = root_inverse.rotation_m() if encode else self._root_frame_to_world.rotation_m()
-        transformed_qvel = np.concatenate((rotation @ joint_qvel[:3], rotation @ joint_qvel[3:6]))
-
+        transformed_pose = root_transform * joint_pose
         return (
-            np.concatenate((joint_pose.translation(), joint_pose.rotation_q_wxyz())),
-            transformed_qvel,
+            np.concatenate((transformed_pose.translation(), transformed_pose.rotation_q_wxyz())),
+            np.concatenate((root_rotation @ joint_qvel[:3], root_rotation @ joint_qvel[3:6])),
         )
 
     def close_gui(self):

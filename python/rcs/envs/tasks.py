@@ -163,12 +163,12 @@ class PickTask(Task[PickTaskConfig]):
         """Add task-specific elements to the Mujoco scene."""
         object2world = cfg.object_center_to_root_frame * env_cfg.root_frame_to_world
 
-        added_object = composer.add_object_world_frame(
+        composer.add_object_world_frame(
             cfg.object_xml,
             object_prefix=cfg.prefix,
             pose=object2world,
+            register_root_relative_replay_free_joints=True,
         )
-        composer.register_root_relative_replay_free_joints(added_object.prefixed_free_joint_names)
 
     @staticmethod
     def add_task_env(cfg: PickTaskConfig, env: gym.Env, _simulation: Sim, env_cfg: SimEnvCreatorConfig) -> gym.Env:

@@ -393,13 +393,12 @@ class SimEnvCreator(RCSEnvCreator[SimEnvCreatorConfig], typing.Generic[TaskConfi
         register_root_relative_replay_free_joints: bool = False,
     ):
         """Add an object to the Mujoco scene."""
-        added_object = composer.add_object_world_frame(
+        composer.add_object_world_frame(
             object_xml,
             object_prefix=object_id + "_",
             pose=object2world,
+            register_root_relative_replay_free_joints=register_root_relative_replay_free_joints,
         )
-        if register_root_relative_replay_free_joints:
-            composer.register_root_relative_replay_free_joints(added_object.prefixed_free_joint_names)
 
     def add_object_robot_frame_mujoco(
         self,
