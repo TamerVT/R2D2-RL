@@ -174,6 +174,10 @@ For a full list of extensions and detailed documentation, visit **[robotcontrols
 For full documentation, including advanced installation, modular usage, and API references, please visit:
 👉 **[robotcontrolstack.org](https://robotcontrolstack.org)**
 
+Useful quick-reference pages:
+- **[RCS Conventions](https://robotcontrolstack.org/user_guide/conventions)** for quaternion order, frames, Euler angles, and gripper semantics
+- **[Sim Scene Configuration](https://robotcontrolstack.org/user_guide/scene_configuration)** for `SimEnvCreatorConfig`, scene frames, and example setup patterns
+
 ## 🤝 Contribution
 
 We welcome contributions from the robotics and ML community! For contribution guidelines, please check out **[robotcontrolstack.org/contributing](https://robotcontrolstack.org/contributing)**.
