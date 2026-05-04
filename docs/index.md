@@ -18,6 +18,11 @@
 
 ## Documentation
 
+If you are looking for the most common frame, pose, and scene-setup details first, start here:
+
+- [RCS Conventions](user_guide/conventions.md)
+- [Sim Scene Configuration](user_guide/scene_configuration.md)
+
 ```{toctree}
 :maxdepth: 2
 :caption: User Guide
