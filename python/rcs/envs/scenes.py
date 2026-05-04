@@ -49,6 +49,7 @@ class RCSEnvCreator(ABC, EnvCreator, typing.Generic[RCSEnvCreatorConfig]):
 class WrapperConfig:
     binary_gripper: bool = True
     home_on_reset: bool = True
+    include_depth: bool = False
 
 
 #### SIM SPECIFIC ####
@@ -364,7 +365,7 @@ class SimEnvCreator(RCSEnvCreator[SimEnvCreatorConfig], typing.Generic[TaskConfi
                 BaseCameraSet,
                 SimCameraSet(simulation, prefixed_cfg.camera_cfgs, physical_units=True, render_on_demand=True),
             )
-            env = CameraSetWrapper(env, camera_set, include_depth=True)
+            env = CameraSetWrapper(env, camera_set, include_depth=cfg.wrapper_cfg.include_depth)
         env = self.add_task_env(prefixed_cfg.task_cfg, env, simulation, cfg)
         if not prefixed_cfg.headless:
             env.get_wrapper_attr("sim").open_gui()
