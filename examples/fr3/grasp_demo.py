@@ -7,7 +7,7 @@ import mujoco
 import numpy as np
 from rcs._core.common import Pose
 from rcs._core.sim import SimRobot
-from rcs.envs.base import GripperWrapper
+from rcs.envs.base import ControlMode, GripperWrapper, RelativeTo
 from rcs.envs.configs import EmptyWorldFR3
 
 import rcs
@@ -19,11 +19,11 @@ logger.setLevel(logging.INFO)
 class PickUpDemo:
     def __init__(self, env: gym.Env):
         self.env = env
-        self._robot = cast(SimRobot, self.env.get_wrapper_attr("robot"))
+        self._robot = cast(SimRobot, self.env.get_wrapper_attr("robot"))["robot"]
         self.home_pose = self._robot.get_cartesian_position()
 
     def _action(self, pose: Pose, gripper: list[float]) -> dict[str, Any]:
-        return {"xyzrpy": pose.xyzrpy(), "gripper": [gripper]}
+        return {"robot":{"xyzrpy": pose.xyzrpy(), "gripper": [gripper]}}
 
     def get_object_pose(self, geom_name) -> Pose:
         model = self.env.get_wrapper_attr("sim").model
@@ -86,6 +86,8 @@ class PickUpDemo:
 def main():
     scene = EmptyWorldFR3()
     cfg = scene.config()
+    cfg.control_mode = ControlMode.CARTESIAN_TRPY
+    cfg.relative_to = RelativeTo.NONE
     cfg.sim_cfg.realtime = False
     cfg.sim_cfg.async_control = True
     cfg.max_relative_movement = None
@@ -98,10 +100,10 @@ def main():
     env = scene.create_env(cfg)
     env.get_wrapper_attr("sim").open_gui()
     # wait for gui to open
-    sleep(3)
+    # sleep(3)
     for _ in range(100):
         env.reset()
-        print(env.get_wrapper_attr("robot").get_cartesian_position().translation())  # type: ignore
+        # print(env.get_wrapper_attr("robot").get_cartesian_position().translation())  # type: ignore
         controller = PickUpDemo(env)
         controller.pickup("box_geom")
 
