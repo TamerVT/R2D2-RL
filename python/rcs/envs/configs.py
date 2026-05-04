@@ -18,7 +18,6 @@ from rcs.envs.scenes import (
     SimEnvCreatorConfig,
     WrapperConfig,
 )
-from rcs.envs.tasks import PickTaskConfig
 
 import rcs
 from rcs import (
