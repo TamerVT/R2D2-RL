@@ -231,8 +231,7 @@ class EmptyWorldFR3Duo(SimEnvCreator):
         sim_cfg: SimConfig = SimConfig(async_control=False, realtime=True, frequency=1, max_convergence_steps=500)
 
         control_mode: ControlMode = ControlMode.CARTESIAN_TQuat
-        # task_cfg = None
-        task_cfg = PickTaskConfig(robot_name="left")
+        task_cfg = None
         scene: str = SCENE_PATHS["empty_world"]
         gripper_cfg = SimGripperConfig(
             epsilon_inner=0.005,
