@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.19)
 project(
     rcs_fr3
     LANGUAGES C CXX
-    VERSION 0.6.3
+    VERSION 0.7.0
     DESCRIPTION "RCS robotics library integration"
 )
 

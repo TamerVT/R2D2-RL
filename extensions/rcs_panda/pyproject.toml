@@ -12,9 +12,9 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "rcs_panda"
-version = "0.6.3"
+version = "0.7.0"
 description = "RCS libfranka integration"
-dependencies = ["rcs>=0.6.3"]
+dependencies = ["rcs>=0.7.0"]
 readme = "README.md"
 maintainers = [{ name = "Tobias Jülg", email = "tobias.juelg@utn.de" }]
 authors = [{ name = "Tobias Jülg", email = "tobias.juelg@utn.de" }]
