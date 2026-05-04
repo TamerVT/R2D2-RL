@@ -170,6 +170,7 @@ class ArmObsType(TQuatDictType, JointsDictType, TRPYDictType): ...
 
 CartOrJointContType: TypeAlias = TQuatDictType | JointsDictType | TRPYDictType
 LimitedCartOrJointContType: TypeAlias = LimitedTQuatRelDictType | LimitedJointsRelDictType | LimitedTRPYRelDictType
+SimStateSchema: TypeAlias = dict[str, list[str] | list[int]]
 
 
 class ArmWithGripper(TQuatDictType, GripperDictType): ...
@@ -204,7 +205,7 @@ class HardwareEnv(BaseEnv):
 class SimEnv(BaseEnv):
     PLATFORM = RobotPlatform.SIMULATION
     STATE_KEY = "sim_state"
-    STATE_SPEC_KEY = "sim_state_spec"
+    STATE_SCHEMA_KEY = "sim_state_schema"
 
     def __init__(self, sim: simulation.Sim, return_state=True) -> None:
         self.sim = sim
@@ -212,10 +213,10 @@ class SimEnv(BaseEnv):
         self.frame_rate = SimpleFrameRate(cfg.frequency, "MoJoCo Simulation Loop")
         self.main_greenlet: greenlet | None = None
         self.return_state = return_state
-        self._replay_state: tuple[np.ndarray, int | None] | None = None
+        self._replay_state: tuple[np.ndarray, SimStateSchema | None] | None = None
 
-    def set_replay_state(self, state: np.ndarray, spec: int | None = None):
-        self._replay_state = (state, spec)
+    def set_replay_state(self, state: np.ndarray, schema: SimStateSchema | None = None):
+        self._replay_state = (state, schema)
 
     def step(self, action: dict[str, Any]) -> tuple[dict[str, Any], float, bool, bool, dict]:
         if self.main_greenlet is not None:
@@ -255,7 +256,7 @@ class SimEnv(BaseEnv):
     def observation(self, observation: dict[str, Any], info: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
         sim_state = self.sim.get_state()
         info[self.STATE_KEY] = sim_state
-        info[self.STATE_SPEC_KEY] = self.sim.get_state_spec()
+        info[self.STATE_SCHEMA_KEY] = self.sim.get_state_schema()
         return observation, info
 
 

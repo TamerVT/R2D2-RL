@@ -32,9 +32,11 @@ stubgen:
 	find ./python -not -path "./python/rcs/_core/*" -name '*.pyi' -delete
 	find ./python/rcs/_core -name '*.pyi' -print | xargs sed -i 's/tuple\[typing\.Literal\[\([0-9]\+\)\], typing\.Literal\[1\]\]/tuple\[typing\.Literal[\1]\]/g'
 	find ./python/rcs/_core -name '*.pyi' -print | xargs sed -i 's/tuple\[\([M|N]\), typing\.Literal\[1\]\]/tuple\[\1\]/g'
-	sed -i 's/    q_home: numpy\.ndarray\[tuple\[M\], numpy\.dtype\[numpy\.float64\]\] | None/    q_home: numpy.ndarray | None/' python/rcs/_core/common.pyi
-	python -c "from pathlib import Path; p=Path('python/rcs/_core/common.pyi'); t=p.read_text(); t=t.replace('numpy.ndarray[tuple[typing.Literal[2], N], numpy.dtype[numpy.float64]]', 'numpy.ndarray[tuple[typing.Literal[2], typing.Any], numpy.dtype[numpy.float64]]'); p.write_text(t)"
-	python -c "from pathlib import Path; p=Path('python/rcs/_core/sim.pyi'); t=p.read_text(); t=t.replace('numpy.ndarray[tuple[typing.Literal[2], N], numpy.dtype[numpy.float64]]', 'numpy.ndarray[tuple[typing.Literal[2], typing.Any], numpy.dtype[numpy.float64]]'); t=t.replace(', max_buffer_frames: int = 100', ''); p.write_text(t)"
+	find ./python/rcs/_core -name '*.pyi' -print | xargs sed -i 's/class RobotConfig/class RobotConfig(typing.Generic[M])/g'
+	find ./python/rcs/_core -name '*.pyi' -print | xargs sed -i 's/class SimRobotConfig(rcs._core.common.RobotConfig)/class SimRobotConfig(rcs._core.common.RobotConfig[M])/g'
+	find ./python/rcs/_core -name '*.pyi' -print | xargs sed -i 's/class DynamicJointState/class DynamicJointState(typing.Generic[M])/g'
+	find ./python/rcs/_core -name '*.pyi' -print | xargs sed -i 's/N = typing.TypeVar("N", bound=int)//g'
+	find ./python/rcs/_core -name '*.pyi' -print | xargs sed -i 's/, N/, M/g'
 	python ci_scripts/generate_common_typing.py
 	ruff check --fix python/rcs/_core python/rcs/common_typing.py
 	isort python/rcs/_core python/rcs/common_typing.py

@@ -9,9 +9,21 @@ import numpy as np
 import rcs.envs.configs as env_configs
 import rcs.envs.tasks as env_tasks
 from rcs._core.sim import SimConfig
-from rcs.envs.base import RelativeTo, SimEnv
+from rcs.envs.base import RelativeTo, SimEnv, SimStateSchema
 from rcs.envs.scenes import SimEnvCreator
 from rcs.envs.storage_wrapper import StorageWrapper
+from rcs.sim.sim import RAW_STATE_ENCODING
+
+
+def _normalize_sim_state_schema(value: Any) -> SimStateSchema:
+    joint_names = [str(item) for item in value["joint_names"]]
+    return {
+        "joint_names": joint_names,
+        "joint_types": [int(item) for item in value["joint_types"]],
+        "qpos_sizes": [int(item) for item in value["qpos_sizes"]],
+        "qvel_sizes": [int(item) for item in value["qvel_sizes"]],
+        "encodings": [str(item) for item in value.get("encodings", [RAW_STATE_ENCODING] * len(joint_names))],
+    }
 
 
 @dataclass(frozen=True)
@@ -38,13 +50,13 @@ class RecordedSimStep:
         raise KeyError(msg)
 
     @property
-    def sim_state_spec(self) -> int | None:
-        if SimEnv.STATE_SPEC_KEY in self.info:
-            return int(self.info[SimEnv.STATE_SPEC_KEY])
+    def sim_state_schema(self) -> SimStateSchema | None:
+        if SimEnv.STATE_SCHEMA_KEY in self.info:
+            return _normalize_sim_state_schema(self.info[SimEnv.STATE_SCHEMA_KEY])
 
         for value in self.info.values():
-            if isinstance(value, dict) and SimEnv.STATE_SPEC_KEY in value:
-                return int(value[SimEnv.STATE_SPEC_KEY])
+            if isinstance(value, dict) and SimEnv.STATE_SCHEMA_KEY in value:
+                return _normalize_sim_state_schema(value[SimEnv.STATE_SCHEMA_KEY])
 
         return None
 
@@ -94,9 +106,9 @@ def restore_sim_step(env: gym.Env, recorded_step: RecordedSimStep):
         lead_env = None
 
     if lead_env is not None:
-        lead_env.set_replay_state(recorded_step.sim_state, spec=recorded_step.sim_state_spec)
+        lead_env.set_replay_state(recorded_step.sim_state, schema=recorded_step.sim_state_schema)
     else:
-        env.get_wrapper_attr("set_replay_state")(recorded_step.sim_state, spec=recorded_step.sim_state_spec)
+        env.get_wrapper_attr("set_replay_state")(recorded_step.sim_state, schema=recorded_step.sim_state_schema)
 
 
 def replay_trajectory(env: gym.Env, recorded_steps: list[RecordedSimStep], headless: bool):

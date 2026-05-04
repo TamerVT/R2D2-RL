@@ -20,6 +20,7 @@ class ModelComposer:
         self.spec.compiler.autolimits = True
         self.add_gravcomp = add_gravcomp
         self._gravcomp_prefixes: set[str] = set()
+        self._root_relative_replay_free_joints: set[str] = set()
 
     def _resolve_asset_paths(self, spec: mujoco.MjSpec, xml_path: str):
         """Resolves relative paths to absolute ones."""
@@ -66,6 +67,17 @@ class ModelComposer:
     def _apply_pose(self, body: mujoco._specs.MjsBody, pose: Pose):
         body.pos = list(pose.translation())
         body.quat = list(pose.rotation_q_wxyz())
+
+    def _prefixed_free_joint_names(self, spec: mujoco.MjSpec, prefix: str) -> list[str]:
+        free_joint_type = int(mujoco.mjtJoint.mjJNT_FREE)
+        return [f"{prefix}{joint.name}" for joint in spec.joints if joint.name and int(joint.type) == free_joint_type]
+
+    def register_root_relative_replay_free_joints(self, joint_names: list[str]):
+        self._root_relative_replay_free_joints.update(joint_names)
+
+    @property
+    def root_relative_replay_free_joints(self) -> set[str]:
+        return set(self._root_relative_replay_free_joints)
 
     def add_camera(
         self,
@@ -230,6 +242,8 @@ class ModelComposer:
         object_prefix: str,
         attachment_site_name: str,
         pose: Pose | None = None,
+        *,
+        register_root_relative_replay_free_joints: bool = False,
     ) -> mujoco._specs.MjsBody:
         """Attaches an object to a robot attachment site with an optional local pose offset."""
         if pose is None:
@@ -243,6 +257,8 @@ class ModelComposer:
 
         object_spec = mujoco.MjSpec.from_file(xml_path)
         self._resolve_asset_paths(object_spec, xml_path)
+        if register_root_relative_replay_free_joints:
+            self.register_root_relative_replay_free_joints(self._prefixed_free_joint_names(object_spec, object_prefix))
 
         object_root = object_spec.worldbody.first_body()
         object_root = attachment_site.attach(object_root, object_prefix, "")
@@ -250,7 +266,12 @@ class ModelComposer:
         return object_root
 
     def add_object_world_frame(
-        self, xml_path: str, object_prefix: str, pose: Pose | None = None
+        self,
+        xml_path: str,
+        object_prefix: str,
+        pose: Pose | None = None,
+        *,
+        register_root_relative_replay_free_joints: bool = False,
     ) -> mujoco._specs.MjsBody:
         """
         Attaches a single object MJCF at a specific pose.
@@ -265,6 +286,8 @@ class ModelComposer:
         # Load the child spec
         child_spec = mujoco.MjSpec.from_file(xml_path)
         self._resolve_asset_paths(child_spec, xml_path)
+        if register_root_relative_replay_free_joints:
+            self.register_root_relative_replay_free_joints(self._prefixed_free_joint_names(child_spec, object_prefix))
 
         # Attach using a frame
         frame = self.spec.worldbody.add_frame()

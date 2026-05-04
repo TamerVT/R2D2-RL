@@ -167,6 +167,7 @@ class PickTask(Task[PickTaskConfig]):
             cfg.object_xml,
             object_prefix=cfg.prefix,
             pose=object2world,
+            register_root_relative_replay_free_joints=True,
         )
 
     @staticmethod
