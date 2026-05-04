@@ -308,7 +308,6 @@ class EmptyWorldFR3Duo(SimEnvCreator):
         add_camera_adds: dict[str, CameraAdderConfig] | None = {
             "head": CameraAdderConfig(
                 xml_path=CAMERA_PATHS["zed_mini"],
-                fovy=60.0,
                 offset=rcs.common.Pose(
                     # if duo_mount is spawned at [0, 0, 0.342], these are the offsets
                     DEFAULT_TRANSFORMS["FR3_DUOMOUNT_ZEDMINI_CAMERA"]
@@ -316,13 +315,11 @@ class EmptyWorldFR3Duo(SimEnvCreator):
             ),
             "left_wrist": CameraAdderConfig(
                 xml_path=CAMERA_PATHS["d405"],
-                fovy=60.0,
                 offset=rcs.common.Pose(DEFAULT_TRANSFORMS["FR3_ROBOTIQ_WRIST_D405_CAMERA"]),  # 20deg offset from normal
                 robot_name="left",
             ),
             "right_wrist": CameraAdderConfig(
                 xml_path=CAMERA_PATHS["d405"],
-                fovy=60.0,
                 offset=rcs.common.Pose(DEFAULT_TRANSFORMS["FR3_ROBOTIQ_WRIST_D405_CAMERA"]),  # 20deg offset from normal
                 robot_name="right",
             ),

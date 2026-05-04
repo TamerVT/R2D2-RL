@@ -25,6 +25,13 @@
     <body name="zed_mini" childclass="zed_mini">
       <geom mesh="zed_mini" quat="1 0 0 0" material="black" class="visual"/>
       <geom mesh="zed_mini_coll" quat="1 0 0 0" material="black" class="collision"/>
+<!-- intrinsic matrix from real camera -->
+<!-- [[733.30859375   0.         645.03240967   0.        ]
+      [  0.         733.30859375 358.78286743   0.        ]
+      [  0.           0.           1.           0.        ]] -->
+<!-- >>> np.arctan(720/(2*733.30859375))*360/np.pi
+     np.float64(52.295211753153616) -->
+
 
       <camera name="camera" pos="0 0.0255 0" quat="0.5 0.5 -0.5 -0.5" fovy="52"/>  
     </body>
