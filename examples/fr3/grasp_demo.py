@@ -1,4 +1,5 @@
 import logging
+from time import sleep
 from typing import Any, cast
 
 import gymnasium as gym
@@ -99,10 +100,10 @@ def main():
     env = scene.create_env(cfg)
     env.get_wrapper_attr("sim").open_gui()
     # wait for gui to open
-    # sleep(3)
+    sleep(3)
     for _ in range(100):
         env.reset()
-        # print(env.get_wrapper_attr("robot").get_cartesian_position().translation())  # type: ignore
+        print(env.get_wrapper_attr("robot").get_cartesian_position().translation())  # type: ignore
         controller = PickUpDemo(env)
         controller.pickup("box_geom")
 
