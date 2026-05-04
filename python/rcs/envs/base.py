@@ -35,7 +35,7 @@ class TRPYDictType(RCSpaceType):
     xyzrpy: Annotated[
         Vec6Type,
         gym.spaces.Box(
-            low=np.array([-0.855, -0.855, 0, -np.deg2rad(180), -np.deg2rad(180), -np.deg2rad(180)]),
+            low=np.array([-0.855, -0.855, -1, -np.deg2rad(180), -np.deg2rad(180), -np.deg2rad(180)]),
             high=np.array([0.855, 0.855, 1.188, np.deg2rad(180), np.deg2rad(180), np.deg2rad(180)]),
             dtype=np.float64,
         ),
@@ -58,7 +58,7 @@ class TQuatDictType(RCSpaceType):
     tquat: Annotated[
         Vec7Type,
         gym.spaces.Box(
-            low=np.array([-0.855, -0.855, 0] + [-1] + [-np.inf] * 3),
+            low=np.array([-0.855, -0.855, -1] + [-1] + [-np.inf] * 3),
             high=np.array([0.855, 0.855, 1.188] + [1] + [np.inf] * 3),
             dtype=np.float64,
         ),
