@@ -16,10 +16,11 @@ import os
 import sys
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPO_ROOT))
+REPO_ROOT = Path(__file__).resolve().parents[2]
+OUR_STUFF = REPO_ROOT / "OUR_stuff"
+sys.path.insert(0, str(OUR_STUFF))
 
-DEFAULT_OUT = REPO_ROOT / "outputs" / "project3_screenshot"
+DEFAULT_OUT = OUR_STUFF / "outputs" / "project3_screenshot"
 
 
 def parse_args() -> argparse.Namespace:

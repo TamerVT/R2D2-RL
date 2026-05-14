@@ -15,10 +15,11 @@ from pathlib import Path
 
 import numpy as np
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPO_ROOT))
+REPO_ROOT = Path(__file__).resolve().parents[2]
+OUR_STUFF = REPO_ROOT / "OUR_stuff"
+sys.path.insert(0, str(OUR_STUFF))
 
-DEFAULT_OUT = REPO_ROOT / "outputs" / "hybrid_eval_sim"
+DEFAULT_OUT = OUR_STUFF / "outputs" / "hybrid_eval_sim"
 
 
 def parse_args() -> argparse.Namespace:
@@ -26,7 +27,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--config",
         type=Path,
-        default=REPO_ROOT / "configs" / "hybrid_control_rl" / "eval1.yaml",
+        default=OUR_STUFF / "configs" / "hybrid_control_rl" / "eval1.yaml",
     )
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--seed", type=int, default=0)

@@ -1,5 +1,7 @@
 import unittest
 
+from tests import BASE_CONFIG_PATH
+
 import cv2
 import numpy as np
 
@@ -10,7 +12,7 @@ from perception.color_block_detector import ColorBlockDetector
 class ColorDetectorSyntheticTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.config = load_yaml_config("configs/hybrid_control_rl/base.yaml")
+        cls.config = load_yaml_config(str(BASE_CONFIG_PATH))
 
     def test_detects_single_red_block_centroid(self):
         image = np.zeros((160, 220, 3), dtype=np.uint8)

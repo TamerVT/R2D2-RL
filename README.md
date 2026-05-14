@@ -55,59 +55,41 @@ Design decisions baked in:
 
 ## Repository layout
 
+We follow the `OUR_stuff/` workspace pattern Felix introduced on the
+`origin/master` branch: all team-specific Python lives under `OUR_stuff/`
+so RCS source (kept in `external/robot-control-stack/`) doesn't shadow
+project module names. See [`OUR_stuff/COMPARISON.md`](OUR_stuff/COMPARISON.md)
+for a per-feature breakdown of which teammate contributed what.
+
 ```
 project3/
-├── README.md
-├── SIM_WRIST_CAMERA_README.md         Detailed wrist-camera setup notes
+├── README.md                          You are here.
+├── SIM_WRIST_CAMERA_README.md         Detailed wrist-camera setup notes.
+├── conftest.py                        Sys-path shim so pytest finds OUR_stuff/.
 │
-├── hybrid_control_rl/                 YAML config loader (extends + deep_merge)
-├── perception/
-│   └── color_block_detector.py        HSV + contour color block detector
-├── estimation/
-│   ├── pixel_to_table.py              Pixel → robot-frame ray-plane projection
-│   └── block_belief.py                Per-color static Kalman belief tracker
-├── planning/
-│   └── hybrid_waypoint_planner.py     Belief-gated pregrasp/lift/transport/release/recovery
-├── control/
-│   └── waypoint_controller.py         Thin adapter over RCS env.step (cartesian delta)
-├── runtime/
-│   ├── hybrid_task_executor.py        Multi-phase state machine + Eval 3 sequence
-│   └── rcs_sim_adapters.py            RCS-backed observer / visibility checker / scripted policy
-├── envs/
-│   ├── project3_so101_env.py          RCS SO-101 sim scene + colored cubes + wrist camera
-│   └── assets/cubes/                  Red / blue / yellow cube MJCFs (green comes from RCS)
+├── OUR_stuff/                         All Project 3 code (Felix's layout).
+│   ├── README.md                      Workspace overview + run commands.
+│   ├── COMPARISON.md                  Per-feature ours vs Felix vs Insalatone.
+│   ├── hybrid_control_rl/             YAML config loader (extends + deep_merge).
+│   ├── perception/                    HSV color block detector.
+│   ├── estimation/                    Pixel-to-table + per-color Kalman.
+│   ├── planning/                      Belief-gated waypoint planner.
+│   ├── control/                       RCS waypoint controller adapter.
+│   ├── runtime/                       Hybrid task executor + RCS adapters.
+│   ├── envs/                          RCS SO-101 scene + colored cubes.
+│   ├── RL_envs/                       HW4 RL utilities (from Felix; reserved
+│   │                                    for the upcoming align_grasp trainer).
+│   ├── calibration/                   LeRobot SO-follower/leader JSONs (from Felix).
+│   ├── configs/hybrid_control_rl/     YAML configs (base + per-eval overrides).
+│   ├── scripts/                       Entry points (run_hybrid_eval_sim.py, …).
+│   ├── tests/                         47 unit tests.
+│   ├── docs/                          Design docs (audit, revised spec, RCS overlap).
+│   └── outputs/                       Curated artifacts.
 │
-├── configs/hybrid_control_rl/         YAML configs (base + per-eval overrides)
-│   ├── base.yaml                      Camera / workspace / perception / planning / recovery
-│   ├── calibration.yaml               Intrinsics + extrinsics + uncertainty
-│   ├── eval1.yaml … eval3.yaml        Per-evaluation goal lists
-│   ├── sim_training.yaml              RL training overrides
-│   └── real_eval.yaml                 Real-hardware overrides
-│
-├── scripts/
-│   ├── run_hybrid_eval_sim.py         End-to-end Eval 1 in the RCS sim
-│   ├── render_project3_screenshot.py  Snapshot wrist + external view PNG
-│   ├── validate_pixel_to_table.py     Closed-loop projection accuracy validation
-│   ├── test_rcs_so101_sim.py          RCS smoke test (env reset + steps)
-│   ├── test_wrist_camera_feed.py      MuJoCo wrist-camera demo (legacy `lerobot-p3` env)
-│   ├── Cam_calibration.py             Real-camera intrinsic-calibration helper (WIP)
-│   └── Cam_workflow.py                Color-detection prototype on captured frames
-│
-├── tests/                             47 unit tests (pure-numeric + light adapter mocks)
-├── docs/
-│   ├── CODEBASE_AUDIT_hybrid_control_rl.md
-│   ├── HYBRID_CONTROL_RL_TRAJECTORY_SPEC_REVISED.md
-│   └── RCS_OVERLAP_AUDIT.md
-└── outputs/                           Curated artifacts (wrist demo, screenshots, validation)
+├── external/robot-control-stack/      RCS clone (gitignored, installed via pip).
+├── ethz-course-2026/                  ETH coursework (gitignored).
+└── legacy/                            Parked earlier work (gitignored).
 ```
-
-External dependencies (not committed):
-
-- `external/robot-control-stack/` — RCS clone, installed into the `lerobot-p3-rcs`
-  conda env. See **Environments** below.
-- `ethz-course-2026/` — ETH coursework reference (HW2/HW3/HW4 vendored locally,
-  used as MJCF + reference only).
-- `legacy/` — earlier LeRobot ACT pipeline plan, parked.
 
 ## Environments
 
@@ -130,29 +112,29 @@ conda activate lerobot-p3-rcs
 End-to-end sim run (single Eval 1 goal):
 
 ```bash
-MUJOCO_GL=egl python scripts/run_hybrid_eval_sim.py --save-images
-# -> outputs/hybrid_eval_sim/{initial,final}_{wrist,external}.png
+MUJOCO_GL=egl python OUR_stuff/scripts/run_hybrid_eval_sim.py --save-images
+# -> OUR_stuff/outputs/hybrid_eval_sim/{initial,final}_{wrist,external}.png
 ```
 
 Render a Project 3 sim screenshot (cube + wrist camera + external view):
 
 ```bash
-MUJOCO_GL=egl python scripts/render_project3_screenshot.py --external-view
-# -> outputs/project3_screenshot/{wrist_cam,external_view}.png
+MUJOCO_GL=egl python OUR_stuff/scripts/render_project3_screenshot.py --external-view
+# -> OUR_stuff/outputs/project3_screenshot/{wrist_cam,external_view}.png
 ```
 
 Validate pixel-to-table projection against a known mocap target (legacy env):
 
 ```bash
 conda activate lerobot-p3
-MUJOCO_GL=egl python scripts/validate_pixel_to_table.py --headless
+MUJOCO_GL=egl python OUR_stuff/scripts/validate_pixel_to_table.py --headless
 # -> median error ~0.23 cm, max ~1.7 cm (out of 25 trial offsets)
 ```
 
 Run the test suite (works in both envs):
 
 ```bash
-python -m unittest discover -s tests -p 'test_*.py'
+python -m unittest discover -s OUR_stuff/tests -t OUR_stuff -p 'test_*.py'
 # 47 tests, ~150 ms
 ```
 
@@ -160,18 +142,20 @@ python -m unittest discover -s tests -p 'test_*.py'
 
 | Component | Status | Where |
 |---|---|---|
-| HSV color block detector (R/G/B/Y, hue-wrap red, covariance estimate) | done | `perception/color_block_detector.py` |
-| Pixel-to-table ray-plane projection (intrinsics, distortion, T_E_C / T_B_C entry points, FD covariance) | done | `estimation/pixel_to_table.py` |
-| Per-color static Kalman belief tracker (predict, update, contact-aware Q) | done | `estimation/block_belief.py` |
-| Hybrid waypoint planner (pregrasp, lift, transport, release, recovery) | done | `planning/hybrid_waypoint_planner.py` |
-| RCS waypoint controller (proportional-step, gripper-preserving) | done | `control/waypoint_controller.py` |
-| Hybrid task executor / state machine (Eval 1 single, Eval 3 sequence) | done | `runtime/hybrid_task_executor.py` |
-| Project 3 RCS env (SO-101 + colored cubes + wrist camera) | done | `envs/project3_so101_env.py` |
-| YAML config system (base + extends + per-eval overrides) | done | `hybrid_control_rl/config.py`, `configs/hybrid_control_rl/` |
-| End-to-end sim runner | done | `scripts/run_hybrid_eval_sim.py` |
-| Screenshot tooling | done | `scripts/render_project3_screenshot.py` |
-| Pixel-to-table closed-loop validator | done | `scripts/validate_pixel_to_table.py` |
-| Unit tests (47, all green) | done | `tests/` |
+| HSV color block detector (R/G/B/Y, hue-wrap red, covariance estimate) | done | `OUR_stuff/perception/color_block_detector.py` |
+| Pixel-to-table ray-plane projection (intrinsics, distortion, T_E_C / T_B_C entry points, FD covariance) | done | `OUR_stuff/estimation/pixel_to_table.py` |
+| Per-color static Kalman belief tracker (predict, update, contact-aware Q) | done | `OUR_stuff/estimation/block_belief.py` |
+| Hybrid waypoint planner (pregrasp, lift, transport, release, recovery) | done | `OUR_stuff/planning/hybrid_waypoint_planner.py` |
+| RCS waypoint controller (proportional-step, gripper-preserving) | done | `OUR_stuff/control/waypoint_controller.py` |
+| Hybrid task executor / state machine (Eval 1 single, Eval 3 sequence) | done | `OUR_stuff/runtime/hybrid_task_executor.py` |
+| Project 3 RCS env (SO-101 + colored cubes + wrist camera) | done | `OUR_stuff/envs/project3_so101_env.py` |
+| YAML config system (base + extends + per-eval overrides) | done | `OUR_stuff/hybrid_control_rl/config.py`, `OUR_stuff/configs/hybrid_control_rl/` |
+| End-to-end sim runner | done | `OUR_stuff/scripts/run_hybrid_eval_sim.py` |
+| Screenshot tooling | done | `OUR_stuff/scripts/render_project3_screenshot.py` |
+| Pixel-to-table closed-loop validator | done | `OUR_stuff/scripts/validate_pixel_to_table.py` |
+| Unit tests (47, all green) | done | `OUR_stuff/tests/` |
+| RL building blocks (`build_mlp`, `GaussianActor`, `SquashedGaussianActor`, `DoubleQNet`) | reserved | `OUR_stuff/RL_envs/networks.py` (from Felix) — will back the SAC `align_grasp` trainer |
+| LeRobot SO-follower / SO-leader calibration JSON | reserved | `OUR_stuff/calibration/` (from Felix) — for real-hardware connect |
 
 ## What is NOT yet implemented
 
@@ -188,7 +172,9 @@ python -m unittest discover -s tests -p 'test_*.py'
 
 ## Documentation
 
+- **[`OUR_stuff/README.md`](OUR_stuff/README.md)** — workspace layout and run commands.
+- **[`OUR_stuff/COMPARISON.md`](OUR_stuff/COMPARISON.md)** — per-feature breakdown: ours vs Felix vs Insalatone.
 - **[`SIM_WRIST_CAMERA_README.md`](SIM_WRIST_CAMERA_README.md)** — wrist-camera setup guide.
-- **[`docs/HYBRID_CONTROL_RL_TRAJECTORY_SPEC_REVISED.md`](docs/HYBRID_CONTROL_RL_TRAJECTORY_SPEC_REVISED.md)** — the implementation plan adapted to the actual codebase.
-- **[`docs/CODEBASE_AUDIT_hybrid_control_rl.md`](docs/CODEBASE_AUDIT_hybrid_control_rl.md)** — audit of what existed before this project started.
-- **[`docs/RCS_OVERLAP_AUDIT.md`](docs/RCS_OVERLAP_AUDIT.md)** — which RCS modules replace which of our utilities and which stay ours.
+- **[`OUR_stuff/docs/HYBRID_CONTROL_RL_TRAJECTORY_SPEC_REVISED.md`](OUR_stuff/docs/HYBRID_CONTROL_RL_TRAJECTORY_SPEC_REVISED.md)** — implementation plan adapted to the actual codebase.
+- **[`OUR_stuff/docs/CODEBASE_AUDIT_hybrid_control_rl.md`](OUR_stuff/docs/CODEBASE_AUDIT_hybrid_control_rl.md)** — audit of what existed before this project started.
+- **[`OUR_stuff/docs/RCS_OVERLAP_AUDIT.md`](OUR_stuff/docs/RCS_OVERLAP_AUDIT.md)** — which RCS modules replace which of our utilities and which stay ours.

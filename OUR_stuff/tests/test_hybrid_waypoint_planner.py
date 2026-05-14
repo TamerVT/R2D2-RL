@@ -1,5 +1,7 @@
 import unittest
 
+from tests import BASE_CONFIG_PATH
+
 import numpy as np
 
 from estimation.block_belief import BlockBelief
@@ -21,7 +23,7 @@ def _belief(color: str = "green", xy=(0.20, -0.03), variance: float = 1e-5) -> B
 class HybridWaypointPlannerTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.config = load_yaml_config("configs/hybrid_control_rl/base.yaml")
+        cls.config = load_yaml_config(str(BASE_CONFIG_PATH))
 
     def test_pregrasp_waypoint_uses_belief_xy_and_configured_height(self):
         planner = HybridWaypointPlanner(self.config)
@@ -49,7 +51,7 @@ class HybridWaypointPlannerTest(unittest.TestCase):
             planner.plan_pregrasp(_belief(xy=(0.80, 0.0)))
 
     def test_post_grasp_plan_splits_classical_phases(self):
-        config = load_yaml_config("configs/hybrid_control_rl/base.yaml")
+        config = load_yaml_config(str(BASE_CONFIG_PATH))
         config["planning"]["max_waypoint_step_m"] = 0.04
         planner = HybridWaypointPlanner(config)
 

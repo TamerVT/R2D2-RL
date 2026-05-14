@@ -34,8 +34,12 @@ checkpoints/
 
 # Skip generated artifact subfolders we don't curate; the curated ones
 # below are committed because they document the pipeline output.
-outputs/*
-!outputs/wrist_cam_demo/
-!outputs/left_wrist_demo/
-!outputs/project3_screenshot/
-!outputs/pixel_to_table_validation/
+# Outputs live under OUR_stuff/outputs/ after the 2026-05-14 restructure.
+OUR_stuff/outputs/*
+!OUR_stuff/outputs/wrist_cam_demo/
+!OUR_stuff/outputs/left_wrist_demo/
+!OUR_stuff/outputs/project3_screenshot/
+!OUR_stuff/outputs/pixel_to_table_validation/
+
+# Old top-level outputs/ from before the restructure
+outputs/

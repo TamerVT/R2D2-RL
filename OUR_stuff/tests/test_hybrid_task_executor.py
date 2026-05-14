@@ -1,5 +1,7 @@
 import unittest
 
+from tests import BASE_CONFIG_PATH
+
 import numpy as np
 
 from estimation.block_belief import BlockBelief
@@ -76,7 +78,7 @@ class HybridTaskExecutorTest(unittest.TestCase):
         )
 
     def test_successful_goal_runs_align_grasp_only(self):
-        config = load_yaml_config("configs/hybrid_control_rl/base.yaml")
+        config = load_yaml_config(str(BASE_CONFIG_PATH))
         observer = MockObserver([_belief()])
         controller = MockController()
         policy = MockPolicy()
@@ -98,7 +100,7 @@ class HybridTaskExecutorTest(unittest.TestCase):
         self.assertIn(HybridTaskState.RELEASE, trace_states)
 
     def test_lost_target_triggers_recovery_and_retry(self):
-        config = load_yaml_config("configs/hybrid_control_rl/base.yaml")
+        config = load_yaml_config(str(BASE_CONFIG_PATH))
         config["recovery"]["max_lost_frames"] = 1
         config["recovery"]["max_attempts"] = 2
         config["planning"]["max_waypoint_step_m"] = 0.04
@@ -119,7 +121,7 @@ class HybridTaskExecutorTest(unittest.TestCase):
         self.assertIn(HybridTaskState.RECOVERY, trace_states)
 
     def test_align_grasp_failure_fails_without_release(self):
-        config = load_yaml_config("configs/hybrid_control_rl/base.yaml")
+        config = load_yaml_config(str(BASE_CONFIG_PATH))
         observer = MockObserver([_belief()])
         controller = MockController()
         executor = self._executor(config, observer, controller, MockPolicy(ok=False))
@@ -133,7 +135,7 @@ class HybridTaskExecutorTest(unittest.TestCase):
         self.assertNotIn("release", executed)
 
     def test_unsupported_rl_phases_are_rejected(self):
-        config = load_yaml_config("configs/hybrid_control_rl/base.yaml")
+        config = load_yaml_config(str(BASE_CONFIG_PATH))
         config["rl"]["phases"] = ["align_grasp", "release"]
 
         with self.assertRaisesRegex(ValueError, "unsupported phases"):
