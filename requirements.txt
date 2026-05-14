@@ -1,0 +1,1 @@
+pip install -ve extensions/rcs_so101
