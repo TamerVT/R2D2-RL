@@ -34,12 +34,16 @@ checkpoints/
 
 # Skip generated artifact subfolders we don't curate; the curated ones
 # below are committed because they document the pipeline output.
-# Outputs live under OUR_stuff/outputs/ after the 2026-05-14 restructure.
-OUR_stuff/outputs/*
-!OUR_stuff/outputs/wrist_cam_demo/
-!OUR_stuff/outputs/left_wrist_demo/
-!OUR_stuff/outputs/project3_screenshot/
-!OUR_stuff/outputs/pixel_to_table_validation/
+# Outputs live under r2d2_rl/outputs/ after the restructure.
+r2d2_rl/outputs/*
+!r2d2_rl/outputs/wrist_cam_demo/
+!r2d2_rl/outputs/left_wrist_demo/
+!r2d2_rl/outputs/project3_screenshot/
+!r2d2_rl/outputs/pixel_to_table_validation/
+
+# RL checkpoints (binary, regenerable via training)
+r2d2_rl/outputs/align_grasp_sac/
+*.pt
 
 # Old top-level outputs/ from before the restructure
 outputs/

@@ -25,10 +25,10 @@ from pathlib import Path
 import numpy as np
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-OUR_STUFF = REPO_ROOT / "OUR_stuff"
+R2D2_RL = REPO_ROOT / "r2d2_rl"
 HW2_ROOT = REPO_ROOT / "ethz-course-2026" / "hw2_robot_control_mdps"
 DEFAULT_XML = HW2_ROOT / "so101_gym" / "assets" / "so100_pos_ctrl.xml"
-DEFAULT_OUT = OUR_STUFF / "outputs" / "wrist_cam_demo"
+DEFAULT_OUT = R2D2_RL / "outputs" / "wrist_cam_demo"
 
 
 def parse_args() -> argparse.Namespace:

@@ -27,8 +27,8 @@ from pathlib import Path
 import numpy as np
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-OUR_STUFF = REPO_ROOT / "OUR_stuff"
-sys.path.insert(0, str(OUR_STUFF))
+R2D2_RL = REPO_ROOT / "r2d2_rl"
+sys.path.insert(0, str(R2D2_RL))
 
 from hybrid_control_rl.config import load_yaml_config
 from perception.color_block_detector import ColorBlockDetector
@@ -42,8 +42,8 @@ DEFAULT_XML = (
     / "assets"
     / "so100_pos_ctrl.xml"
 )
-DEFAULT_OUT = OUR_STUFF / "outputs" / "pixel_to_table_validation"
-DEFAULT_CONFIG = OUR_STUFF / "configs" / "hybrid_control_rl" / "calibration.yaml"
+DEFAULT_OUT = R2D2_RL / "outputs" / "pixel_to_table_validation"
+DEFAULT_CONFIG = R2D2_RL / "configs" / "hybrid_control_rl" / "calibration.yaml"
 
 # MuJoCo's camera frame uses +y up, -z forward. Right-multiply the rotation
 # by this diagonal to obtain the standard image convention (+y down, +z fwd).
