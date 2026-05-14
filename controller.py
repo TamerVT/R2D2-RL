@@ -27,8 +27,6 @@ import mujoco
 from scipy.spatial.transform import Rotation
 
 
-# ── constants ──────────────────────────────────────────────────────────────
-
 class ControlPhase(Enum):
     IDLE = 0
     MOVING_TO_TARGET = 1
@@ -96,7 +94,7 @@ class SO101Controller:
         self._traj_idx = 0
         self._phase_timer = 0.0
 
-    # ── getters ────────────────────────────────────────────────────────────────
+    # state accessors
 
     def get_ee_pos(self) -> np.ndarray:
         """Get current end-effector position (world frame)."""
@@ -121,7 +119,7 @@ class SO101Controller:
         self.state.phase_time = self._phase_timer
         return self.state
 
-    # ── inverse kinematics ─────────────────────────────────────────────────────
+    # kinematics
 
     def compute_ik(
         self,
@@ -200,7 +198,7 @@ class SO101Controller:
 
         return None
 
-    # ── trajectory planning ────────────────────────────────────────────────────
+    # trajectory
 
     def _plan_linear_trajectory(
         self,
@@ -249,7 +247,7 @@ class SO101Controller:
 
         return True
 
-    # ── safety checking ────────────────────────────────────────────────────────
+    # safety check
 
     def check_safety(self) -> bool:
         """
@@ -278,7 +276,7 @@ class SO101Controller:
         self.state.safety_ok = True
         return True
 
-    # ── control loop ───────────────────────────────────────────────────────────
+    # control loop
 
     def step(self, dt: float) -> np.ndarray:
         """
@@ -343,7 +341,7 @@ class SO101Controller:
 
         return action.astype(np.float32)
 
-    # ── high-level operations ──────────────────────────────────────────────────
+    # high level commands
 
     def pick(self, target_pos: np.ndarray, target_rot: Optional[np.ndarray] = None) -> bool:
         """
@@ -414,45 +412,3 @@ class SO101Controller:
         self._phase_timer = 0.0
 
 
-# ── standalone test ────────────────────────────────────────────────────────
-
-if __name__ == "__main__":
-    import sys
-    from pathlib import Path
-
-    # Example: load SO-101 model and test controller
-    hw_dir = Path(__file__).parent / "hw4_reinforcement_learning" if not Path(__file__).parent.name == "hw4_reinforcement_learning" else Path(__file__).parent
-    xml_path = hw_dir / "assets" / "mujoco" / "so100_pos_ctrl.xml"
-
-    if not xml_path.exists():
-        print(f"XML not found: {xml_path}")
-        sys.exit(1)
-
-    model = mujoco.MjModel.from_xml_path(str(xml_path))
-    data = mujoco.MjData(model)
-
-    mujoco.mj_resetData(model, data)
-    data.qpos[:6] = np.array([0.0, -1.57, 1.0, 1.0, 0.0, 0.02])
-    mujoco.mj_forward(model, data)
-
-    controller = SO101Controller(model, data, config=ControllerConfig(log_debug=True))
-
-    print("Testing SO101Controller...")
-    print(f"Current EE pos: {controller.get_ee_pos()}")
-    print(f"Current qpos:   {controller.get_qpos()}")
-
-    # Test: plan to a nearby target
-    target_pos = controller.get_ee_pos() + np.array([0.1, 0.0, 0.0])
-    target_rot = controller.get_ee_rot()
-
-    print(f"\nPlanning to target: {target_pos}")
-    if controller.plan_to_cartesian(target_pos, target_rot, duration=1.0):
-        print("✓ Plan succeeded")
-        for i in range(100):
-            action = controller.step(0.01)
-            data.ctrl[:6] = action
-            mujoco.mj_step(model, data)
-            if i % 20 == 0:
-                print(f"Step {i}: EE pos error = {controller.get_state().ee_pos_error:.6f}")
-    else:
-        print("✗ Plan failed")

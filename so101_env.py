@@ -40,8 +40,6 @@ sys.path.insert(0, str(Path(__file__).parent))
 from controller import SO101Controller, ControllerConfig, ControlPhase
 
 
-# ── config ─────────────────────────────────────────────────────────────────────
-
 @dataclass
 class SO101EnvConfig:
     """Configuration for SO101PickPlaceEnv."""
@@ -72,7 +70,7 @@ class SO101EnvConfig:
     controller_config: Optional[ControllerConfig] = None
 
 
-# ── perception module (real color-based detection) ──────────────────────────────
+# perception module (real color-based detection) 
 
 class BlockPerception:
     """
@@ -216,7 +214,7 @@ class BlockPerception:
         return np.array([x_cam, y_cam, z_cam], dtype=np.float32)
 
 
-# ── main environment ──────────────────────────────────────────────────────────
+# environment wrapper integrating mujoco, controller, and perception
 
 class SO101PickPlaceEnv(gym.Env):
     """
@@ -228,7 +226,7 @@ class SO101PickPlaceEnv(gym.Env):
     def __init__(self, config: Optional[SO101EnvConfig] = None):
         self.config = config or SO101EnvConfig()
 
-        # ── load MuJoCo model ──────────────────────────────────────────────────
+        # mujoco
         xml_path = self.config.mujoco_xml_path
         if xml_path is None:
             # Auto-detect from hw4_reinforcement_learning
@@ -243,7 +241,7 @@ class SO101PickPlaceEnv(gym.Env):
         self.model = mujoco.MjModel.from_xml_path(str(xml_path))
         self.data = mujoco.MjData(self.model)
 
-        # ── initialize controller ──────────────────────────────────────────────
+        # controller
         ctrl_cfg = self.config.controller_config or ControllerConfig()
         self.controller = SO101Controller(
             self.model,
@@ -252,14 +250,14 @@ class SO101PickPlaceEnv(gym.Env):
             config=ctrl_cfg,
         )
 
-        # ── initialize perception ──────────────────────────────────────────────
+        # perception module with camera
         # Create perception module with camera intrinsics (focal length, principal point)
         self.perception = BlockPerception(
             image_height=self.config.wrist_camera_height,  # Camera image height
             image_width=self.config.wrist_camera_width,    # Camera image width
         )
 
-        # ── camera setup ───────────────────────────────────────────────────────
+        # camera setup 
         self.wrist_camera_id = mujoco.mj_name2id(
             self.model,
             mujoco.mjtObj.mjOBJ_CAMERA,
@@ -268,18 +266,18 @@ class SO101PickPlaceEnv(gym.Env):
         if self.wrist_camera_id < 0:
             raise ValueError(f"Camera '{self.config.wrist_camera_name}' not found in model")
 
-        # ── renderer for offscreen rendering ───────────────────────────────────
+        #  renderer for offscreen rendering 
         self.renderer = mujoco.Renderer(
             self.model,
             height=self.config.wrist_camera_height,
             width=self.config.wrist_camera_width,
         )
 
-        # ── viewer for human rendering ─────────────────────────────────────────
+        #  viewer for human rendering 
         self.viewer = None
         self.render_mode = self.config.render_mode
 
-        # ── observation/action spaces ──────────────────────────────────────────
+        #  observation/action spaces 
         self.observation_space = spaces.Dict({
             'wrist_image': spaces.Box(
                 low=0,
@@ -303,12 +301,11 @@ class SO101PickPlaceEnv(gym.Env):
             'grasp': spaces.Discrete(2),  # 0=no grasp, 1=grasp
         })
 
-        # ── episode state ──────────────────────────────────────────────────────
         self.episode_step = 0
         self.pick_pose = None
         self.place_pose = None
 
-    # ── reset ──────────────────────────────────────────────────────────────────
+    # Reset
 
     def reset(self, seed: Optional[int] = None, options: Optional[Dict] = None) -> Tuple[Dict, Dict]:
         """Reset environment and return initial observation."""
@@ -332,7 +329,6 @@ class SO101PickPlaceEnv(gym.Env):
 
         return obs, info
 
-    # ── step ───────────────────────────────────────────────────────────────────
 
     def step(self, action: Dict[str, Any]) -> Tuple[Dict, float, bool, bool, Dict]:
         """
@@ -398,7 +394,7 @@ class SO101PickPlaceEnv(gym.Env):
 
         return obs, reward, terminated, truncated, info
 
-    # ── observation ────────────────────────────────────────────────────────────
+    # observation with perception
 
     def _get_observation(self) -> Dict[str, Any]:
         """Get current observation dict with camera feed and perceived blocks."""
@@ -427,7 +423,6 @@ class SO101PickPlaceEnv(gym.Env):
 
         return obs
 
-    # ── reward ─────────────────────────────────────────────────────────────────
 
     def _compute_reward(self, obs: Dict, action: Dict) -> float:
         """Compute reward."""
@@ -448,7 +443,6 @@ class SO101PickPlaceEnv(gym.Env):
 
         return float(reward)
 
-    # ── rendering ──────────────────────────────────────────────────────────────
 
     def render(self) -> Optional[np.ndarray]:
         """Render environment."""
@@ -471,35 +465,3 @@ class SO101PickPlaceEnv(gym.Env):
         self.renderer.close()
 
 
-# ── standalone test ────────────────────────────────────────────────────────
-
-if __name__ == "__main__":
-    import cv2
-
-    config = SO101EnvConfig(render_mode="human")
-    env = SO101PickPlaceEnv(config)
-
-    obs, info = env.reset()
-    print("Environment initialized.")
-    print(f"Observation keys: {obs.keys()}")
-    print(f"Wrist image shape: {obs['wrist_image'].shape}")
-    print(f"Block positions: {obs['block_positions'].keys()}")
-
-    # Test a few steps
-    for step in range(50):
-        action = {
-            'target_pos': obs['block_positions']['red'],  # Go to red block
-            'target_rot': env.controller.get_ee_rot(),
-            'grasp': 0,
-        }
-
-        obs, reward, terminated, truncated, info = env.step(action)
-
-        if step % 10 == 0:
-            print(f"Step {step}: reward={reward:.3f}, phase={info['controller_phase']}")
-
-        if terminated or truncated:
-            break
-
-    env.close()
-    print("Test complete.")
