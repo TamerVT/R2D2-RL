@@ -89,7 +89,9 @@ def intersect_ray_with_z_plane(ray_origin, ray_dir, z_plane):
     return ray_origin + t * ray_dir
 
 # Model (use small model for speed)
-net = Net(weights="yolov8x.pt", imgsz=320, conf=0.25)
+
+WEIGHTS = "OUR_stuff/Models_public/yolov8n.pt"
+net = Net(weights=WEIGHTS, imgsz=320, conf=0.25)
 cap = cv2.VideoCapture("/dev/video0", cv2.CAP_V4L2)
 cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
