@@ -2,9 +2,9 @@ import unittest
 
 import numpy as np
 
-from estimation.pixel_to_table import PixelToTableProjector
-from perception.color_block_detector import Detection2D
-from runtime.rcs_sim_adapters import _RCS_PROJECTOR_CACHE, project_detection_to_table
+from r2d2_rl.estimation.pixel_to_table import PixelToTableProjector
+from r2d2_rl.perception.color_block_detector import Detection2D
+from r2d2_rl.runtime.rcs_sim_adapters import _RCS_PROJECTOR_CACHE, project_detection_to_table
 
 
 def _downward_frame(width: int = 640, height: int = 480) -> tuple[dict, np.ndarray]:

@@ -18,7 +18,7 @@ import numpy as np
 
 class ReplayBufferTest(unittest.TestCase):
     def test_round_trip_and_sample_shapes(self):
-        from rl.replay_buffer import ReplayBuffer
+        from r2d2_rl.rl.replay_buffer import ReplayBuffer
 
         buf = ReplayBuffer(capacity=64, obs_dim=11, act_dim=4)
         rng = np.random.default_rng(0)
@@ -36,7 +36,7 @@ class ReplayBufferTest(unittest.TestCase):
         self.assertEqual(tuple(batch.dones.shape), (8,))
 
     def test_wraparound(self):
-        from rl.replay_buffer import ReplayBuffer
+        from r2d2_rl.rl.replay_buffer import ReplayBuffer
 
         buf = ReplayBuffer(capacity=4, obs_dim=2, act_dim=1)
         for i in range(7):
@@ -54,8 +54,8 @@ class SACAgentSmokeTest(unittest.TestCase):
     def test_act_and_update_runs(self):
         import torch
 
-        from rl.replay_buffer import ReplayBuffer
-        from rl.sac import SACAgent, SACConfig
+        from r2d2_rl.rl.replay_buffer import ReplayBuffer
+        from r2d2_rl.rl.sac import SACAgent, SACConfig
 
         torch.manual_seed(0)
         agent = SACAgent(obs_dim=11, act_dim=4, config=SACConfig(hidden_sizes=(32, 32)))
@@ -80,7 +80,7 @@ class SACAgentSmokeTest(unittest.TestCase):
     def test_save_and_load_round_trip(self):
         import torch
 
-        from rl.sac import SACAgent, SACConfig, load_agent_for_inference
+        from r2d2_rl.rl.sac import SACAgent, SACConfig, load_agent_for_inference
 
         torch.manual_seed(0)
         agent = SACAgent(obs_dim=6, act_dim=2, config=SACConfig(hidden_sizes=(16, 16)))
@@ -96,6 +96,12 @@ class SACAgentSmokeTest(unittest.TestCase):
 
         loaded_action = loaded.act(obs, deterministic=True)
         np.testing.assert_allclose(loaded_action, original_action, atol=1e-6)
+
+    def test_empty_hidden_sizes_rejected(self):
+        from r2d2_rl.rl.sac import SACAgent, SACConfig
+
+        with self.assertRaises(ValueError):
+            SACAgent(obs_dim=6, act_dim=2, config=SACConfig(hidden_sizes=()))
 
 
 if __name__ == "__main__":

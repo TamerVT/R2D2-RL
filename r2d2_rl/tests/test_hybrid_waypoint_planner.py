@@ -1,12 +1,12 @@
 import unittest
 
-from tests import BASE_CONFIG_PATH
+from r2d2_rl.tests import BASE_CONFIG_PATH
 
 import numpy as np
 
-from estimation.block_belief import BlockBelief
-from hybrid_control_rl.config import load_yaml_config
-from planning.hybrid_waypoint_planner import HybridWaypointPlanner, PlanningError
+from r2d2_rl.estimation.block_belief import BlockBelief
+from r2d2_rl.hybrid_control_rl.config import load_yaml_config
+from r2d2_rl.planning.hybrid_waypoint_planner import HybridWaypointPlanner, PlanningError
 
 
 def _belief(color: str = "green", xy=(0.20, -0.03), variance: float = 1e-5) -> BlockBelief:

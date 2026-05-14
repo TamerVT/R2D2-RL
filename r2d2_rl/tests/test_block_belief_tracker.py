@@ -8,7 +8,7 @@ import unittest
 
 import numpy as np
 
-from estimation.block_belief import BlockBeliefTracker
+from r2d2_rl.estimation.block_belief import BlockBeliefTracker
 
 
 def _config(**overrides) -> dict:

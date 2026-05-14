@@ -55,7 +55,7 @@ r2d2_rl/
 ## Imports
 
 The package boundary is `r2d2_rl/` itself. Scripts and tests add
-`r2d2_rl/` to `sys.path` so imports stay flat:
+`r2d2_rl/` to `sys.path` so legacy script imports stay flat:
 
 ```python
 from estimation.pixel_to_table import PixelToTableProjector
@@ -64,10 +64,13 @@ from rl.sac import SACAgent
 from RL_envs.networks import SquashedGaussianActor, DoubleQNet
 ```
 
+Package-style imports also work from the repository root, e.g.
+`from r2d2_rl.rl.sac import SACAgent`.
+
 - Scripts: `Path(__file__).resolve().parents[2]` is the repo root, and
   `r2d2_rl/` is inserted into `sys.path` at the top of each script.
-- Tests: `r2d2_rl/tests/__init__.py` inserts `r2d2_rl/` into `sys.path`
-  on package import, and exposes `BASE_CONFIG_PATH` for config-loading tests.
+- Tests: `r2d2_rl/tests/__init__.py` inserts the repo root and `r2d2_rl/`
+  into `sys.path`, and exposes `BASE_CONFIG_PATH` for config-loading tests.
 - Repo-root `../conftest.py` does the same for any pytest-based runs.
 
 ## Running things
@@ -91,5 +94,5 @@ MUJOCO_GL=egl python r2d2_rl/scripts/train_align_grasp.py \
     --checkpoint-dir r2d2_rl/outputs/align_grasp_sac
 
 # Tests (works in both envs):
-python -m unittest discover -s r2d2_rl/tests -t r2d2_rl -p 'test_*.py'
+python -m unittest discover -s r2d2_rl/tests -p 'test_*.py'
 ```

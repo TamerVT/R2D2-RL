@@ -10,8 +10,8 @@ from typing import Any
 
 import numpy as np
 
-from control.waypoint_controller import RcsWaypointController, _proportional_step
-from planning.hybrid_waypoint_planner import Waypoint
+from r2d2_rl.control.waypoint_controller import RcsWaypointController, _proportional_step
+from r2d2_rl.planning.hybrid_waypoint_planner import Waypoint
 
 
 class _Box:

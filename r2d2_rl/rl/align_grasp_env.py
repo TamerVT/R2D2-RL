@@ -103,6 +103,7 @@ class AlignGraspEnv(gym.Env):
     # ----------------------------------------------------------------- gym API
 
     def reset(self, *, seed: int | None = None, options: dict[str, Any] | None = None):
+        super().reset(seed=seed)
         if seed is not None:
             self._np_random = np.random.default_rng(seed)
 
@@ -116,6 +117,7 @@ class AlignGraspEnv(gym.Env):
         self._target_xy = target_xy
 
         obs_dict, _ = self._env.reset(seed=seed)
+        self._last_obs_dict = obs_dict
         self._place_cube(target_xy)
         self._move_ee_to_pregrasp(target_xy)
         obs_dict = self._read_obs_dict()
@@ -202,9 +204,13 @@ class AlignGraspEnv(gym.Env):
         a zero-delta no-op to get a current view without altering the state.
         """
         obs, _, _, _, _ = self._env.step(self._cartesian_step(np.zeros(3), gripper=None))
+        self._last_obs_dict = obs
         return obs
 
     def _cartesian_step(self, delta_xyz: np.ndarray, gripper: float | None) -> dict[str, Any]:
+        if gripper is None:
+            gripper = self._current_gripper_state()
+
         action: dict[str, dict[str, np.ndarray]] = {}
         for robot_key, robot_space in self._env.action_space.spaces.items():
             sub: dict[str, np.ndarray] = {}
@@ -219,6 +225,18 @@ class AlignGraspEnv(gym.Env):
                 sub["gripper"] = np.array([value], dtype=np.float32)
             action[robot_key] = sub
         return action
+
+    def _current_gripper_state(self) -> float | None:
+        if not isinstance(self._last_obs_dict, dict):
+            return None
+        robot = self._last_obs_dict.get("robot")
+        if not isinstance(robot, dict):
+            return None
+        try:
+            value = float(np.asarray(robot.get("gripper"), dtype=np.float64).reshape(-1)[0])
+        except (TypeError, ValueError, IndexError):
+            return None
+        return float(np.clip(value, 0.0, 1.0))
 
     def _to_env_action(self, normalized: np.ndarray) -> dict[str, Any]:
         delta_xyz = normalized[:3] * self.cfg.delta_xyz_max

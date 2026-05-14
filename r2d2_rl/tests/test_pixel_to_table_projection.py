@@ -12,7 +12,7 @@ import unittest
 
 import numpy as np
 
-from estimation.pixel_to_table import (
+from r2d2_rl.estimation.pixel_to_table import (
     PixelToTableProjector,
     quat_xyzw_to_rotation,
     transform_from_translation_quat,

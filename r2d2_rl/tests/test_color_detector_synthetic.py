@@ -1,12 +1,12 @@
 import unittest
 
-from tests import BASE_CONFIG_PATH
+from r2d2_rl.tests import BASE_CONFIG_PATH
 
 import cv2
 import numpy as np
 
-from hybrid_control_rl.config import load_yaml_config
-from perception.color_block_detector import ColorBlockDetector
+from r2d2_rl.hybrid_control_rl.config import load_yaml_config
+from r2d2_rl.perception.color_block_detector import ColorBlockDetector
 
 
 class ColorDetectorSyntheticTest(unittest.TestCase):

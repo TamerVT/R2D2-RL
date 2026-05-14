@@ -66,19 +66,33 @@ class LearnedAlignGraspPolicy:
             delta_xyz = action[:3] * float(self.delta_xyz_max)
             gripper_cmd = float(np.clip((action[3] + 1.0) * 0.5, 0.0, 1.0))
 
-            _, _, term, trunc, _ = self.controller.step_delta(delta_xyz, gripper=gripper_cmd)
+            _, _, term, trunc, info = self.controller.step_delta(delta_xyz, gripper=gripper_cmd)
             self._prev_action = action
 
             if term or trunc:
                 return False
 
-            if gripper_cmd <= self.close_gripper_threshold:
-                # Treat first commanded close as the grasp attempt; the
-                # executor's classical lift will verify whether the cube
-                # actually came along, and the watchdog handles loss.
+            if gripper_cmd <= self.close_gripper_threshold and self._grasp_confirmed(info):
                 return True
 
         return False
+
+    def _grasp_confirmed(self, info: dict[str, Any]) -> bool:
+        """Use RCS grasp feedback when it is available.
+
+        Older/fake controllers may not expose an ``is_grasped`` signal; in
+        that case we preserve the previous command-close behavior. If RCS
+        explicitly reports ``False``, keep stepping instead of returning a
+        false success on the first close command.
+        """
+        if not isinstance(info, dict):
+            return True
+        if "is_grasped" in info:
+            return bool(info["is_grasped"])
+        robot = info.get("robot")
+        if isinstance(robot, dict) and "is_grasped" in robot:
+            return bool(robot["is_grasped"])
+        return True
 
     # ----------------------------------------------------------------- obs
 

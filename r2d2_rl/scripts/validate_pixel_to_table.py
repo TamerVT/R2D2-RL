@@ -87,6 +87,10 @@ def parse_args() -> argparse.Namespace:
 def setup_headless_gl_if_needed(headless: bool) -> str | None:
     if headless and "MUJOCO_GL" not in os.environ:
         os.environ["MUJOCO_GL"] = "egl"
+    if headless:
+        shader_cache = Path("/tmp") / "mesa_shader_cache"
+        shader_cache.mkdir(parents=True, exist_ok=True)
+        os.environ.setdefault("MESA_SHADER_CACHE_DIR", str(shader_cache))
     return os.environ.get("MUJOCO_GL")
 
 

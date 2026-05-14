@@ -54,6 +54,9 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     os.environ.setdefault("MUJOCO_GL", "egl")
+    shader_cache = Path("/tmp") / "mesa_shader_cache"
+    shader_cache.mkdir(parents=True, exist_ok=True)
+    os.environ.setdefault("MESA_SHADER_CACHE_DIR", str(shader_cache))
 
     import torch
 
@@ -74,6 +77,7 @@ def main() -> int:
 
     total_steps = 5 if args.smoke_only else args.total_steps
     warmup = min(args.warmup_steps, total_steps)
+    batch_size = min(args.batch_size, total_steps) if args.smoke_only else args.batch_size
 
     args.checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
@@ -109,9 +113,12 @@ def main() -> int:
         else:
             obs = next_obs
 
-        if step >= warmup and len(buffer) >= args.batch_size and step % args.update_every == 0:
-            batch = buffer.sample(args.batch_size, device=args.device)
+        if step >= warmup and len(buffer) >= batch_size and step % args.update_every == 0:
+            batch = buffer.sample(batch_size, device=args.device)
             last_metrics = agent.update(batch)
+            if args.smoke_only:
+                metrics_str = "  ".join(f"{k}={v:+.3f}" for k, v in last_metrics.items())
+                print(f"[smoke update] batch={batch_size}  {metrics_str}")
 
         if step % args.log_every == 0:
             elapsed = time.time() - start_time
@@ -120,10 +127,14 @@ def main() -> int:
                 f"[step {step:6d}] {step / max(elapsed, 1e-6):.1f} env/s  buffer={len(buffer)}  {metrics_str}"
             )
 
-        if step % args.checkpoint_every == 0 or args.smoke_only:
+        if step % args.checkpoint_every == 0:
             ckpt_path = args.checkpoint_dir / f"sac_step_{step:06d}.pt"
             agent.save(ckpt_path)
             print(f"[ckpt] saved {ckpt_path}")
+
+    if args.smoke_only and not last_metrics:
+        env.close()
+        raise RuntimeError("--smoke-only finished without running a SAC update.")
 
     final_path = args.checkpoint_dir / "sac_final.pt"
     agent.save(final_path)

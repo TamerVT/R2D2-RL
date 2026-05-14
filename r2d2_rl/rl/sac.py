@@ -13,7 +13,7 @@ live in ``rl.replay_buffer`` and ``scripts/train_align_grasp.py``.
 from __future__ import annotations
 
 import copy
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Sequence
 
@@ -51,7 +51,9 @@ class SACAgent:
         self.act_dim = int(act_dim)
         self.device = torch.device(cfg.device)
 
-        hidden = list(cfg.hidden_sizes)
+        hidden = [int(size) for size in cfg.hidden_sizes]
+        if not hidden or any(size <= 0 for size in hidden):
+            raise ValueError("SACConfig.hidden_sizes must contain positive layer sizes.")
         self.actor = SquashedGaussianActor(obs_dim, act_dim, hidden).to(self.device)
         self.critic = DoubleQNet(obs_dim, act_dim, hidden).to(self.device)
         self.critic_target = copy.deepcopy(self.critic).to(self.device)
@@ -147,8 +149,12 @@ class SACAgent:
                 "log_alpha": float(self.log_alpha.detach().cpu().item()),
                 "obs_dim": self.obs_dim,
                 "act_dim": self.act_dim,
+                "config": {**asdict(self.cfg), "hidden_sizes": list(self.cfg.hidden_sizes)},
                 "hidden_sizes": list(self.cfg.hidden_sizes),
                 "target_entropy": self.target_entropy,
+                "actor_optim": self.actor_optim.state_dict(),
+                "critic_optim": self.critic_optim.state_dict(),
+                "alpha_optim": self.alpha_optim.state_dict(),
             },
             str(path),
         )
@@ -156,21 +162,44 @@ class SACAgent:
     def load(self, path: str | Path) -> None:
         path = Path(path)
         ckpt = torch.load(str(path), map_location=self.device)
+        if "obs_dim" in ckpt and int(ckpt["obs_dim"]) != self.obs_dim:
+            raise ValueError(
+                f"Checkpoint obs_dim={ckpt['obs_dim']} does not match agent obs_dim={self.obs_dim}."
+            )
+        if "act_dim" in ckpt and int(ckpt["act_dim"]) != self.act_dim:
+            raise ValueError(
+                f"Checkpoint act_dim={ckpt['act_dim']} does not match agent act_dim={self.act_dim}."
+            )
         self.actor.load_state_dict(ckpt["actor"])
         self.critic.load_state_dict(ckpt["critic"])
         self.critic_target.load_state_dict(ckpt["critic_target"])
         with torch.no_grad():
             self.log_alpha.copy_(torch.tensor(float(ckpt["log_alpha"]), device=self.device))
+        if "actor_optim" in ckpt:
+            self.actor_optim.load_state_dict(ckpt["actor_optim"])
+        if "critic_optim" in ckpt:
+            self.critic_optim.load_state_dict(ckpt["critic_optim"])
+        if "alpha_optim" in ckpt:
+            self.alpha_optim.load_state_dict(ckpt["alpha_optim"])
 
 
 def load_agent_for_inference(path: str | Path, device: str = "cpu") -> SACAgent:
     """Convenience: build an agent matching a checkpoint and load weights."""
     path = Path(path)
     ckpt = torch.load(str(path), map_location=device)
+    cfg_data = ckpt.get("config") or {}
     cfg = SACConfig(
-        hidden_sizes=tuple(ckpt.get("hidden_sizes", (256, 256, 128))),
+        hidden_sizes=tuple(ckpt.get("hidden_sizes", cfg_data.get("hidden_sizes", (256, 256, 128)))),
         device=device,
-        target_entropy=float(ckpt.get("target_entropy", -float(ckpt["act_dim"]))),
+        gamma=float(cfg_data.get("gamma", SACConfig.gamma)),
+        tau=float(cfg_data.get("tau", SACConfig.tau)),
+        actor_lr=float(cfg_data.get("actor_lr", SACConfig.actor_lr)),
+        critic_lr=float(cfg_data.get("critic_lr", SACConfig.critic_lr)),
+        alpha_lr=float(cfg_data.get("alpha_lr", SACConfig.alpha_lr)),
+        init_log_alpha=float(cfg_data.get("init_log_alpha", SACConfig.init_log_alpha)),
+        target_entropy=float(
+            ckpt.get("target_entropy", cfg_data.get("target_entropy", -float(ckpt["act_dim"])))
+        ),
     )
     agent = SACAgent(int(ckpt["obs_dim"]), int(ckpt["act_dim"]), cfg)
     agent.load(path)
