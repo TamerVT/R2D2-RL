@@ -1,0 +1,16 @@
+extends: calibration.yaml
+
+eval:
+  task: local_rl_training
+
+rl:
+  backend: rcs_project3_sim
+  algorithm: sac
+  reset_distribution:
+    start_near_pregrasp: true
+    block_xy_noise: 0.04
+    ee_pose_noise: 0.02
+  domain_randomization:
+    lighting: true
+    camera_pose_noise: true
+    color_threshold_noise: true

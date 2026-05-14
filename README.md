@@ -1,55 +1,194 @@
 # R2D2-RL — Project 3: Visual Pick-and-Place with SO-101
 
-ETH Robot Learning, Project 3. Team work-in-progress repo for the
-hybrid **modular control + reinforcement learning** approach to three
-visual pick-and-place evaluations on the SO-101 arm.
+ETH Robot Learning Project 3. Hybrid **classical control + local RL** pipeline
+for visual pick-and-place on the SO-101 arm, built on top of
+[RobotControlStack (RCS)](https://github.com/RobotControlStack/robot-control-stack)
+for sim and hardware abstraction.
+
+The three evaluations:
 
 - **Eval 1** — single block → bowl (BC or RL allowed)
 - **Eval 2** — two-color cluster, pick the target color → bowl (RL required)
 - **Eval 3** — four colors, three sequential pick-and-place goals (RL required)
 
-The policy must operate on RGB observations from the wrist camera;
-bowl targets are given as robot-frame `(x, y, z)` coordinates.
+The policy operates on RGB observations from the SO-101 wrist camera; bowl
+targets are given as robot-frame `(x, y, z)` coordinates.
 
-## Where to start
+## Pipeline at a glance
 
-Read [`SIM_WRIST_CAMERA_README.md`](SIM_WRIST_CAMERA_README.md) — the
-full setup, run, and design guide. It covers:
+```
+  Wrist RGB ─► ColorBlockDetector ─► PixelToTableProjector ─► BlockBeliefTracker
+                                                                      │
+                                                                      ▼
+                            ┌────────────────────────────────────────┴────┐
+                            │                                              │
+                            ▼                                              ▼
+                  HybridWaypointPlanner ◄──── HybridTaskExecutor ───► LocalPolicy
+                            │              (state machine)            (align_grasp)
+                            ▼
+                  RcsWaypointController ─► Project3SO101Env ─► RCS / MuJoCo
+```
 
-- environment setup (`conda` env `lerobot-p3` with `mujoco 3.8.0` etc.)
-- the one-line wrist-camera demo command and expected output
-- how the `wrist_cam` MuJoCo camera is configured and how to edit it
-- the plan for real-hardware calibration (intrinsics, hand-eye, fixed mount)
-- limitations and the suggested next steps (scene MJCF, perception, RL)
+Pipeline phases (executor state machine):
 
-## Quick run
+```
+  observe ─► approach ─► align_grasp ─► lift ─► transport ─► release
+                              │                    │
+                              │                    │ if target lost N frames
+                              │                    ▼
+                              │              recovery (retreat + re-observe)
+                              ▼
+                       (RL: contact-rich)   classical waypoints
+```
+
+Design decisions baked in:
+
+- **Only `align_grasp` is RL.** Lift, transport, and release are classical
+  waypoints — contact dynamics only matter at the grasp itself.
+- **RCS is the sim/control substrate.** Our code reuses `rcs.common.Pin` (IK),
+  `rcs.envs.configs.EmptyWorldSO101` (sim scene), `rcs.camera.sim.SimCameraSet`
+  (wrist camera), and `rcs.envs.base.RelativeActionSpace` (action wrapper).
+- **Lost-cube recovery is a vision watchdog**, not a learned "hold" policy.
+  If the target color disappears for `recovery.max_lost_frames` consecutive
+  frames during transport, the executor retreats to a safe pose and
+  re-localizes, up to `recovery.max_attempts` times.
+
+## Repository layout
+
+```
+project3/
+├── README.md
+├── SIM_WRIST_CAMERA_README.md         Detailed wrist-camera setup notes
+│
+├── hybrid_control_rl/                 YAML config loader (extends + deep_merge)
+├── perception/
+│   └── color_block_detector.py        HSV + contour color block detector
+├── estimation/
+│   ├── pixel_to_table.py              Pixel → robot-frame ray-plane projection
+│   └── block_belief.py                Per-color static Kalman belief tracker
+├── planning/
+│   └── hybrid_waypoint_planner.py     Belief-gated pregrasp/lift/transport/release/recovery
+├── control/
+│   └── waypoint_controller.py         Thin adapter over RCS env.step (cartesian delta)
+├── runtime/
+│   ├── hybrid_task_executor.py        Multi-phase state machine + Eval 3 sequence
+│   └── rcs_sim_adapters.py            RCS-backed observer / visibility checker / scripted policy
+├── envs/
+│   ├── project3_so101_env.py          RCS SO-101 sim scene + colored cubes + wrist camera
+│   └── assets/cubes/                  Red / blue / yellow cube MJCFs (green comes from RCS)
+│
+├── configs/hybrid_control_rl/         YAML configs (base + per-eval overrides)
+│   ├── base.yaml                      Camera / workspace / perception / planning / recovery
+│   ├── calibration.yaml               Intrinsics + extrinsics + uncertainty
+│   ├── eval1.yaml … eval3.yaml        Per-evaluation goal lists
+│   ├── sim_training.yaml              RL training overrides
+│   └── real_eval.yaml                 Real-hardware overrides
+│
+├── scripts/
+│   ├── run_hybrid_eval_sim.py         End-to-end Eval 1 in the RCS sim
+│   ├── render_project3_screenshot.py  Snapshot wrist + external view PNG
+│   ├── validate_pixel_to_table.py     Closed-loop projection accuracy validation
+│   ├── test_rcs_so101_sim.py          RCS smoke test (env reset + steps)
+│   ├── test_wrist_camera_feed.py      MuJoCo wrist-camera demo (legacy `lerobot-p3` env)
+│   ├── Cam_calibration.py             Real-camera intrinsic-calibration helper (WIP)
+│   └── Cam_workflow.py                Color-detection prototype on captured frames
+│
+├── tests/                             47 unit tests (pure-numeric + light adapter mocks)
+├── docs/
+│   ├── CODEBASE_AUDIT_hybrid_control_rl.md
+│   ├── HYBRID_CONTROL_RL_TRAJECTORY_SPEC_REVISED.md
+│   └── RCS_OVERLAP_AUDIT.md
+└── outputs/                           Curated artifacts (wrist demo, screenshots, validation)
+```
+
+External dependencies (not committed):
+
+- `external/robot-control-stack/` — RCS clone, installed into the `lerobot-p3-rcs`
+  conda env. See **Environments** below.
+- `ethz-course-2026/` — ETH coursework reference (HW2/HW3/HW4 vendored locally,
+  used as MJCF + reference only).
+- `legacy/` — earlier LeRobot ACT pipeline plan, parked.
+
+## Environments
+
+Two conda envs are maintained because RCS pins different MuJoCo:
+
+| Env | Python | MuJoCo | Purpose |
+|---|---|---|---|
+| `lerobot-p3` | 3.12 | 3.8.0 | Legacy wrist-cam demo, pure-numeric tests |
+| `lerobot-p3-rcs` | 3.11 | 3.2.6 | **Active runtime** — RCS, sim env, full pipeline |
+
+Activate the RCS env before doing anything sim-related:
 
 ```bash
 source /home/explo22/miniforge3/etc/profile.d/conda.sh
+conda activate lerobot-p3-rcs
+```
+
+## Quick start
+
+End-to-end sim run (single Eval 1 goal):
+
+```bash
+MUJOCO_GL=egl python scripts/run_hybrid_eval_sim.py --save-images
+# -> outputs/hybrid_eval_sim/{initial,final}_{wrist,external}.png
+```
+
+Render a Project 3 sim screenshot (cube + wrist camera + external view):
+
+```bash
+MUJOCO_GL=egl python scripts/render_project3_screenshot.py --external-view
+# -> outputs/project3_screenshot/{wrist_cam,external_view}.png
+```
+
+Validate pixel-to-table projection against a known mocap target (legacy env):
+
+```bash
 conda activate lerobot-p3
-MUJOCO_GL=egl python scripts/test_wrist_camera_feed.py --headless --save-video
-# -> outputs/wrist_cam_demo/{frame_*.png, wrist_cam_demo.mp4}
+MUJOCO_GL=egl python scripts/validate_pixel_to_table.py --headless
+# -> median error ~0.23 cm, max ~1.7 cm (out of 25 trial offsets)
 ```
 
-## Layout
+Run the test suite (works in both envs):
 
-```
-R2D2-RL/
-├── README.md                      # you are here
-├── SIM_WRIST_CAMERA_README.md     # detailed guide
-├── scripts/
-│   └── test_wrist_camera_feed.py  # MuJoCo wrist-camera smoke test
-├── ethz-course-2026/              # vendored ETH course reference repo
-│   └── hw2_robot_control_mdps/    # SO arm gym + MJCF (so_arm100.xml has our wrist_cam)
-└── outputs/                       # demo artifacts (frames + MP4)
+```bash
+python -m unittest discover -s tests -p 'test_*.py'
+# 47 tests, ~150 ms
 ```
 
-## Status
+## What is implemented
 
-- [x] MuJoCo sim environment running
-- [x] Named wrist camera (`wrist_cam`) + offscreen RGB feed working in headless mode
-- [ ] Scene MJCF (table, blocks, bowls) — next
-- [ ] Gymnasium wrapper exposing `wrist_image` in obs dict — next
-- [ ] Perception module (RGB → block xyz) — after scene
-- [ ] Classical IK + waypoint controller — after scene
-- [ ] RL for contact-rich subphases — for Eval 2/3
+| Component | Status | Where |
+|---|---|---|
+| HSV color block detector (R/G/B/Y, hue-wrap red, covariance estimate) | done | `perception/color_block_detector.py` |
+| Pixel-to-table ray-plane projection (intrinsics, distortion, T_E_C / T_B_C entry points, FD covariance) | done | `estimation/pixel_to_table.py` |
+| Per-color static Kalman belief tracker (predict, update, contact-aware Q) | done | `estimation/block_belief.py` |
+| Hybrid waypoint planner (pregrasp, lift, transport, release, recovery) | done | `planning/hybrid_waypoint_planner.py` |
+| RCS waypoint controller (proportional-step, gripper-preserving) | done | `control/waypoint_controller.py` |
+| Hybrid task executor / state machine (Eval 1 single, Eval 3 sequence) | done | `runtime/hybrid_task_executor.py` |
+| Project 3 RCS env (SO-101 + colored cubes + wrist camera) | done | `envs/project3_so101_env.py` |
+| YAML config system (base + extends + per-eval overrides) | done | `hybrid_control_rl/config.py`, `configs/hybrid_control_rl/` |
+| End-to-end sim runner | done | `scripts/run_hybrid_eval_sim.py` |
+| Screenshot tooling | done | `scripts/render_project3_screenshot.py` |
+| Pixel-to-table closed-loop validator | done | `scripts/validate_pixel_to_table.py` |
+| Unit tests (47, all green) | done | `tests/` |
+
+## What is NOT yet implemented
+
+| Component | Notes |
+|---|---|
+| **Trained `align_grasp` RL policy** | Currently `ScriptedAlignGraspPolicy` — moves to estimated XY and closes the gripper. Required for Eval 2 / Eval 3 per the project rubric. Next major slice. |
+| RL training env + trainer (SAC/PPO on top of `Project3SO101Env`) | Needed to train the above. |
+| Multi-cube clutter scene for Eval 2 | The env supports a list of cubes; no Eval 2 specific runner script yet. |
+| Eval 3 multi-goal sequence runner script | `executor.run_sequence()` exists; no top-level driver script. |
+| Camera intrinsic + extrinsic calibration scripts | `Cam_calibration.py` is a WIP. Needed for real hardware deployment only — sim derives intrinsics from RCS camera fovy. |
+| LeRobot `so101_follower` path shim for `rcs_so101.hw` | Needed for real hardware (sim path is unaffected). |
+| Structured rollout logging (`logs/hybrid_rollouts/<timestamp>/`) | Spec section 15. Currently the eval prints to stdout only. |
+| Debug overlays (mask + centroid + projected coord per frame) | Useful for debugging real-camera failure modes. |
+
+## Documentation
+
+- **[`SIM_WRIST_CAMERA_README.md`](SIM_WRIST_CAMERA_README.md)** — wrist-camera setup guide.
+- **[`docs/HYBRID_CONTROL_RL_TRAJECTORY_SPEC_REVISED.md`](docs/HYBRID_CONTROL_RL_TRAJECTORY_SPEC_REVISED.md)** — the implementation plan adapted to the actual codebase.
+- **[`docs/CODEBASE_AUDIT_hybrid_control_rl.md`](docs/CODEBASE_AUDIT_hybrid_control_rl.md)** — audit of what existed before this project started.
+- **[`docs/RCS_OVERLAP_AUDIT.md`](docs/RCS_OVERLAP_AUDIT.md)** — which RCS modules replace which of our utilities and which stay ours.

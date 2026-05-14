@@ -1,0 +1,7 @@
+extends: calibration.yaml
+
+eval:
+  task: 1
+  goals:
+    - target_color: any
+      bowl_xyz_base: [0.25, 0.00, 0.05]

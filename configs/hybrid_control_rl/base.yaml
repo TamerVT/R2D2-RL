@@ -1,0 +1,84 @@
+camera:
+  width: 640
+  height: 480
+  name: wrist_cam
+
+workspace:
+  table_plane_base:
+    normal: [0.0, 0.0, 1.0]
+    d: -0.0
+  object_height: 0.04
+  z_object_center: 0.02
+  bounds_xy:
+    x: [0.12, 0.45]
+    y: [-0.25, 0.25]
+
+perception:
+  min_area_px: 50
+  max_area_px: 30000
+  morph_kernel: 3
+  pixel_sigma_base: 3.0
+  confidence_floor: 0.2
+  confidence_min_area_px: 50
+  confidence_full_area_px: 600
+  colors:
+    red:
+      hsv_ranges:
+        - lower: [0, 90, 60]
+          upper: [10, 255, 255]
+        - lower: [170, 90, 60]
+          upper: [179, 255, 255]
+    green:
+      hsv_lower: [35, 70, 50]
+      hsv_upper: [85, 255, 255]
+    blue:
+      hsv_lower: [95, 70, 50]
+      hsv_upper: [130, 255, 255]
+    yellow:
+      hsv_lower: [20, 70, 80]
+      hsv_upper: [35, 255, 255]
+
+estimation:
+  process_noise_xy: 0.0001
+  process_noise_contact_xy: 0.0025
+  initial_covariance_xy: 0.0025
+
+planning:
+  z_pregrasp: 0.10
+  z_grasp: 0.025
+  z_lift: 0.15
+  pregrasp_xy_offset: [0.0, 0.0]
+  max_belief_std_for_grasp: 0.015
+  max_approach_speed: 0.05
+  grasp_orientation_rpy: [3.14159, 0.0, 0.0]
+
+control:
+  table_collision_margin: 0.02
+  waypoint_timeout_s: 5.0
+  max_joint_step_rad: 0.05
+
+rl:
+  # Only the genuinely contact-rich phase is learned. Lift, transport, and
+  # release are classical; if the target falls out of view during transport
+  # the executor returns to a safe pose and re-localizes (see `recovery`).
+  phases: [align_grasp]
+  action_space:
+    delta_xyz_max: 0.015
+    delta_yaw_max: 0.15
+    gripper_delta_max: 1.0
+
+recovery:
+  # Triggered during transport if the target color is not detected in the
+  # wrist view for `max_lost_frames` consecutive checks. The executor moves
+  # the arm back to `return_xyz_base` (above the table), re-localizes, and
+  # restarts from the approach phase up to `max_attempts` times.
+  on_lost_target: return_to_safe_pose
+  max_lost_frames: 5
+  visibility_check_period_s: 0.2
+  return_xyz_base: [0.20, 0.00, 0.18]
+  max_attempts: 3
+
+logging:
+  root_dir: logs/hybrid_rollouts
+  save_images: true
+  save_masks: true

@@ -1,0 +1,10 @@
+extends: calibration.yaml
+
+eval:
+  task: 2
+  goals:
+    - target_color: red
+      bowl_xyz_base: [0.25, 0.00, 0.05]
+
+rl:
+  require_learned_local_policy: true
