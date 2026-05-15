@@ -25,3 +25,6 @@ checkpoints/
 outputs/*
 !outputs/wrist_cam_demo/
 !outputs/left_wrist_demo/
+
+# do not include large models
+Models_public/

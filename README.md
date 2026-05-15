@@ -39,7 +39,7 @@ R2D2-RL/
 ├── SIM_WRIST_CAMERA_README.md     # detailed guide
 ├── scripts/
 │   └── test_wrist_camera_feed.py  # MuJoCo wrist-camera smoke test
-├── ethz-course-2026/              # vendored ETH course reference repo
+├── external/              # vendored ETH course reference repo
 │   └── hw2_robot_control_mdps/    # SO arm gym + MJCF (so_arm100.xml has our wrist_cam)
 └── outputs/                       # demo artifacts (frames + MP4)
 ```
