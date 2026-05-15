@@ -1,3 +1,6 @@
 [submodule "rcs_env/robot-control-stack"]
 	path = rcs_env/robot-control-stack
 	url = https://github.com/RobotControlStack/robot-control-stack.git
+[submodule "external/robot-control-stack"]
+	path = external/robot-control-stack
+	url = https://github.com/RobotControlStack/robot-control-stack.git

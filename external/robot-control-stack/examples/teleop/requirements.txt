@@ -1,6 +1,0 @@
-# simpub @ git+https://github.com/intuitive-robots/SimPublisher.git@af6560384f24520601798b47d900fee6fe27cf2d # doesnt work
-dynamixel_sdk
-pynput
-scipy
-jupyter
-matplotlib
