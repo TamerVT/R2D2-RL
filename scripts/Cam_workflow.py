@@ -2,7 +2,8 @@
 import cv2
 import time
 import numpy as np
-from OUR_stuff.scripts.bbox_client import BBoxServiceClient
+import os
+print(os.getcwd())
 
 # -----------------------------
 # Preprocess
@@ -72,7 +73,7 @@ class Net:
                  host="127.0.0.1", port=5555, timeout_s=0.2, jpeg_quality=85):
         self.imgsz = imgsz
         self.conf = conf
-        self.client = BBoxServiceClient(host=host, port=port, timeout_s=timeout_s, jpeg_quality=jpeg_quality)
+        #self.client = BBoxServiceClient(host=host, port=port, timeout_s=timeout_s, jpeg_quality=jpeg_quality)
 
     def forward(self, img_bgr):
         # ensure BGR uint8 contiguous is handled inside BBoxServiceClient already
