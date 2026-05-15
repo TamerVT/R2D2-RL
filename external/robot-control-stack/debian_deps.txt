@@ -1,0 +1,3 @@
+build-essential
+gcc
+libglfw3-dev

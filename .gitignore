@@ -1,0 +1,27 @@
+# Local-only / build artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+*.so
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Parked LeRobot-pipeline plan (kept locally, not shipped)
+legacy/
+
+# RL logs / checkpoints (created later)
+logs/
+runs/
+wandb/
+checkpoints/
+
+# Skip generated artifact subfolders we don't curate; the curated ones
+# (outputs/wrist_cam_demo, outputs/left_wrist_demo) are committed below
+outputs/*
+!outputs/wrist_cam_demo/
+!outputs/left_wrist_demo/

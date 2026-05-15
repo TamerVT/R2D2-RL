@@ -1,0 +1,231 @@
+import threading
+import typing
+from pathlib import Path
+
+import numpy as np
+from lerobot.robots import make_robot_from_config
+from lerobot.robots.so101_follower.config_so101_follower import SO101FollowerConfig
+from lerobot.robots.so101_follower.so101_follower import SO101Follower
+from rcs.common_typing import RobotConfigKwargs
+from rcs.utils import SimpleFrameRate
+
+from rcs import common
+
+
+class SO101Config(common.RobotConfig):
+
+    def __init__(
+        self,
+        id: str = "follower",
+        port: str = "/dev/ttyACM0",
+        calibration_dir: str = ".",
+        **kwargs: typing.Unpack[RobotConfigKwargs],
+    ):
+        super().__init__(**kwargs)
+        self.id = id
+        self.port = port
+        self.calibration_dir = calibration_dir
+
+
+class SO101(common.Robot):
+    def __init__(self, cfg: SO101Config, ik: common.Kinematics):
+        super().__init__()
+        self.ik = ik
+        self._robot_config = cfg
+        cfg = SO101FollowerConfig(
+            id=self._robot_config.id,
+            calibration_dir=Path(self._robot_config.calibration_dir),
+            port=self._robot_config.port,
+        )
+        self._hf_robot = make_robot_from_config(cfg)
+        self._hf_robot.connect()
+        self._thread: threading.Thread | None = None
+        self._running = False
+        self._goal = None
+        self._goal_lock = threading.Lock()
+        self._rate_limiter = SimpleFrameRate(30, "teleop readout")
+        self.obs = None
+        self._last_joint = self._get_joint_position()
+
+    def get_cartesian_position(self) -> common.Pose:
+        return self.ik.forward(self.get_joint_position())
+
+    def get_ik(self) -> common.Kinematics | None:
+        return self.ik
+
+    def _get_joint_position(self) -> np.ndarray[tuple[typing.Literal[5]], np.dtype[np.float64]]:  # type: ignore
+        obs = self._hf_robot.get_observation()
+        self.obs = obs
+        joints_hf = np.array(
+            [
+                obs["shoulder_pan.pos"],
+                obs["shoulder_lift.pos"],
+                obs["elbow_flex.pos"],
+                obs["wrist_flex.pos"],
+                obs["wrist_roll.pos"],
+            ],
+            dtype=np.float64,
+        )
+        # print(obs)
+        joints_normalized = (joints_hf + 100) / 200
+        joints_in_rad = (
+            joints_normalized * (self._robot_config.joint_limits[1] - self._robot_config.joint_limits[0])
+            + self._robot_config.joint_limits[0]
+        )
+        self._last_joint = joints_in_rad
+        return joints_in_rad
+
+    def get_joint_position(self) -> np.ndarray[tuple[typing.Literal[5]], np.dtype[np.float64]]:  # type: ignore
+        # return self._last_joint
+        return self._get_joint_position()
+
+    def get_config(self):
+        return self._robot_config
+
+    def get_state(self) -> common.RobotState:
+        return common.RobotState()
+
+    def move_home(self) -> None:
+        home = typing.cast(
+            np.ndarray[tuple[typing.Literal[5]], np.dtype[np.float64]],
+            self._robot_config.q_home,
+        )
+        print("move home", home)
+        self.set_joint_position(home)
+
+    def reset(self) -> None:
+        pass
+
+    def set_cartesian_position(self, pose: common.Pose) -> None:
+        joints = self.ik.inverse(pose, q0=self.get_joint_position())
+        if joints is not None:
+            self.set_joint_position(joints)
+            self._last_cart = pose
+
+    def _set_joint_position(self, q: np.ndarray[tuple[typing.Literal[5]], np.dtype[np.float64]]) -> None:  # type: ignore
+        self._last_joint = q
+        q_normalized = (q - self._robot_config.joint_limits[0]) / (
+            self._robot_config.joint_limits[1] - self._robot_config.joint_limits[0]
+        )
+        q_hf = (q_normalized * 200) - 100
+        self._hf_robot.send_action(
+            {
+                "shoulder_pan.pos": q_hf[0],
+                "shoulder_lift.pos": q_hf[1],
+                "elbow_flex.pos": q_hf[2],
+                "wrist_flex.pos": q_hf[3],
+                "wrist_roll.pos": q_hf[4],
+            }
+        )
+
+    def set_joint_position(self, q: np.ndarray[tuple[typing.Literal[5]], np.dtype[np.float64]]) -> None:  # type: ignore
+        self._set_joint_position(q)
+
+    def _controller(self):
+        print("Controller thread started")
+        while self._running:
+
+            with self._goal_lock:
+                goal = self._goal
+            if goal is None:
+                self._rate_limiter()
+                continue
+            current_pos = self._get_joint_position()
+            if np.allclose(current_pos, goal, atol=np.deg2rad(5)):
+                # print("Goal reached, continuing...")
+                self._rate_limiter()
+                continue
+            # interpolate with max 10 degree / s
+            max_step = np.deg2rad(90) * self._rate_limiter.get_frame_time()
+            delta = goal - current_pos
+            # how many steps are needed to reach the goal
+            steps_needed = np.ceil(np.max(np.abs(delta)) / max_step)
+            for i in range(int(steps_needed)):
+                if not self._running:
+                    # print("Controller thread stopped")
+                    return
+                # calculate the next position
+                step = delta / steps_needed * (i + 1)
+                new_pos = current_pos + step
+                self._set_joint_position(new_pos)
+
+                self._rate_limiter()
+                # check if new goal is set
+                with self._goal_lock:
+                    if self._goal is None or not np.allclose(goal, self._goal, atol=np.deg2rad(1)):
+                        break
+
+    def start_controller_thread(self):
+        self._running = True
+        self._thread = threading.Thread(target=self._controller, daemon=True)
+        self._thread.start()
+
+    def stop_controller_thread(self):
+        print("Stopping controller thread")
+        self._running = False
+        with self._goal_lock:
+            self._goal = None
+        if self._thread is not None and self._thread.is_alive():
+            self._thread.join()
+
+    # def to_pose_in_robot_coordinates(self, pose_in_world_coordinates: Pose) -> Pose: ...
+    # def to_pose_in_world_coordinates(self, pose_in_robot_coordinates: Pose) -> Pose: ...
+
+    def close(self):
+        self.move_home()
+        self.stop_controller_thread()
+        self._hf_robot.disconnect()
+
+
+# TODO: problem when we inherit from gripper then we also need to call init which doesnt exist
+class SO101Gripper(common.Gripper):
+    def __init__(self, hf_robot: SO101Follower, robot: SO101):
+        super().__init__()
+        self._hf_robot = hf_robot
+        self._robot = robot
+        self._cfg = common.GripperConfig()
+
+    def get_normalized_width(self) -> float:
+        obs = self._robot.obs
+        if obs is None:
+            return 0.0
+        return obs["gripper.pos"] / 100.0
+
+    def get_config(self) -> common.GripperConfig:
+        return self._cfg
+
+    # def get_state(self) -> GripperState: ...
+
+    def grasp(self) -> None:
+        """
+        Close the gripper to grasp an object.
+        """
+        self.shut()
+
+    # def is_grasped(self) -> bool: ...
+
+    def open(self) -> None:
+        """
+        Open the gripper to its maximum width.
+        """
+        self.set_normalized_width(1.0)
+
+    def reset(self) -> None:
+        pass
+
+    def set_normalized_width(self, width: float, _: float = 0) -> None:
+        """
+        Set the gripper width to a normalized value between 0 and 1.
+        """
+        if not (0 <= width <= 1):
+            msg = f"Width must be between 0 and 1, got {width}."
+            raise ValueError(msg)
+        # Convert normalized width to absolute position
+        abs_width = width * 100.0
+        self._hf_robot.send_action({"gripper.pos": abs_width})
+
+    def shut(self) -> None:
+        """
+        Close the gripper.
+        """
+        self.set_normalized_width(0.0)

@@ -1,0 +1,152 @@
+name: Python
+
+on:
+  workflow_call:
+  pull_request:
+  push:
+    branches:
+      - master
+
+jobs:
+  pythonpackage:
+    runs-on: ubuntu-latest
+    env:
+      CC: clang
+      CXX: clang++
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install CPP dependencies
+        run: sudo apt install $(cat debian_deps.txt)
+      - name: Install virtual frame buffer tool
+        run: sudo apt install xvfb
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - name: upgrade pip
+        run: pip install --upgrade pip
+      - name: Install building dependencies
+        run: python -m pip install --group build_deps
+      - name: Install wheel
+        run: python -m pip install wheel
+      - name: Install the package
+        run: python -m pip install -ve . --group dev
+      - name: Check formatting
+        run: make pycheckformat
+      - name: Code linting
+        run: make pylint
+      - name: Check that stub files are up-to-date
+        run: make stubgen && git diff --exit-code
+      - name: Ensure all unittests(pytest) are passing
+        run: xvfb-run make pytest
+
+  check-paths:
+    runs-on: ubuntu-latest
+    outputs:
+      extensions_changed: ${{ steps.changed-files.outputs.any_changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Get changed files for extensions
+        id: changed-files
+        uses: tj-actions/changed-files@v41
+        with:
+          files: |
+            extensions/**
+
+  build_extensions:
+    needs: [pythonpackage, check-paths]
+    if: needs.check-paths.outputs.extensions_changed == 'true'
+    strategy:
+      matrix:
+        extension:
+          # Python extensions
+          - rcs_xarm7
+          - rcs_realsense
+          - rcs_robotiq2f85
+          - rcs_tacto
+          - rcs_usb_cam
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache apt packages
+        uses: actions/cache@v4
+        with:
+          path: /var/cache/apt/archives
+          key: ${{ runner.os }}-apt-${{ hashFiles('debian_deps.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-apt-
+      - name: Install dependencies
+        run: sudo apt install $(cat debian_deps.txt)
+      - name: Set up Python 3.11
+        id: setup-python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: upgrade pip
+        run: pip install --upgrade pip
+      - name: Install build dependencies
+        run: pip install --group build_deps
+
+      - name: Install rcs
+        run: pip install -ve . --group dev
+
+      - name: Install extension
+        run: pip install -ve extensions/${{ matrix.extension }}
+
+  build_cpp_extensions:
+    needs: [pythonpackage, check-paths]
+    if: needs.check-paths.outputs.extensions_changed == 'true'
+    strategy:
+      matrix:
+        extension:
+          - rcs_fr3
+          - rcs_panda
+          - rcs_robotics_library
+          - rcs_so101
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache apt packages
+        uses: actions/cache@v4
+        with:
+          path: /var/cache/apt/archives
+          key: ${{ runner.os }}-apt-${{ hashFiles('debian_deps.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-apt-
+      - name: Install virtual frame buffer tool
+        run: sudo apt install xvfb
+      - name: Install potential debian deps
+        run: |
+          if [ -f extensions/${{ matrix.extension }}/debian_deps.txt ]; then
+            sudo apt install $(cat extensions/${{ matrix.extension }}/debian_deps.txt)
+          fi
+      - name: Install dependencies
+        run: sudo apt install $(cat debian_deps.txt)
+      - name: Set up Python 3.11
+        id: setup-python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - name: upgrade pip
+        run: pip install --upgrade pip
+      - name: Install Python dependencies
+        run: pip install --group build_deps
+      - name: Install RCS
+        run: pip install -ve . --group dev
+      - name: Install extension
+        run: pip install -ve extensions/${{ matrix.extension }}
+      - name: Check that stub files are up-to-date
+        run: make -C extensions/${{ matrix.extension }} stubgen && git diff --exit-code
+      - name: Check clang format
+        run: make -C extensions/${{ matrix.extension }} cppcheckformat
+      # - name: Clang Tidy
+      #   run: make -C extensions/${{ matrix.extension }} cpplint
+      # - name: Clang build
+      #   run: make -C extensions/${{ matrix.extension }} clangcompile PYTHON_EXECUTABLE=${{ steps.setup-python.outputs.python-path }}

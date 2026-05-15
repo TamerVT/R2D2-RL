@@ -1,0 +1,226 @@
+[build-system]
+requires = [
+  "build",
+  "wheel",
+  "setuptools>=45",
+  "scikit-build-core>=0.3.3",
+  "pybind11",
+  "cmake",
+  "ninja",
+  "mujoco==3.2.6",
+  "pin==3.7.0",
+]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "rcs"
+version = "0.7.0"
+description = "A Lean Ecosystem for Robot Learning at Scale"
+dependencies = [
+  "websockets>=11.0",
+  "requests~=2.31",
+  "numpy",
+  "typer~=0.9",
+  "gymnasium~=0.29.1",
+  "absl-py~=2.1",
+  "etils[epath]>=1.7.0",
+  "glfw~=2.7",
+  "pyopengl~=3.1.9",
+  "pynput>=1.7.7",
+  "pillow>=10.3",
+  "python-dotenv>=1.0.1",
+  "opencv-python~=4.10.0.84",
+  "tilburg-hand",
+  "digit-interface",
+  "pyopengl>=3.1.9",
+  "ompl>=1.7.0",
+  "rpyc~=6.0.2",
+  "pyarrow",
+  "simplejpeg",
+  "mujoco==3.2.6",
+  "pin==3.7.0",
+  "greenlet",
+  "duckdb",
+  "pandas",
+]
+readme = "README.md"
+maintainers = [{ name = "Tobias Jülg", email = "tobias.juelg@utn.de" }]
+authors = [
+  { name = "Tobias Jülg", email = "tobias.juelg@utn.de" },
+  { name = "Pierre Krack", email = "pierre.krack@utn.de" },
+  { name = "Seongjin Bien", email = "seongjin.bien@utn.de" },
+]
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+
+[dependency-groups]
+dev = [
+  "ruff==0.3.2",
+  "black==24.1.1",
+  "isort==5.13.2",
+  "mypy==1.10.1",
+  "types-requests~=2.31",
+  # temporarily use fixed version until PR #275 is merged
+  # pybind11-stubgen==2.5.5
+  "pybind11-stubgen @ git+https://github.com/juelg/pybind11-stubgen@7f6afa59cfb8a485d3e53311be62214fefd96d75",
+  "pytest==8.1.1",
+  "commitizen~=3.28.0",
+  "clang",
+  "clang-format",
+  "clang-tidy",
+  "ninja",
+  "cmake",
+]
+build_deps = [
+  "mujoco==3.2.6",
+  "pin==3.7.0",
+]
+
+[tool.cibuildwheel]
+skip = ["cp314*", "*-musllinux*"]
+# Install X11 headers needed to compile GLFW
+before-all = "yum install -y libXi-devel libXcursor-devel libXinerama-devel libXrandr-devel glfw-devel"
+# Exclude MuJoCo AND Pinocchio from being bundled.
+repair-wheel-command = "auditwheel repair -w {dest_dir} {wheel} --exclude libmujoco.so.3.2.6 --exclude libpinocchio_default.so.3.7.0 --exclude libpinocchio_parsers.so.3.7.0"
+
+[tool.scikit-build]
+build.verbose = true
+build.targets = ["_core", "rcs"]
+logging.level = "INFO"
+build-dir = "build"
+wheel.packages = ["python/rcs"]
+install.components = ["python_package"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+fixable = ["ALL"]
+extend-select = [
+  "B", # flake8-bugbear
+  # "I",           # isort
+  "ARG", # flake8-unused-arguments
+  "C4",  # flake8-comprehensions
+  "EM",  # flake8-errmsg
+  "ICN", # flake8-import-conventions
+  "G",   # flake8-logging-format
+  "PGH", # pygrep-hooks
+  "PIE", # flake8-pie
+  "PL",  # pylint
+  "PT",  # flake8-pytest-style
+  #   "PTH",         # flake8-use-pathlib
+  "RET", # flake8-return
+  "RUF", # Ruff-specific
+  "SIM", # flake8-simplify
+  "T20", # flake8-print
+  #   "UP",          # pyupgrade
+  "YTT", # flake8-2020
+  "EXE", # flake8-executable
+  "NPY", # NumPy specific rules
+  "PD",  # pandas-vet
+]
+ignore = [
+  "PLR09",   # Too many X
+  "PLR2004", # Magic comparison
+  "E741",    # ambiguous variable name
+  "ICN001",  #  `numpy` should be imported as `np`
+  "PGH003",  # Use specfic rule code when ignoring types issues
+  # "RET504",
+  "T201",    # print() used
+  "PLR5501", # elif to reduce indentation
+  "PT018",   # assertion should be broken down into multiple parts
+  "NPY002",
+  "G004",    # Logging format string does not contain any placeholders
+  "ARG002",
+]
+[tool.ruff.lint.per-file-ignores]
+"python/rcs/_core/*.pyi" = ["B006"]
+
+[tool.pylint.format]
+max-line-length = 120
+
+[tool.pylint.messages_control]
+disable = [
+  "C",
+  "R",
+  "fixme",
+  "logging-fstring-interpolation",
+  "unspecified-encoding",
+  "broad-exception-raised",
+  "broad-exception-caught",
+]
+
+[tool.black]
+line-length = 120
+target-version = ["py310"]
+
+[tool.isort]
+profile = "black"
+
+[tool.mypy]
+ignore_missing_imports = true
+check_untyped_defs = true
+pretty = true
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-vv"
+testpaths = ["python/tests"]
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+tag_format = "v$version"
+version_scheme = "pep440"
+version_provider = "pep621"
+update_changelog_on_bump = true
+major_version_zero = true
+version_files = [
+  "CMakeLists.txt:VERSION",
+  "python/rcs/_core/__init__.pyi:__version__",
+
+  # --- FR3 Extension ---
+  "extensions/rcs_fr3/CMakeLists.txt:VERSION",
+  "extensions/rcs_fr3/src/rcs_fr3/_core/__init__.pyi:__version__",
+  "extensions/rcs_fr3/pyproject.toml:version",
+  # The line below updates the dependency string "rcs>=x.y.z"
+  "extensions/rcs_fr3/pyproject.toml:\"rcs>=(.*)\"",
+
+  # --- Panda Extension ---
+  "extensions/rcs_panda/CMakeLists.txt:VERSION",
+  "extensions/rcs_panda/src/rcs_panda/_core/__init__.pyi:__version__",
+  "extensions/rcs_panda/pyproject.toml:version",
+  "extensions/rcs_panda/pyproject.toml:\"rcs>=(.*)\"",
+
+  # --- Robotics Library ---
+  "extensions/rcs_robotics_library/CMakeLists.txt:VERSION",
+  "extensions/rcs_robotics_library/src/rcs_robotics_library/_core/__init__.pyi:__version__",
+  "extensions/rcs_robotics_library/pyproject.toml:version",
+  "extensions/rcs_robotics_library/pyproject.toml:\"rcs>=(.*)\"",
+
+  # --- SO101 ---
+  "extensions/rcs_so101/CMakeLists.txt:VERSION",
+  "extensions/rcs_so101/src/rcs_so101/_core/__init__.pyi:__version__",
+  "extensions/rcs_so101/pyproject.toml:version",
+  "extensions/rcs_so101/pyproject.toml:\"rcs>=(.*)\"",
+
+  # --- Other Extensions ---
+  "extensions/rcs_realsense/pyproject.toml:version",
+  "extensions/rcs_realsense/src/rcs_realsense/__init__.py:__version__",
+  "extensions/rcs_realsense/pyproject.toml:\"rcs>=(.*)\"",
+
+  "extensions/rcs_xarm7/pyproject.toml:version",
+  "extensions/rcs_xarm7/src/rcs_xarm7/__init__.py:__version__",
+  "extensions/rcs_xarm7/pyproject.toml:\"rcs>=(.*)\"",
+
+  "extensions/rcs_ur5e/pyproject.toml:version",
+  "extensions/rcs_ur5e/src/rcs_ur5e/__init__.py:__version__",
+  "extensions/rcs_ur5e/pyproject.toml:\"rcs>=(.*)\"",
+
+  "extensions/rcs_tacto/pyproject.toml:version",
+  "extensions/rcs_tacto/src/rcs_tacto/__init__.py:__version__",
+  "extensions/rcs_tacto/pyproject.toml:\"rcs>=(.*)\"",
+
+  "extensions/rcs_robotiq2f85/pyproject.toml:version",
+  "extensions/rcs_robotiq2f85/src/rcs_robotiq2f85/__init__.py:__version__",
+  "extensions/rcs_robotiq2f85/pyproject.toml:\"rcs>=(.*)\"",
+]
