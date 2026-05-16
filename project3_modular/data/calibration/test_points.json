@@ -1,0 +1,11 @@
+{
+  "test_points": [
+    {"id": "A", "x": -0.135, "y": 0.22},
+    {"id": "B", "x":  0.027, "y": 0.33}
+  ],
+  "visible_test_points": {
+  "center": ["A", "B"],
+  "left": ["A", "B"],
+  "right": ["B"]
+}
+}

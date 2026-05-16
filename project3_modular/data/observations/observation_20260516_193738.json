@@ -1,0 +1,26 @@
+{
+  "image_path": "/home/frainer/Desktop/FS26/RobotLearning/R2D2-RL/project3_modular/data/observations/observation_20260516_193738.png",
+  "image_shape": [
+    480,
+    640,
+    3
+  ],
+  "camera_name": "front",
+  "robot_state": {
+    "shoulder_pan.pos": 13.978021978021978,
+    "shoulder_lift.pos": -14.373626373626374,
+    "elbow_flex.pos": -35.252747252747255,
+    "wrist_flex.pos": 100.74725274725274,
+    "wrist_roll.pos": -3.2967032967032965,
+    "gripper.pos": 1.5141087405368203
+  },
+  "observation_keys": [
+    "shoulder_pan.pos",
+    "shoulder_lift.pos",
+    "elbow_flex.pos",
+    "wrist_flex.pos",
+    "wrist_roll.pos",
+    "gripper.pos",
+    "front"
+  ]
+}

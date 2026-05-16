@@ -1,0 +1,26 @@
+{
+  "coordinate_convention": {
+    "units": "meters",
+    "origin": "robot-base reference used for bowl coordinates",
+    "x": "right positive",
+    "y": "forward positive"
+  },
+  "markers": [
+    {"id": "A", "x": -0.15, "y": 0.45},
+    {"id": "B", "x":  0.00, "y": 0.45},
+    {"id": "C", "x":  0.15, "y": 0.45},
+
+    {"id": "D", "x": -0.15, "y": 0.30},
+    {"id": "E", "x":  0.00, "y": 0.30},
+    {"id": "F", "x":  0.15, "y": 0.30},
+
+    {"id": "G", "x": -0.15, "y": 0.15},
+    {"id": "H", "x":  0.00, "y": 0.15},
+    {"id": "I", "x":  0.15, "y": 0.15}
+  ],
+  "visible_markers": {
+    "center": ["A", "B", "C", "D", "E", "F", "G", "I"],
+    "left":   ["A", "D", "E", "F", "G", "H"],
+    "right":  ["C", "E", "F", "H", "I"]
+  }
+}

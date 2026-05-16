@@ -1,0 +1,25 @@
+{
+  "scan_id": "20260516_201557",
+  "pose_order": [
+    "center"
+  ],
+  "captures": [
+    {
+      "pose_name": "center",
+      "image_path": "/home/frainer/Desktop/FS26/RobotLearning/R2D2-RL/project3_modular/data/observation_scans/scan_20260516_201557/center.png",
+      "image_shape": [
+        480,
+        640,
+        3
+      ],
+      "joint_positions": {
+        "shoulder_pan.pos": -0.08791208791208792,
+        "shoulder_lift.pos": -19.64835164835165,
+        "elbow_flex.pos": -13.362637362637363,
+        "wrist_flex.pos": 99.78021978021978,
+        "wrist_roll.pos": 3.120879120879121,
+        "gripper.pos": 1.7205781142463867
+      }
+    }
+  ]
+}

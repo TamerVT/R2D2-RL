@@ -1,0 +1,134 @@
+{
+  "pose_name": "right",
+  "homography_file": "/home/frainer/Desktop/FS26/RobotLearning/R2D2-RL/project3_modular/data/calibration/homography_right.npy",
+  "mapping_direction": "image_pixels_uv_to_table_xy",
+  "markers": [
+    {
+      "id": "C",
+      "image_uv": [
+        399.39265070189936,
+        33.92083927633064
+      ],
+      "table_xy": [
+        0.15,
+        0.45
+      ]
+    },
+    {
+      "id": "E",
+      "image_uv": [
+        215.17224682831616,
+        155.3081225133248
+      ],
+      "table_xy": [
+        0.0,
+        0.3
+      ]
+    },
+    {
+      "id": "F",
+      "image_uv": [
+        398.26660911343004,
+        183.2339539073643
+      ],
+      "table_xy": [
+        0.15,
+        0.3
+      ]
+    },
+    {
+      "id": "H",
+      "image_uv": [
+        195.3539148712559,
+        365.8778995570903
+      ],
+      "table_xy": [
+        0.0,
+        0.15
+      ]
+    },
+    {
+      "id": "I",
+      "image_uv": [
+        398.26660911343004,
+        362.0493581562946
+      ],
+      "table_xy": [
+        0.15,
+        0.15
+      ]
+    }
+  ],
+  "reprojection_report": {
+    "rmse": 0.00040334081414924376,
+    "mean_error": 0.0003861677566090417,
+    "max_error": 0.0005509505543964362,
+    "per_marker": [
+      {
+        "id": "C",
+        "predicted_xy": [
+          0.15038736598093844,
+          0.4498088099147546
+        ],
+        "true_xy": [
+          0.15,
+          0.45
+        ],
+        "error": 0.0004319792262187572,
+        "ransac_inlier": true
+      },
+      {
+        "id": "E",
+        "predicted_xy": [
+          -0.0003768966597129058,
+          0.2999981485533967
+        ],
+        "true_xy": [
+          0.0,
+          0.3
+        ],
+        "error": 0.0003769012071581502,
+        "ransac_inlier": true
+      },
+      {
+        "id": "F",
+        "predicted_xy": [
+          0.1496037238518652,
+          0.3003827685042022
+        ],
+        "true_xy": [
+          0.15,
+          0.3
+        ],
+        "error": 0.0005509505543964362,
+        "ransac_inlier": true
+      },
+      {
+        "id": "H",
+        "predicted_xy": [
+          0.0003808636364104226,
+          0.15000036269273911
+        ],
+        "true_xy": [
+          0.0,
+          0.15
+        ],
+        "error": 0.0003808638091047686,
+        "ransac_inlier": true
+      },
+      {
+        "id": "I",
+        "predicted_xy": [
+          0.1500049927440364,
+          0.14980992157412662
+        ],
+        "true_xy": [
+          0.15,
+          0.15
+        ],
+        "error": 0.00019014398616709632,
+        "ransac_inlier": true
+      }
+    ]
+  }
+}
