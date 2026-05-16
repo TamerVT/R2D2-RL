@@ -1,0 +1,760 @@
+{
+  "cube_xy": [
+    0.1587942617108926,
+    0.23156702641050878
+  ],
+  "is_reliable": true,
+  "best_cluster": {
+    "members": [
+      {
+        "pose_name": "center",
+        "detection_index": 1,
+        "color": "red",
+        "centroid_uv": [
+          546.7530755711775,
+          263.28925014645574
+        ],
+        "bbox_xywh": [
+          525,
+          247,
+          47,
+          33
+        ],
+        "area_px": 1138.0,
+        "table_xy": [
+          0.16002123771652407,
+          0.2319965118677185
+        ],
+        "inside_workspace": true
+      },
+      {
+        "pose_name": "right",
+        "detection_index": 2,
+        "color": "red",
+        "centroid_uv": [
+          406.5746683782627,
+          262.1756525459991
+        ],
+        "bbox_xywh": [
+          389,
+          249,
+          37,
+          30
+        ],
+        "area_px": 779.0,
+        "table_xy": [
+          0.1575672857052611,
+          0.23113754095329905
+        ],
+        "inside_workspace": true
+      }
+    ],
+    "center_xy": [
+      0.1587942617108926,
+      0.23156702641050878
+    ],
+    "num_members": 2,
+    "num_distinct_views": 2,
+    "distinct_views": [
+      "center",
+      "right"
+    ],
+    "fused_xy": [
+      0.1587942617108926,
+      0.23156702641050878
+    ],
+    "max_residual_m": 0.0012999722598386629,
+    "mean_residual_m": 0.0012999722598386629,
+    "total_area_px": 1917.0
+  },
+  "clusters": [
+    {
+      "members": [
+        {
+          "pose_name": "center",
+          "detection_index": 1,
+          "color": "red",
+          "centroid_uv": [
+            546.7530755711775,
+            263.28925014645574
+          ],
+          "bbox_xywh": [
+            525,
+            247,
+            47,
+            33
+          ],
+          "area_px": 1138.0,
+          "table_xy": [
+            0.16002123771652407,
+            0.2319965118677185
+          ],
+          "inside_workspace": true
+        },
+        {
+          "pose_name": "right",
+          "detection_index": 2,
+          "color": "red",
+          "centroid_uv": [
+            406.5746683782627,
+            262.1756525459991
+          ],
+          "bbox_xywh": [
+            389,
+            249,
+            37,
+            30
+          ],
+          "area_px": 779.0,
+          "table_xy": [
+            0.1575672857052611,
+            0.23113754095329905
+          ],
+          "inside_workspace": true
+        }
+      ],
+      "center_xy": [
+        0.1587942617108926,
+        0.23156702641050878
+      ],
+      "num_members": 2,
+      "num_distinct_views": 2,
+      "distinct_views": [
+        "center",
+        "right"
+      ],
+      "fused_xy": [
+        0.1587942617108926,
+        0.23156702641050878
+      ],
+      "max_residual_m": 0.0012999722598386629,
+      "mean_residual_m": 0.0012999722598386629,
+      "total_area_px": 1917.0
+    },
+    {
+      "members": [
+        {
+          "pose_name": "right",
+          "detection_index": 1,
+          "color": "blue",
+          "centroid_uv": [
+            224.17099567099567,
+            464.3742985409652
+          ],
+          "bbox_xywh": [
+            178,
+            444,
+            86,
+            36
+          ],
+          "area_px": 2079.0,
+          "table_xy": [
+            0.02379601525819827,
+            0.08734078761678003
+          ],
+          "inside_workspace": true
+        }
+      ],
+      "center_xy": [
+        0.02379601525819827,
+        0.08734078761678003
+      ],
+      "num_members": 1,
+      "num_distinct_views": 1,
+      "distinct_views": [
+        "right"
+      ],
+      "fused_xy": [
+        0.02379601525819827,
+        0.08734078761678003
+      ],
+      "max_residual_m": 0.0,
+      "mean_residual_m": 0.0,
+      "total_area_px": 2079.0
+    },
+    {
+      "members": [
+        {
+          "pose_name": "center",
+          "detection_index": 0,
+          "color": "yellow",
+          "centroid_uv": [
+            24.292746469217057,
+            22.140819964349372
+          ],
+          "bbox_xywh": [
+            0,
+            0,
+            50,
+            52
+          ],
+          "area_px": 1215.5,
+          "table_xy": [
+            -0.26791654959435773,
+            0.42073750932890513
+          ],
+          "inside_workspace": true
+        }
+      ],
+      "center_xy": [
+        -0.26791654959435773,
+        0.42073750932890513
+      ],
+      "num_members": 1,
+      "num_distinct_views": 1,
+      "distinct_views": [
+        "center"
+      ],
+      "fused_xy": [
+        -0.26791654959435773,
+        0.42073750932890513
+      ],
+      "max_residual_m": 0.0,
+      "mean_residual_m": 0.0,
+      "total_area_px": 1215.5
+    },
+    {
+      "members": [
+        {
+          "pose_name": "right",
+          "detection_index": 4,
+          "color": "blue",
+          "centroid_uv": [
+            475.1297648012976,
+            470.4063260340633
+          ],
+          "bbox_xywh": [
+            469,
+            458,
+            16,
+            22
+          ],
+          "area_px": 205.5,
+          "table_xy": [
+            0.21979738117707334,
+            0.06314937241965042
+          ],
+          "inside_workspace": true
+        }
+      ],
+      "center_xy": [
+        0.21979738117707334,
+        0.06314937241965042
+      ],
+      "num_members": 1,
+      "num_distinct_views": 1,
+      "distinct_views": [
+        "right"
+      ],
+      "fused_xy": [
+        0.21979738117707334,
+        0.06314937241965042
+      ],
+      "max_residual_m": 0.0,
+      "mean_residual_m": 0.0,
+      "total_area_px": 205.5
+    }
+  ],
+  "workspace_bounds": {
+    "x": [
+      -0.3,
+      0.3
+    ],
+    "y": [
+      0.05,
+      0.65
+    ]
+  },
+  "target_color": null,
+  "poses": {
+    "center": {
+      "image_path": "/home/frainer/Desktop/FS26/RobotLearning/R2D2-RL/project3_modular/data/observation_scans/scan_20260516_235451/center.png",
+      "homography_path": "/home/frainer/Desktop/FS26/RobotLearning/R2D2-RL/project3_modular/data/calibration/homography_center.npy",
+      "num_detections": 2,
+      "candidates": [
+        {
+          "pose_name": "center",
+          "detection_index": 0,
+          "color": "yellow",
+          "centroid_uv": [
+            24.292746469217057,
+            22.140819964349372
+          ],
+          "bbox_xywh": [
+            0,
+            0,
+            50,
+            52
+          ],
+          "area_px": 1215.5,
+          "table_xy": [
+            -0.26791654959435773,
+            0.42073750932890513
+          ],
+          "inside_workspace": true
+        },
+        {
+          "pose_name": "center",
+          "detection_index": 1,
+          "color": "red",
+          "centroid_uv": [
+            546.7530755711775,
+            263.28925014645574
+          ],
+          "bbox_xywh": [
+            525,
+            247,
+            47,
+            33
+          ],
+          "area_px": 1138.0,
+          "table_xy": [
+            0.16002123771652407,
+            0.2319965118677185
+          ],
+          "inside_workspace": true
+        }
+      ],
+      "valid_candidates": [
+        {
+          "pose_name": "center",
+          "detection_index": 0,
+          "color": "yellow",
+          "centroid_uv": [
+            24.292746469217057,
+            22.140819964349372
+          ],
+          "bbox_xywh": [
+            0,
+            0,
+            50,
+            52
+          ],
+          "area_px": 1215.5,
+          "table_xy": [
+            -0.26791654959435773,
+            0.42073750932890513
+          ],
+          "inside_workspace": true
+        },
+        {
+          "pose_name": "center",
+          "detection_index": 1,
+          "color": "red",
+          "centroid_uv": [
+            546.7530755711775,
+            263.28925014645574
+          ],
+          "bbox_xywh": [
+            525,
+            247,
+            47,
+            33
+          ],
+          "area_px": 1138.0,
+          "table_xy": [
+            0.16002123771652407,
+            0.2319965118677185
+          ],
+          "inside_workspace": true
+        }
+      ]
+    },
+    "left": {
+      "image_path": "/home/frainer/Desktop/FS26/RobotLearning/R2D2-RL/project3_modular/data/observation_scans/scan_20260516_235451/left.png",
+      "homography_path": "/home/frainer/Desktop/FS26/RobotLearning/R2D2-RL/project3_modular/data/calibration/homography_left.npy",
+      "num_detections": 8,
+      "candidates": [
+        {
+          "pose_name": "left",
+          "detection_index": 0,
+          "color": "yellow",
+          "centroid_uv": [
+            41.21484400232543,
+            97.27018065155136
+          ],
+          "bbox_xywh": [
+            0,
+            0,
+            126,
+            224
+          ],
+          "area_px": 7740.5,
+          "table_xy": [
+            -0.3195463970982565,
+            0.39176980868552447
+          ],
+          "inside_workspace": false
+        },
+        {
+          "pose_name": "left",
+          "detection_index": 1,
+          "color": "orange",
+          "centroid_uv": [
+            48.40203756072801,
+            41.06739902835182
+          ],
+          "bbox_xywh": [
+            8,
+            0,
+            110,
+            115
+          ],
+          "area_px": 4597.0,
+          "table_xy": [
+            -0.31541787438669433,
+            0.44515915907218
+          ],
+          "inside_workspace": false
+        },
+        {
+          "pose_name": "left",
+          "detection_index": 2,
+          "color": "orange",
+          "centroid_uv": [
+            8.022570681872178,
+            193.83297695414586
+          ],
+          "bbox_xywh": [
+            0,
+            156,
+            26,
+            68
+          ],
+          "area_px": 701.5,
+          "table_xy": [
+            -0.34773221837441876,
+            0.30646129757303153
+          ],
+          "inside_workspace": false
+        },
+        {
+          "pose_name": "left",
+          "detection_index": 3,
+          "color": "green",
+          "centroid_uv": [
+            8.284525790349418,
+            17.13477537437604
+          ],
+          "bbox_xywh": [
+            0,
+            0,
+            20,
+            38
+          ],
+          "area_px": 601.0,
+          "table_xy": [
+            -0.3610465865376309,
+            0.47668900172543843
+          ],
+          "inside_workspace": false
+        },
+        {
+          "pose_name": "left",
+          "detection_index": 4,
+          "color": "orange",
+          "centroid_uv": [
+            19.971056910569104,
+            130.37430894308943
+          ],
+          "bbox_xywh": [
+            7,
+            116,
+            35,
+            32
+          ],
+          "area_px": 512.5,
+          "table_xy": [
+            -0.33970149687600615,
+            0.3633294849335364
+          ],
+          "inside_workspace": false
+        },
+        {
+          "pose_name": "left",
+          "detection_index": 5,
+          "color": "yellow",
+          "centroid_uv": [
+            11.509829619921364,
+            469.33770205329836
+          ],
+          "bbox_xywh": [
+            0,
+            459,
+            36,
+            21
+          ],
+          "area_px": 381.5,
+          "table_xy": [
+            -0.3266919282832117,
+            0.0837799312703534
+          ],
+          "inside_workspace": false
+        },
+        {
+          "pose_name": "left",
+          "detection_index": 6,
+          "color": "orange",
+          "centroid_uv": [
+            9.046728971962617,
+            471.696261682243
+          ],
+          "bbox_xywh": [
+            0,
+            462,
+            20,
+            18
+          ],
+          "area_px": 214.0,
+          "table_xy": [
+            -0.32884029993515945,
+            0.08200544325838374
+          ],
+          "inside_workspace": false
+        },
+        {
+          "pose_name": "left",
+          "detection_index": 7,
+          "color": "green",
+          "centroid_uv": [
+            3.9076923076923076,
+            58.210256410256406
+          ],
+          "bbox_xywh": [
+            0,
+            48,
+            10,
+            22
+          ],
+          "area_px": 162.5,
+          "table_xy": [
+            -0.36255420049356296,
+            0.43560856172306633
+          ],
+          "inside_workspace": false
+        }
+      ],
+      "valid_candidates": []
+    },
+    "right": {
+      "image_path": "/home/frainer/Desktop/FS26/RobotLearning/R2D2-RL/project3_modular/data/observation_scans/scan_20260516_235451/right.png",
+      "homography_path": "/home/frainer/Desktop/FS26/RobotLearning/R2D2-RL/project3_modular/data/calibration/homography_right.npy",
+      "num_detections": 7,
+      "candidates": [
+        {
+          "pose_name": "right",
+          "detection_index": 0,
+          "color": "blue",
+          "centroid_uv": [
+            611.5495890792589,
+            291.19884385011835
+          ],
+          "bbox_xywh": [
+            581,
+            266,
+            59,
+            54
+          ],
+          "area_px": 2393.0,
+          "table_xy": [
+            0.3983128691014076,
+            0.21731907735436268
+          ],
+          "inside_workspace": false
+        },
+        {
+          "pose_name": "right",
+          "detection_index": 1,
+          "color": "blue",
+          "centroid_uv": [
+            224.17099567099567,
+            464.3742985409652
+          ],
+          "bbox_xywh": [
+            178,
+            444,
+            86,
+            36
+          ],
+          "area_px": 2079.0,
+          "table_xy": [
+            0.02379601525819827,
+            0.08734078761678003
+          ],
+          "inside_workspace": true
+        },
+        {
+          "pose_name": "right",
+          "detection_index": 2,
+          "color": "red",
+          "centroid_uv": [
+            406.5746683782627,
+            262.1756525459991
+          ],
+          "bbox_xywh": [
+            389,
+            249,
+            37,
+            30
+          ],
+          "area_px": 779.0,
+          "table_xy": [
+            0.1575672857052611,
+            0.23113754095329905
+          ],
+          "inside_workspace": true
+        },
+        {
+          "pose_name": "right",
+          "detection_index": 3,
+          "color": "blue",
+          "centroid_uv": [
+            563.3830947511929,
+            156.00886162235855
+          ],
+          "bbox_xywh": [
+            549,
+            150,
+            30,
+            15
+          ],
+          "area_px": 244.5,
+          "table_xy": [
+            0.34639787681527673,
+            0.3604253237080201
+          ],
+          "inside_workspace": false
+        },
+        {
+          "pose_name": "right",
+          "detection_index": 4,
+          "color": "blue",
+          "centroid_uv": [
+            475.1297648012976,
+            470.4063260340633
+          ],
+          "bbox_xywh": [
+            469,
+            458,
+            16,
+            22
+          ],
+          "area_px": 205.5,
+          "table_xy": [
+            0.21979738117707334,
+            0.06314937241965042
+          ],
+          "inside_workspace": true
+        },
+        {
+          "pose_name": "right",
+          "detection_index": 5,
+          "color": "blue",
+          "centroid_uv": [
+            605.3783403656821,
+            163.61322081575244
+          ],
+          "bbox_xywh": [
+            597,
+            156,
+            19,
+            14
+          ],
+          "area_px": 118.5,
+          "table_xy": [
+            0.4095364575481443,
+            0.3622982000784123
+          ],
+          "inside_workspace": false
+        },
+        {
+          "pose_name": "right",
+          "detection_index": 6,
+          "color": "blue",
+          "centroid_uv": [
+            574.7800687285223,
+            132.20618556701032
+          ],
+          "bbox_xywh": [
+            570,
+            127,
+            12,
+            12
+          ],
+          "area_px": 97.0,
+          "table_xy": [
+            0.3664778066544343,
+            0.39225533179256594
+          ],
+          "inside_workspace": false
+        }
+      ],
+      "valid_candidates": [
+        {
+          "pose_name": "right",
+          "detection_index": 1,
+          "color": "blue",
+          "centroid_uv": [
+            224.17099567099567,
+            464.3742985409652
+          ],
+          "bbox_xywh": [
+            178,
+            444,
+            86,
+            36
+          ],
+          "area_px": 2079.0,
+          "table_xy": [
+            0.02379601525819827,
+            0.08734078761678003
+          ],
+          "inside_workspace": true
+        },
+        {
+          "pose_name": "right",
+          "detection_index": 2,
+          "color": "red",
+          "centroid_uv": [
+            406.5746683782627,
+            262.1756525459991
+          ],
+          "bbox_xywh": [
+            389,
+            249,
+            37,
+            30
+          ],
+          "area_px": 779.0,
+          "table_xy": [
+            0.1575672857052611,
+            0.23113754095329905
+          ],
+          "inside_workspace": true
+        },
+        {
+          "pose_name": "right",
+          "detection_index": 4,
+          "color": "blue",
+          "centroid_uv": [
+            475.1297648012976,
+            470.4063260340633
+          ],
+          "bbox_xywh": [
+            469,
+            458,
+            16,
+            22
+          ],
+          "area_px": 205.5,
+          "table_xy": [
+            0.21979738117707334,
+            0.06314937241965042
+          ],
+          "inside_workspace": true
+        }
+      ]
+    }
+  },
+  "scan_dir": "/home/frainer/Desktop/FS26/RobotLearning/R2D2-RL/project3_modular/data/observation_scans/scan_20260516_235451"
+}

@@ -1,0 +1,60 @@
+{
+  "pose_order": [
+    "center",
+    "left",
+    "right"
+  ],
+  "captures": [
+    {
+      "pose_name": "center",
+      "image_path": "/home/frainer/Desktop/FS26/RobotLearning/R2D2-RL/project3_modular/data/observation_scans/scan_20260517_003700/center.png",
+      "image_shape": [
+        480,
+        640,
+        3
+      ],
+      "joint_positions": {
+        "shoulder_pan.pos": 2.989010989010989,
+        "shoulder_lift.pos": -65.18681318681318,
+        "elbow_flex.pos": 16.703296703296704,
+        "wrist_flex.pos": 99.6923076923077,
+        "wrist_roll.pos": 2.5934065934065935,
+        "gripper.pos": 1.5829318651066757
+      }
+    },
+    {
+      "pose_name": "left",
+      "image_path": "/home/frainer/Desktop/FS26/RobotLearning/R2D2-RL/project3_modular/data/observation_scans/scan_20260517_003700/left.png",
+      "image_shape": [
+        480,
+        640,
+        3
+      ],
+      "joint_positions": {
+        "shoulder_pan.pos": -6.065934065934066,
+        "shoulder_lift.pos": -60.527472527472526,
+        "elbow_flex.pos": 21.36263736263736,
+        "wrist_flex.pos": 94.32967032967034,
+        "wrist_roll.pos": -13.758241758241759,
+        "gripper.pos": 1.5829318651066757
+      }
+    },
+    {
+      "pose_name": "right",
+      "image_path": "/home/frainer/Desktop/FS26/RobotLearning/R2D2-RL/project3_modular/data/observation_scans/scan_20260517_003700/right.png",
+      "image_shape": [
+        480,
+        640,
+        3
+      ],
+      "joint_positions": {
+        "shoulder_pan.pos": 17.582417582417584,
+        "shoulder_lift.pos": -65.18681318681318,
+        "elbow_flex.pos": 17.054945054945055,
+        "wrist_flex.pos": 96.52747252747253,
+        "wrist_roll.pos": 27.032967032967033,
+        "gripper.pos": 1.5829318651066757
+      }
+    }
+  ]
+}

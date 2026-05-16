@@ -1,0 +1,37 @@
+{
+  "timestamp": "20260517_010826_724480",
+  "pose_order": [
+    "center",
+    "left",
+    "right"
+  ],
+  "captures": [
+    {
+      "pose_name": "center",
+      "image_path": "/home/frainer/Desktop/FS26/RobotLearning/R2D2-RL/project3_modular/data/pregrasp_collection_scans/scan_20260517_010826_724480/center.png",
+      "image_shape": [
+        480,
+        640,
+        3
+      ]
+    },
+    {
+      "pose_name": "left",
+      "image_path": "/home/frainer/Desktop/FS26/RobotLearning/R2D2-RL/project3_modular/data/pregrasp_collection_scans/scan_20260517_010826_724480/left.png",
+      "image_shape": [
+        480,
+        640,
+        3
+      ]
+    },
+    {
+      "pose_name": "right",
+      "image_path": "/home/frainer/Desktop/FS26/RobotLearning/R2D2-RL/project3_modular/data/pregrasp_collection_scans/scan_20260517_010826_724480/right.png",
+      "image_shape": [
+        480,
+        640,
+        3
+      ]
+    }
+  ]
+}

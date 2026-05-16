@@ -1,0 +1,1158 @@
+{
+  "cube_xy": [
+    0.05043911032836976,
+    0.3816627911557409
+  ],
+  "is_reliable": true,
+  "best_cluster": {
+    "members": [
+      {
+        "pose_name": "center",
+        "detection_index": 1,
+        "color": "blue",
+        "centroid_uv": [
+          403.6846921797005,
+          84.05213533000554
+        ],
+        "bbox_xywh": [
+          389,
+          71,
+          30,
+          28
+        ],
+        "area_px": 601.0,
+        "table_xy": [
+          0.05043911032836976,
+          0.380735045964871
+        ],
+        "inside_workspace": true
+      },
+      {
+        "pose_name": "left",
+        "detection_index": 2,
+        "color": "blue",
+        "centroid_uv": [
+          473.1248067152639,
+          46.267506074663125
+        ],
+        "bbox_xywh": [
+          458,
+          33,
+          32,
+          27
+        ],
+        "area_px": 754.5,
+        "table_xy": [
+          0.05139597967476406,
+          0.38230465348945997
+        ],
+        "inside_workspace": true
+      },
+      {
+        "pose_name": "right",
+        "detection_index": 3,
+        "color": "blue",
+        "centroid_uv": [
+          289.53291442250145,
+          72.93955715140633
+        ],
+        "bbox_xywh": [
+          276,
+          58,
+          28,
+          30
+        ],
+        "area_px": 557.0,
+        "table_xy": [
+          0.05005042410378017,
+          0.3816627911557409
+        ],
+        "inside_workspace": true
+      }
+    ],
+    "center_xy": [
+      0.05043911032836976,
+      0.3816627911557409
+    ],
+    "num_members": 3,
+    "num_distinct_views": 3,
+    "distinct_views": [
+      "center",
+      "left",
+      "right"
+    ],
+    "fused_xy": [
+      0.05043911032836976,
+      0.3816627911557409
+    ],
+    "max_residual_m": 0.0011522092698448127,
+    "mean_residual_m": 0.0008228802284347709,
+    "total_area_px": 1912.5
+  },
+  "clusters": [
+    {
+      "members": [
+        {
+          "pose_name": "center",
+          "detection_index": 1,
+          "color": "blue",
+          "centroid_uv": [
+            403.6846921797005,
+            84.05213533000554
+          ],
+          "bbox_xywh": [
+            389,
+            71,
+            30,
+            28
+          ],
+          "area_px": 601.0,
+          "table_xy": [
+            0.05043911032836976,
+            0.380735045964871
+          ],
+          "inside_workspace": true
+        },
+        {
+          "pose_name": "left",
+          "detection_index": 2,
+          "color": "blue",
+          "centroid_uv": [
+            473.1248067152639,
+            46.267506074663125
+          ],
+          "bbox_xywh": [
+            458,
+            33,
+            32,
+            27
+          ],
+          "area_px": 754.5,
+          "table_xy": [
+            0.05139597967476406,
+            0.38230465348945997
+          ],
+          "inside_workspace": true
+        },
+        {
+          "pose_name": "right",
+          "detection_index": 3,
+          "color": "blue",
+          "centroid_uv": [
+            289.53291442250145,
+            72.93955715140633
+          ],
+          "bbox_xywh": [
+            276,
+            58,
+            28,
+            30
+          ],
+          "area_px": 557.0,
+          "table_xy": [
+            0.05005042410378017,
+            0.3816627911557409
+          ],
+          "inside_workspace": true
+        }
+      ],
+      "center_xy": [
+        0.05043911032836976,
+        0.3816627911557409
+      ],
+      "num_members": 3,
+      "num_distinct_views": 3,
+      "distinct_views": [
+        "center",
+        "left",
+        "right"
+      ],
+      "fused_xy": [
+        0.05043911032836976,
+        0.3816627911557409
+      ],
+      "max_residual_m": 0.0011522092698448127,
+      "mean_residual_m": 0.0008228802284347709,
+      "total_area_px": 1912.5
+    },
+    {
+      "members": [
+        {
+          "pose_name": "right",
+          "detection_index": 2,
+          "color": "blue",
+          "centroid_uv": [
+            224.0106051154086,
+            462.5771816732515
+          ],
+          "bbox_xywh": [
+            177,
+            434,
+            87,
+            46
+          ],
+          "area_px": 2404.5,
+          "table_xy": [
+            0.023603784035610857,
+            0.08844396317496393
+          ],
+          "inside_workspace": true
+        }
+      ],
+      "center_xy": [
+        0.023603784035610857,
+        0.08844396317496393
+      ],
+      "num_members": 1,
+      "num_distinct_views": 1,
+      "distinct_views": [
+        "right"
+      ],
+      "fused_xy": [
+        0.023603784035610857,
+        0.08844396317496393
+      ],
+      "max_residual_m": 0.0,
+      "mean_residual_m": 0.0,
+      "total_area_px": 2404.5
+    },
+    {
+      "members": [
+        {
+          "pose_name": "center",
+          "detection_index": 0,
+          "color": "blue",
+          "centroid_uv": [
+            336.9774584389969,
+            463.2903634826712
+          ],
+          "bbox_xywh": [
+            310,
+            448,
+            54,
+            32
+          ],
+          "area_px": 1183.0,
+          "table_xy": [
+            0.0015317227420385527,
+            0.09111816923371881
+          ],
+          "inside_workspace": true
+        }
+      ],
+      "center_xy": [
+        0.0015317227420385527,
+        0.09111816923371881
+      ],
+      "num_members": 1,
+      "num_distinct_views": 1,
+      "distinct_views": [
+        "center"
+      ],
+      "fused_xy": [
+        0.0015317227420385527,
+        0.09111816923371881
+      ],
+      "max_residual_m": 0.0,
+      "mean_residual_m": 0.0,
+      "total_area_px": 1183.0
+    },
+    {
+      "members": [
+        {
+          "pose_name": "right",
+          "detection_index": 5,
+          "color": "blue",
+          "centroid_uv": [
+            472.4929653679653,
+            468.4983766233766
+          ],
+          "bbox_xywh": [
+            465,
+            453,
+            19,
+            27
+          ],
+          "area_px": 308.0,
+          "table_xy": [
+            0.21729309771796604,
+            0.06483962710669824
+          ],
+          "inside_workspace": true
+        }
+      ],
+      "center_xy": [
+        0.21729309771796604,
+        0.06483962710669824
+      ],
+      "num_members": 1,
+      "num_distinct_views": 1,
+      "distinct_views": [
+        "right"
+      ],
+      "fused_xy": [
+        0.21729309771796604,
+        0.06483962710669824
+      ],
+      "max_residual_m": 0.0,
+      "mean_residual_m": 0.0,
+      "total_area_px": 308.0
+    },
+    {
+      "members": [
+        {
+          "pose_name": "center",
+          "detection_index": 2,
+          "color": "blue",
+          "centroid_uv": [
+            631.0108459869848,
+            144.1402747650036
+          ],
+          "bbox_xywh": [
+            622,
+            136,
+            18,
+            18
+          ],
+          "area_px": 230.5,
+          "table_xy": [
+            0.24210531258590193,
+            0.3350262562491421
+          ],
+          "inside_workspace": true
+        }
+      ],
+      "center_xy": [
+        0.24210531258590193,
+        0.3350262562491421
+      ],
+      "num_members": 1,
+      "num_distinct_views": 1,
+      "distinct_views": [
+        "center"
+      ],
+      "fused_xy": [
+        0.24210531258590193,
+        0.3350262562491421
+      ],
+      "max_residual_m": 0.0,
+      "mean_residual_m": 0.0,
+      "total_area_px": 230.5
+    },
+    {
+      "members": [
+        {
+          "pose_name": "center",
+          "detection_index": 3,
+          "color": "blue",
+          "centroid_uv": [
+            309.65213178294573,
+            326.85562015503876
+          ],
+          "bbox_xywh": [
+            304,
+            314,
+            12,
+            25
+          ],
+          "area_px": 172.0,
+          "table_xy": [
+            -0.020567733477409297,
+            0.18009878767520776
+          ],
+          "inside_workspace": true
+        }
+      ],
+      "center_xy": [
+        -0.020567733477409297,
+        0.18009878767520776
+      ],
+      "num_members": 1,
+      "num_distinct_views": 1,
+      "distinct_views": [
+        "center"
+      ],
+      "fused_xy": [
+        -0.020567733477409297,
+        0.18009878767520776
+      ],
+      "max_residual_m": 0.0,
+      "mean_residual_m": 0.0,
+      "total_area_px": 172.0
+    },
+    {
+      "members": [
+        {
+          "pose_name": "center",
+          "detection_index": 4,
+          "color": "purple",
+          "centroid_uv": [
+            322.1525054466231,
+            421.7843137254902
+          ],
+          "bbox_xywh": [
+            316,
+            416,
+            16,
+            15
+          ],
+          "area_px": 153.0,
+          "table_xy": [
+            -0.00936429841569231,
+            0.11685759050161922
+          ],
+          "inside_workspace": true
+        }
+      ],
+      "center_xy": [
+        -0.00936429841569231,
+        0.11685759050161922
+      ],
+      "num_members": 1,
+      "num_distinct_views": 1,
+      "distinct_views": [
+        "center"
+      ],
+      "fused_xy": [
+        -0.00936429841569231,
+        0.11685759050161922
+      ],
+      "max_residual_m": 0.0,
+      "mean_residual_m": 0.0,
+      "total_area_px": 153.0
+    },
+    {
+      "members": [
+        {
+          "pose_name": "right",
+          "detection_index": 9,
+          "color": "orange",
+          "centroid_uv": [
+            474.82488479262673,
+            176.8663594470046
+          ],
+          "bbox_xywh": [
+            467,
+            171,
+            16,
+            13
+          ],
+          "area_px": 108.5,
+          "table_xy": [
+            0.2304013654999069,
+            0.3187378081160335
+          ],
+          "inside_workspace": true
+        }
+      ],
+      "center_xy": [
+        0.2304013654999069,
+        0.3187378081160335
+      ],
+      "num_members": 1,
+      "num_distinct_views": 1,
+      "distinct_views": [
+        "right"
+      ],
+      "fused_xy": [
+        0.2304013654999069,
+        0.3187378081160335
+      ],
+      "max_residual_m": 0.0,
+      "mean_residual_m": 0.0,
+      "total_area_px": 108.5
+    }
+  ],
+  "workspace_bounds": {
+    "x": [
+      -0.3,
+      0.3
+    ],
+    "y": [
+      0.05,
+      0.65
+    ]
+  },
+  "target_color": null,
+  "poses": {
+    "center": {
+      "image_path": "/home/frainer/Desktop/FS26/RobotLearning/R2D2-RL/project3_modular/data/observation_scans/scan_20260516_235143/center.png",
+      "homography_path": "/home/frainer/Desktop/FS26/RobotLearning/R2D2-RL/project3_modular/data/calibration/homography_center.npy",
+      "num_detections": 5,
+      "candidates": [
+        {
+          "pose_name": "center",
+          "detection_index": 0,
+          "color": "blue",
+          "centroid_uv": [
+            336.9774584389969,
+            463.2903634826712
+          ],
+          "bbox_xywh": [
+            310,
+            448,
+            54,
+            32
+          ],
+          "area_px": 1183.0,
+          "table_xy": [
+            0.0015317227420385527,
+            0.09111816923371881
+          ],
+          "inside_workspace": true
+        },
+        {
+          "pose_name": "center",
+          "detection_index": 1,
+          "color": "blue",
+          "centroid_uv": [
+            403.6846921797005,
+            84.05213533000554
+          ],
+          "bbox_xywh": [
+            389,
+            71,
+            30,
+            28
+          ],
+          "area_px": 601.0,
+          "table_xy": [
+            0.05043911032836976,
+            0.380735045964871
+          ],
+          "inside_workspace": true
+        },
+        {
+          "pose_name": "center",
+          "detection_index": 2,
+          "color": "blue",
+          "centroid_uv": [
+            631.0108459869848,
+            144.1402747650036
+          ],
+          "bbox_xywh": [
+            622,
+            136,
+            18,
+            18
+          ],
+          "area_px": 230.5,
+          "table_xy": [
+            0.24210531258590193,
+            0.3350262562491421
+          ],
+          "inside_workspace": true
+        },
+        {
+          "pose_name": "center",
+          "detection_index": 3,
+          "color": "blue",
+          "centroid_uv": [
+            309.65213178294573,
+            326.85562015503876
+          ],
+          "bbox_xywh": [
+            304,
+            314,
+            12,
+            25
+          ],
+          "area_px": 172.0,
+          "table_xy": [
+            -0.020567733477409297,
+            0.18009878767520776
+          ],
+          "inside_workspace": true
+        },
+        {
+          "pose_name": "center",
+          "detection_index": 4,
+          "color": "purple",
+          "centroid_uv": [
+            322.1525054466231,
+            421.7843137254902
+          ],
+          "bbox_xywh": [
+            316,
+            416,
+            16,
+            15
+          ],
+          "area_px": 153.0,
+          "table_xy": [
+            -0.00936429841569231,
+            0.11685759050161922
+          ],
+          "inside_workspace": true
+        }
+      ],
+      "valid_candidates": [
+        {
+          "pose_name": "center",
+          "detection_index": 0,
+          "color": "blue",
+          "centroid_uv": [
+            336.9774584389969,
+            463.2903634826712
+          ],
+          "bbox_xywh": [
+            310,
+            448,
+            54,
+            32
+          ],
+          "area_px": 1183.0,
+          "table_xy": [
+            0.0015317227420385527,
+            0.09111816923371881
+          ],
+          "inside_workspace": true
+        },
+        {
+          "pose_name": "center",
+          "detection_index": 1,
+          "color": "blue",
+          "centroid_uv": [
+            403.6846921797005,
+            84.05213533000554
+          ],
+          "bbox_xywh": [
+            389,
+            71,
+            30,
+            28
+          ],
+          "area_px": 601.0,
+          "table_xy": [
+            0.05043911032836976,
+            0.380735045964871
+          ],
+          "inside_workspace": true
+        },
+        {
+          "pose_name": "center",
+          "detection_index": 2,
+          "color": "blue",
+          "centroid_uv": [
+            631.0108459869848,
+            144.1402747650036
+          ],
+          "bbox_xywh": [
+            622,
+            136,
+            18,
+            18
+          ],
+          "area_px": 230.5,
+          "table_xy": [
+            0.24210531258590193,
+            0.3350262562491421
+          ],
+          "inside_workspace": true
+        },
+        {
+          "pose_name": "center",
+          "detection_index": 3,
+          "color": "blue",
+          "centroid_uv": [
+            309.65213178294573,
+            326.85562015503876
+          ],
+          "bbox_xywh": [
+            304,
+            314,
+            12,
+            25
+          ],
+          "area_px": 172.0,
+          "table_xy": [
+            -0.020567733477409297,
+            0.18009878767520776
+          ],
+          "inside_workspace": true
+        },
+        {
+          "pose_name": "center",
+          "detection_index": 4,
+          "color": "purple",
+          "centroid_uv": [
+            322.1525054466231,
+            421.7843137254902
+          ],
+          "bbox_xywh": [
+            316,
+            416,
+            16,
+            15
+          ],
+          "area_px": 153.0,
+          "table_xy": [
+            -0.00936429841569231,
+            0.11685759050161922
+          ],
+          "inside_workspace": true
+        }
+      ]
+    },
+    "left": {
+      "image_path": "/home/frainer/Desktop/FS26/RobotLearning/R2D2-RL/project3_modular/data/observation_scans/scan_20260516_235143/left.png",
+      "homography_path": "/home/frainer/Desktop/FS26/RobotLearning/R2D2-RL/project3_modular/data/calibration/homography_left.npy",
+      "num_detections": 6,
+      "candidates": [
+        {
+          "pose_name": "left",
+          "detection_index": 0,
+          "color": "yellow",
+          "centroid_uv": [
+            47.10834434393739,
+            49.22732662533455
+          ],
+          "bbox_xywh": [
+            6,
+            0,
+            116,
+            144
+          ],
+          "area_px": 4919.5,
+          "table_xy": [
+            -0.3162928608659647,
+            0.4373225380330245
+          ],
+          "inside_workspace": false
+        },
+        {
+          "pose_name": "left",
+          "detection_index": 1,
+          "color": "orange",
+          "centroid_uv": [
+            43.65966332562323,
+            33.096504754561806
+          ],
+          "bbox_xywh": [
+            14,
+            0,
+            77,
+            97
+          ],
+          "area_px": 2594.0,
+          "table_xy": [
+            -0.32098854052215126,
+            0.45390954112703963
+          ],
+          "inside_workspace": false
+        },
+        {
+          "pose_name": "left",
+          "detection_index": 2,
+          "color": "blue",
+          "centroid_uv": [
+            473.1248067152639,
+            46.267506074663125
+          ],
+          "bbox_xywh": [
+            458,
+            33,
+            32,
+            27
+          ],
+          "area_px": 754.5,
+          "table_xy": [
+            0.05139597967476406,
+            0.38230465348945997
+          ],
+          "inside_workspace": true
+        },
+        {
+          "pose_name": "left",
+          "detection_index": 3,
+          "color": "yellow",
+          "centroid_uv": [
+            6.364990689013036,
+            207.0012414649286
+          ],
+          "bbox_xywh": [
+            0,
+            194,
+            16,
+            24
+          ],
+          "area_px": 268.5,
+          "table_xy": [
+            -0.3485092745544241,
+            0.29485761472696104
+          ],
+          "inside_workspace": false
+        },
+        {
+          "pose_name": "left",
+          "detection_index": 4,
+          "color": "orange",
+          "centroid_uv": [
+            12.336007130124775,
+            471.8190730837789
+          ],
+          "bbox_xywh": [
+            0,
+            465,
+            24,
+            15
+          ],
+          "area_px": 187.0,
+          "table_xy": [
+            -0.32578604231810465,
+            0.08199452438989566
+          ],
+          "inside_workspace": false
+        },
+        {
+          "pose_name": "left",
+          "detection_index": 5,
+          "color": "yellow",
+          "centroid_uv": [
+            4.225266362252663,
+            174.68797564687975
+          ],
+          "bbox_xywh": [
+            0,
+            168,
+            10,
+            14
+          ],
+          "area_px": 109.5,
+          "table_xy": [
+            -0.3531044628508889,
+            0.3241389523096484
+          ],
+          "inside_workspace": false
+        }
+      ],
+      "valid_candidates": [
+        {
+          "pose_name": "left",
+          "detection_index": 2,
+          "color": "blue",
+          "centroid_uv": [
+            473.1248067152639,
+            46.267506074663125
+          ],
+          "bbox_xywh": [
+            458,
+            33,
+            32,
+            27
+          ],
+          "area_px": 754.5,
+          "table_xy": [
+            0.05139597967476406,
+            0.38230465348945997
+          ],
+          "inside_workspace": true
+        }
+      ]
+    },
+    "right": {
+      "image_path": "/home/frainer/Desktop/FS26/RobotLearning/R2D2-RL/project3_modular/data/observation_scans/scan_20260516_235143/right.png",
+      "homography_path": "/home/frainer/Desktop/FS26/RobotLearning/R2D2-RL/project3_modular/data/calibration/homography_right.npy",
+      "num_detections": 10,
+      "candidates": [
+        {
+          "pose_name": "right",
+          "detection_index": 0,
+          "color": "blue",
+          "centroid_uv": [
+            573.1031133727292,
+            313.31732873714157
+          ],
+          "bbox_xywh": [
+            511,
+            280,
+            129,
+            64
+          ],
+          "area_px": 6092.0,
+          "table_xy": [
+            0.3414871887017236,
+            0.19293978357641592
+          ],
+          "inside_workspace": false
+        },
+        {
+          "pose_name": "right",
+          "detection_index": 1,
+          "color": "blue",
+          "centroid_uv": [
+            544.6819527520995,
+            209.79874327835174
+          ],
+          "bbox_xywh": [
+            523,
+            136,
+            77,
+            131
+          ],
+          "area_px": 2758.5,
+          "table_xy": [
+            0.3145107646182618,
+            0.2962650372490082
+          ],
+          "inside_workspace": false
+        },
+        {
+          "pose_name": "right",
+          "detection_index": 2,
+          "color": "blue",
+          "centroid_uv": [
+            224.0106051154086,
+            462.5771816732515
+          ],
+          "bbox_xywh": [
+            177,
+            434,
+            87,
+            46
+          ],
+          "area_px": 2404.5,
+          "table_xy": [
+            0.023603784035610857,
+            0.08844396317496393
+          ],
+          "inside_workspace": true
+        },
+        {
+          "pose_name": "right",
+          "detection_index": 3,
+          "color": "blue",
+          "centroid_uv": [
+            289.53291442250145,
+            72.93955715140633
+          ],
+          "bbox_xywh": [
+            276,
+            58,
+            28,
+            30
+          ],
+          "area_px": 557.0,
+          "table_xy": [
+            0.05005042410378017,
+            0.3816627911557409
+          ],
+          "inside_workspace": true
+        },
+        {
+          "pose_name": "right",
+          "detection_index": 4,
+          "color": "blue",
+          "centroid_uv": [
+            583.8345201763309,
+            154.82332994235333
+          ],
+          "bbox_xywh": [
+            559,
+            144,
+            54,
+            22
+          ],
+          "area_px": 491.5,
+          "table_xy": [
+            0.3770529006316605,
+            0.36722174212818515
+          ],
+          "inside_workspace": false
+        },
+        {
+          "pose_name": "right",
+          "detection_index": 5,
+          "color": "blue",
+          "centroid_uv": [
+            472.4929653679653,
+            468.4983766233766
+          ],
+          "bbox_xywh": [
+            465,
+            453,
+            19,
+            27
+          ],
+          "area_px": 308.0,
+          "table_xy": [
+            0.21729309771796604,
+            0.06483962710669824
+          ],
+          "inside_workspace": true
+        },
+        {
+          "pose_name": "right",
+          "detection_index": 6,
+          "color": "blue",
+          "centroid_uv": [
+            565.4588477366254,
+            219.39197530864197
+          ],
+          "bbox_xywh": [
+            555,
+            213,
+            23,
+            15
+          ],
+          "area_px": 162.0,
+          "table_xy": [
+            0.3417513337286495,
+            0.2892121345767416
+          ],
+          "inside_workspace": false
+        },
+        {
+          "pose_name": "right",
+          "detection_index": 7,
+          "color": "blue",
+          "centroid_uv": [
+            600.3081140350877,
+            223.70394736842104
+          ],
+          "bbox_xywh": [
+            587,
+            218,
+            32,
+            12
+          ],
+          "area_px": 152.0,
+          "table_xy": [
+            0.3918081204966014,
+            0.289982747835271
+          ],
+          "inside_workspace": false
+        },
+        {
+          "pose_name": "right",
+          "detection_index": 8,
+          "color": "blue",
+          "centroid_uv": [
+            632.0309050772627,
+            165.64238410596028
+          ],
+          "bbox_xywh": [
+            624,
+            158,
+            16,
+            14
+          ],
+          "area_px": 151.0,
+          "table_xy": [
+            0.45377527249328575,
+            0.36718534718945706
+          ],
+          "inside_workspace": false
+        },
+        {
+          "pose_name": "right",
+          "detection_index": 9,
+          "color": "orange",
+          "centroid_uv": [
+            474.82488479262673,
+            176.8663594470046
+          ],
+          "bbox_xywh": [
+            467,
+            171,
+            16,
+            13
+          ],
+          "area_px": 108.5,
+          "table_xy": [
+            0.2304013654999069,
+            0.3187378081160335
+          ],
+          "inside_workspace": true
+        }
+      ],
+      "valid_candidates": [
+        {
+          "pose_name": "right",
+          "detection_index": 2,
+          "color": "blue",
+          "centroid_uv": [
+            224.0106051154086,
+            462.5771816732515
+          ],
+          "bbox_xywh": [
+            177,
+            434,
+            87,
+            46
+          ],
+          "area_px": 2404.5,
+          "table_xy": [
+            0.023603784035610857,
+            0.08844396317496393
+          ],
+          "inside_workspace": true
+        },
+        {
+          "pose_name": "right",
+          "detection_index": 3,
+          "color": "blue",
+          "centroid_uv": [
+            289.53291442250145,
+            72.93955715140633
+          ],
+          "bbox_xywh": [
+            276,
+            58,
+            28,
+            30
+          ],
+          "area_px": 557.0,
+          "table_xy": [
+            0.05005042410378017,
+            0.3816627911557409
+          ],
+          "inside_workspace": true
+        },
+        {
+          "pose_name": "right",
+          "detection_index": 5,
+          "color": "blue",
+          "centroid_uv": [
+            472.4929653679653,
+            468.4983766233766
+          ],
+          "bbox_xywh": [
+            465,
+            453,
+            19,
+            27
+          ],
+          "area_px": 308.0,
+          "table_xy": [
+            0.21729309771796604,
+            0.06483962710669824
+          ],
+          "inside_workspace": true
+        },
+        {
+          "pose_name": "right",
+          "detection_index": 9,
+          "color": "orange",
+          "centroid_uv": [
+            474.82488479262673,
+            176.8663594470046
+          ],
+          "bbox_xywh": [
+            467,
+            171,
+            16,
+            13
+          ],
+          "area_px": 108.5,
+          "table_xy": [
+            0.2304013654999069,
+            0.3187378081160335
+          ],
+          "inside_workspace": true
+        }
+      ]
+    }
+  },
+  "scan_dir": "/home/frainer/Desktop/FS26/RobotLearning/R2D2-RL/project3_modular/data/observation_scans/scan_20260516_235143"
+}
