@@ -1,0 +1,40 @@
+<mujoco model="so101_local_grasp_teleop">
+  <include file="scene_local_grasp.xml"/>
+  <include file="so101_ee.xml"/>
+
+  <worldbody>
+    <body name="green_cube" pos="0.18 0.03 0.01">
+      <joint name="green_cube_joint" type="free" frictionloss="0.01"/>
+      <inertial pos="0 0 0" mass="0.004" diaginertia="0.000001 0.000001 0.000001"/>
+      <geom name="green_cube_geom"
+            type="box"
+            size="0.01 0.01 0.01"
+            rgba="0 0.984 0.373 1"
+            condim="4"
+            solimp="2 1 0.01"
+            solref="0.01 1"
+            friction="1 0.005 0.0001"/>
+    </body>
+
+    <body mocap="true"
+          name="mocap_target"
+          pos="0.171218036 0.03120461362 0.004095394952"
+          quat="-0.3049350508 -0.1811844668 -0.6428142358 0.6789526213">
+      <site name="mocap_target_site"
+            pos="0 0 0"
+            size="0.005"
+            type="sphere"
+            rgba="0 0 0 0"/>
+    </body>
+  </worldbody>
+
+  <equality>
+    <weld site1="mocap_target_site" site2="ee_site"/>
+  </equality>
+
+  <keyframe>
+    <key name="student_start"
+         qpos="-0.01914895 -1.74533 1.56454447 1.04777133 -1.40323939 1.4 0.18 0.03 0.01 1 0 0 0"
+         ctrl="-0.01914895 -1.74533 1.56454447 1.04777133 -1.40323939 1.4"/>
+  </keyframe>
+</mujoco>

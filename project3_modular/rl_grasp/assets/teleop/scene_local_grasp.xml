@@ -1,0 +1,59 @@
+<mujocoinclude>
+  <visual>
+    <map fogstart="1.5" fogend="5" force="0.1" znear="0.05"/>
+    <quality shadowsize="4096" offsamples="4"/>
+    <headlight ambient="0.22 0.22 0.22" diffuse="0.35 0.35 0.35" specular="0 0 0"/>
+  </visual>
+
+  <asset>
+    <!-- Evaluation-like light gray table, approximately #B8ADA9 -->
+    <material name="eval_table_gray" rgba="0.722 0.678 0.663 1"/>
+  </asset>
+
+  <worldbody>
+    <light castshadow="false" directional="true"
+           diffuse="0.35 0.35 0.35"
+           specular="0 0 0"
+           pos="-1 -1 1"
+           dir="1 1 -1"/>
+
+    <light castshadow="false" directional="true"
+           diffuse="0.25 0.25 0.25"
+           specular="0 0 0"
+           pos="1 -1 1"
+           dir="-1 1 -1"/>
+
+    <geom name="table"
+          type="plane"
+          size="0 0 0.05"
+          material="eval_table_gray"
+          conaffinity="1"
+          contype="1"
+          friction="1 0.3 0.1"/>
+
+    <body name="workspace_focus" pos="0.18 0.03 0.03">
+      <site name="workspace_focus_site"
+            pos="0 0 0"
+            size="0.01"
+            rgba="0 0 0 0"/>
+    </body>
+
+    <camera name="angle"
+            pos="0.42 -0.32 0.34"
+            fovy="55"
+            mode="targetbody"
+            target="workspace_focus"/>
+
+    <camera name="side"
+            pos="-0.02 -0.48 0.22"
+            fovy="52"
+            mode="targetbody"
+            target="workspace_focus"/>
+
+    <camera name="top"
+            pos="0.18 0.03 0.62"
+            fovy="48"
+            mode="targetbody"
+            target="workspace_focus"/>
+  </worldbody>
+</mujocoinclude>

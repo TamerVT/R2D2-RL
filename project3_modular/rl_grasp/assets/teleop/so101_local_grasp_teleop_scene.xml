@@ -1,0 +1,98 @@
+<mujoco model="so101_local_grasp_teleop">
+  <include file="so101_grounded_for_teleop.xml"/>
+
+  <option integrator="implicitfast" impratio="20" noslip_iterations="5" cone="elliptic">
+    <flag multiccd="enable"/>
+  </option>
+
+  <statistic center="0.18 0.03 0.18" extent="0.55"/>
+
+  <visual>
+    <headlight diffuse="0.35 0.35 0.35" ambient="0.18 0.18 0.18" specular="0 0 0"/>
+    <global azimuth="120" elevation="-20"/>
+  </visual>
+
+  <asset>
+    <!-- Evaluation-like light gray tabletop / floor: approximately #B8ADA9 -->
+    <material name="eval_table_gray" rgba="0.722 0.678 0.663 1"/>
+  </asset>
+
+  <worldbody>
+    <light
+      pos="0.2 -0.2 1.2"
+      dir="-0.1 0.1 -1"
+      directional="true"
+      diffuse="0.45 0.45 0.45"
+      ambient="0.05 0.05 0.05"
+      specular="0 0 0"
+    />
+
+    <geom
+      name="floor"
+      type="plane"
+      size="0 0 0.05"
+      material="eval_table_gray"
+      friction="1 0.3 0.1"
+    />
+
+    <!-- Focus body for fixed teleop cameras -->
+    <body name="workspace_focus" pos="0.18 0.03 0.03">
+      <site name="workspace_focus_site" pos="0 0 0" size="0.004" rgba="0 0 0 0"/>
+    </body>
+
+    <!-- 2 cm cube -->
+    <body name="green_cube_body" pos="0.18 0.03 0.01">
+      <joint name="green_cube_joint" type="free" frictionloss="0.01"/>
+      <inertial pos="0 0 0" mass="0.004" diaginertia="0.000001 0.000001 0.000001"/>
+      <geom
+        name="green_cube_geom"
+        type="box"
+        size="0.01 0.01 0.01"
+        rgba="0 0.984 0.373 1"
+        friction="1 0.3 0.1"
+        solimp="2 1 0.01"
+        solref="0.01 1"
+        condim="4"
+      />
+    </body>
+
+    <!-- Mocap target used for HW3-style Cartesian teleop -->
+    <body mocap="true" name="mocap_target" pos="0 0 0">
+      <site
+        name="mocap_target_site"
+        pos="0 0 0"
+        size="0.004"
+        type="sphere"
+        rgba="0 0 0 0"
+      />
+    </body>
+
+    <!-- Teleop cameras -->
+    <camera
+      name="angle"
+      pos="0.43 -0.35 0.34"
+      fovy="55"
+      mode="targetbody"
+      target="workspace_focus"
+    />
+    <camera
+      name="side"
+      pos="-0.02 -0.48 0.20"
+      fovy="50"
+      mode="targetbody"
+      target="workspace_focus"
+    />
+    <camera
+      name="top"
+      pos="0.18 0.03 0.62"
+      fovy="48"
+      mode="targetbody"
+      target="workspace_focus"
+    />
+  </worldbody>
+
+  <!-- Weld the mocap target to the SO101 gripper site -->
+  <equality>
+    <weld site1="mocap_target_site" site2="gripper"/>
+  </equality>
+</mujoco>
