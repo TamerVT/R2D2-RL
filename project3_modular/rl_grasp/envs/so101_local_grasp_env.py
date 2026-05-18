@@ -4,7 +4,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import cv2
 import gymnasium as gym
+import mujoco
 import numpy as np
 from gymnasium import spaces
 
@@ -34,6 +36,7 @@ class SO101LocalGraspConfig:
     # Total randomization width in x/y.
     # 0.06 means ±3 cm around cube_center.
     cube_randomization_xy: tuple[float, float] = (0.06, 0.06)
+    cube_include_rotation: bool = True
 
     max_episode_steps: int = 100
     joint_delta_deg: float = 5.0
@@ -43,6 +46,21 @@ class SO101LocalGraspConfig:
 
     target_color: str = "green"
     action_scale: float = 1.0
+
+    # RCS convergence checks whether the low-level sim reaches the commanded
+    # joint target within this tolerance. The default is tighter than the
+    # residual settling error we observe for SO101 (~0.1-0.16 deg), causing
+    # spurious "Max convergence steps reached!" warnings on every RL step.
+    sim_joint_arrival_tolerance_deg: float = 0.25
+
+    # Optional simulated wrist RGB observation.
+    # Disabled by default so the existing state-based SAC run is unaffected.
+    include_wrist_rgb: bool = False
+    wrist_camera_name: str = "robotwrist"
+    wrist_render_width: int = 640
+    wrist_render_height: int = 480
+    wrist_image_width: int = 128
+    wrist_image_height: int = 128
 
     # Custom local-grasp reward shaping.
     # Success requires the cube to be lifted this far above its reset height.
@@ -86,6 +104,8 @@ class SO101LocalGraspEnv(gym.Env):
         self.open_gui = open_gui
         self._step_count = 0
         self._episode_cube_start_z = 0.01
+        self._has_grasped = False
+        self._tcp_z_at_first_grasp: float | None = None
 
         if self.config.target_color not in COLOR_TO_INDEX:
             raise ValueError(
@@ -97,6 +117,15 @@ class SO101LocalGraspEnv(gym.Env):
         self._shared2world: Pose | None = None
 
         self.env = self._build_rcs_env()
+
+        self._wrist_renderer: mujoco.Renderer | None = None
+        if self.config.include_wrist_rgb:
+            sim = self.env.get_wrapper_attr("sim")
+            self._wrist_renderer = mujoco.Renderer(
+                sim.model,
+                height=self.config.wrist_render_height,
+                width=self.config.wrist_render_width,
+            )
 
         # Flat RL action:
         #   0:5 -> relative joint deltas
@@ -151,6 +180,18 @@ class SO101LocalGraspEnv(gym.Env):
             }
         )
 
+        if self.config.include_wrist_rgb:
+            self.observation_space.spaces["wrist_rgb"] = spaces.Box(
+                low=0,
+                high=255,
+                shape=(
+                    self.config.wrist_image_height,
+                    self.config.wrist_image_width,
+                    3,
+                ),
+                dtype=np.uint8,
+            )
+
     # ------------------------------------------------------------------
     # Environment construction
     # ------------------------------------------------------------------
@@ -170,6 +211,10 @@ class SO101LocalGraspEnv(gym.Env):
         cfg.relative_to = RelativeTo.LAST_STEP
         cfg.max_relative_movement = np.deg2rad(self.config.joint_delta_deg)
 
+        cfg.robot_cfgs["robot"].joint_rotational_tolerance = np.deg2rad(
+            self.config.sim_joint_arrival_tolerance_deg
+        )
+
         if self.config.pregrasp_q_home_rad is not None:
             cfg.robot_cfgs["robot"].q_home = np.asarray(
                 self.config.pregrasp_q_home_rad,
@@ -183,7 +228,7 @@ class SO101LocalGraspEnv(gym.Env):
                 quaternion=np.array([0.0, 0.0, 0.0, 1.0]),
             ),
             object_joint="green_cube_joint",
-            include_rotation=True,
+            include_rotation=self.config.cube_include_rotation,
         )
 
         # object_xml is a class attribute in RCS's dataclass, not an __init__ arg.
@@ -260,6 +305,30 @@ class SO101LocalGraspEnv(gym.Env):
             dtype=np.float32,
         )
 
+    def _render_wrist_rgb(self) -> np.ndarray:
+        if self._wrist_renderer is None:
+            raise RuntimeError(
+                "Wrist renderer requested, but include_wrist_rgb=False."
+            )
+
+        sim = self.env.get_wrapper_attr("sim")
+        self._wrist_renderer.update_scene(
+            sim.data,
+            camera=self.config.wrist_camera_name,
+        )
+        rgb = self._wrist_renderer.render().copy()
+
+        resized = cv2.resize(
+            rgb,
+            (
+                self.config.wrist_image_width,
+                self.config.wrist_image_height,
+            ),
+            interpolation=cv2.INTER_AREA,
+        )
+
+        return np.asarray(resized, dtype=np.uint8)
+
     def _flatten_obs(
         self,
         obs: dict[str, Any],
@@ -274,7 +343,7 @@ class SO101LocalGraspEnv(gym.Env):
         tcp_xyz = tcp_xyzrpy[:3]
         tcp_to_cube_xyz = cube_xyz - tcp_xyz
 
-        return {
+        flat_obs = {
             "joints": joints,
             "gripper": gripper,
             "tcp_xyzrpy": tcp_xyzrpy,
@@ -282,6 +351,11 @@ class SO101LocalGraspEnv(gym.Env):
             "tcp_to_cube_xyz": tcp_to_cube_xyz.astype(np.float32),
             "target_color": self._target_color_onehot(),
         }
+
+        if self.config.include_wrist_rgb:
+            flat_obs["wrist_rgb"] = self._render_wrist_rgb()
+
+        return flat_obs
     
     def _compute_local_grasp_reward(
         self,
@@ -308,6 +382,33 @@ class SO101LocalGraspEnv(gym.Env):
         xyz_dist = float(np.linalg.norm(delta))
         z_dist = float(abs(delta[2]))
 
+        # Dense directional shaping: reward only actual progress toward the cube.
+        # The policy does not observe cube_xyz; this is privileged sim reward only.
+        if self._prev_tcp_cube_dist is None:
+            distance_progress = 0.0
+        else:
+            distance_progress = float(self._prev_tcp_cube_dist - xyz_dist)
+
+        self._prev_tcp_cube_dist = xyz_dist
+
+        # Penalize moving away from the cube only while the TCP is still
+        # meaningfully outside the local grasp region. Once it is within a
+        # small 4 cm x 4 cm x 4 cm box around the cube center, allow free local
+        # repositioning without this progress penalty.
+        #
+        # Box half-extent = 2 cm in x/y/z.
+        free_reposition_half_extent_m = 0.02
+        inside_free_reposition_box = bool(
+            np.all(np.abs(delta) <= free_reposition_half_extent_m)
+        )
+
+        if inside_free_reposition_box:
+            progress_reward = 0.0
+        else:
+            # Moving away by 1 cm -> -1.0 penalty.
+            # Moving closer or staying equally close -> 0.0.
+            progress_reward = float(np.clip(100.0 * distance_progress, -1.0, 0.0))
+
         # 1) General proximity reward.
         # Starts moderately high and becomes close to 1 near the cube.
         reach_reward = float(np.exp(-20.0 * xyz_dist))
@@ -329,6 +430,12 @@ class SO101LocalGraspEnv(gym.Env):
         robot_info = raw_info.get("robot", {})
         sim_is_grasped = float(bool(robot_info.get("is_grasped", False)))
 
+        # RCS's raw grasp flag means the gripper encountered an obstruction;
+        # it does not by itself guarantee that the obstruction is the cube.
+        # Gate it by TCP-cube proximity to prevent exploiting self/base contact.
+        valid_grasp_radius_m = 0.025
+        valid_cube_grasp = sim_is_grasped * float(xyz_dist < valid_grasp_radius_m)
+
         cube_lift = max(0.0, float(cube_xyz[2] - self._episode_cube_start_z))
         normalized_lift = float(
             np.clip(
@@ -338,29 +445,62 @@ class SO101LocalGraspEnv(gym.Env):
             )
         )
 
-        grasp_reward = sim_is_grasped
+        grasp_reward = valid_cube_grasp
         lift_reward = normalized_lift
 
         success = bool(
             cube_lift >= self.config.success_lift_delta_m
-            and sim_is_grasped > 0.5
+            and valid_cube_grasp > 0.5
         )
         success_bonus = 1.0 if success else 0.0
+
+        # Latch the task into a post-grasp phase once a valid grasp is detected.
+        if valid_cube_grasp > 0.5 and not self._has_grasped:
+            self._has_grasped = True
+            self._tcp_z_at_first_grasp = float(tcp_xyz[2])
+
+        # Once grasped, reward lifting the TCP while the grasp is still held.
+        # This gives a denser directional signal than cube lift alone.
+        if self._tcp_z_at_first_grasp is None:
+            tcp_lift = 0.0
+        else:
+            tcp_lift = max(0.0, float(tcp_xyz[2] - self._tcp_z_at_first_grasp))
+
+        normalized_tcp_lift = float(
+            np.clip(
+                tcp_lift / max(1e-6, self.config.success_lift_delta_m),
+                0.0,
+                1.0,
+            )
+        )
+
+        tcp_lift_while_grasped_reward = valid_cube_grasp * normalized_tcp_lift
 
         action_penalty = self.config.action_penalty_weight * float(
             np.mean(np.square(np.asarray(action, dtype=np.float64)))
         )
 
-        reward = (
-            0.50 * reach_reward
-            + 0.75 * xy_align_reward
-            + 1.00 * descend_reward
-            + 1.00 * close_near_cube_reward
-            + 2.00 * grasp_reward
-            + 4.00 * lift_reward
-            + 8.00 * success_bonus
-            - action_penalty
-        )
+        if not self._has_grasped:
+            # Phase 1: acquire a good grasp.
+            reward = (
+                0.50 * reach_reward
+                + 0.75 * xy_align_reward
+                + 1.00 * descend_reward
+                + 0.75 * progress_reward
+                + 1.00 * close_near_cube_reward
+                + 2.00 * grasp_reward
+                - action_penalty
+            )
+        else: 
+            # Phase 2: once a grasp has happened, the task is to hold and lift.
+            # Do not keep over-rewarding the "stay near the tabletop" configuration.
+            reward = (
+                1.50 * valid_cube_grasp
+                + 6.00 * lift_reward
+                + 3.00 * tcp_lift_while_grasped_reward
+                + 10.00 * success_bonus
+                - action_penalty
+            )
 
         terms = {
             "xy_dist": xy_dist,
@@ -370,6 +510,12 @@ class SO101LocalGraspEnv(gym.Env):
             "cube_lift": cube_lift,
             "gripper_closed_amount": gripper_closed_amount,
             "sim_is_grasped": sim_is_grasped,
+            "valid_cube_grasp": valid_cube_grasp,
+            "valid_grasp_radius_m": valid_grasp_radius_m,
+            "distance_progress": distance_progress,
+            "progress_reward": progress_reward,
+            "inside_free_reposition_box": float(inside_free_reposition_box),
+            "free_reposition_half_extent_m": free_reposition_half_extent_m,
             "reach_reward": reach_reward,
             "xy_align_reward": xy_align_reward,
             "descend_reward": descend_reward,
@@ -378,6 +524,9 @@ class SO101LocalGraspEnv(gym.Env):
             "lift_reward": lift_reward,
             "success_bonus": success_bonus,
             "success_lift_delta_m": self.config.success_lift_delta_m,
+            "has_grasped_latched": float(self._has_grasped),
+            "tcp_lift": tcp_lift,
+            "tcp_lift_while_grasped_reward": tcp_lift_while_grasped_reward,
         }
 
         return float(reward), success, terms
@@ -427,9 +576,22 @@ class SO101LocalGraspEnv(gym.Env):
 
         self._step_count = 0
         obs, info = self.env.reset(seed=seed, options=options)
+        # Match the real local-grasp setup: episodes begin with the gripper closed.
+        # The flat action's last component maps -1 -> gripper command 0.0 (closed).
+        closed_gripper_action = np.array(
+            [0.0, 0.0, 0.0, 0.0, 0.0, -1.0],
+            dtype=np.float32,
+        )
+
+        for _ in range(10):
+            rcs_action = self._flat_action_to_rcs_action(closed_gripper_action)
+            obs, _reward, _terminated, _truncated, info = self.env.step(rcs_action)
         flat_obs = self._flatten_obs(obs)
 
         self._episode_cube_start_z = float(flat_obs["cube_xyz"][2])
+        self._has_grasped = False
+        self._tcp_z_at_first_grasp = None
+        self._prev_tcp_cube_dist = None
 
         return flat_obs, info
 
@@ -478,4 +640,6 @@ class SO101LocalGraspEnv(gym.Env):
         return None
 
     def close(self) -> None:
+        if self._wrist_renderer is not None:
+            self._wrist_renderer.close()
         self.env.close()
