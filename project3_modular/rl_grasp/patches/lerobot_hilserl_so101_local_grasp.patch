@@ -1,0 +1,1464 @@
+diff --git a/docs/source/hilserl.mdx b/docs/source/hilserl.mdx
+index 5b9439d5..29bb190a 100644
+--- a/docs/source/hilserl.mdx
++++ b/docs/source/hilserl.mdx
+@@ -492,7 +492,7 @@ To setup the SO101 leader, you need to set the `control_mode` to `"leader"` and
+ }
+ ```
+ 
+-In order to annotate the success/failure of the episode, **you will need** to use a keyboard to press `s` for success, `esc` for failure.
++In order to annotate the success/failure of the episode, **you will need** to use a keyboard to press `s` for success, `esc` for failure, and `r` to rerecord the episode.
+ During the online training, press `space` to take over the policy and `space` again to give the control back to the policy.
+ 
+ <details>
+diff --git a/scripts/add_bowl_goal_from_task_labels.py b/scripts/add_bowl_goal_from_task_labels.py
+new file mode 100644
+index 00000000..5e6a0f91
+--- /dev/null
++++ b/scripts/add_bowl_goal_from_task_labels.py
+@@ -0,0 +1,235 @@
++#!/usr/bin/env python3
++"""
++Add bowl target coordinates to a LeRobot v3 dataset as
++
++    observation.environment_state = [bowl_x, bowl_y, bowl_z]
++
++by parsing episode task strings of the form:
++
++    Task1_x-0.15_y0.45_z0.00
++
++The script:
++- copies the original dataset to a new output folder,
++- reads each episode's task label,
++- parses x/y/z,
++- writes observation.environment_state into every frame,
++- updates meta/info.json,
++- updates meta/stats.json.
++"""
++
++from __future__ import annotations
++
++import argparse
++import json
++import re
++import shutil
++from pathlib import Path
++from typing import Any
++
++import numpy as np
++import pandas as pd
++
++
++FEATURE_KEY = "observation.environment_state"
++FEATURE_NAMES = ["bowl_x", "bowl_y", "bowl_z"]
++
++TASK_PATTERN = re.compile(
++    r"^Task1_x(?P<x>[+-]?\d+(?:\.\d+)?)"
++    r"_y(?P<y>[+-]?\d+(?:\.\d+)?)"
++    r"_z(?P<z>[+-]?\d+(?:\.\d+)?)$"
++)
++
++
++def parse_args() -> argparse.Namespace:
++    parser = argparse.ArgumentParser()
++    parser.add_argument("--input-root", type=Path, required=True)
++    parser.add_argument("--output-root", type=Path, required=True)
++    parser.add_argument("--overwrite", action="store_true")
++    return parser.parse_args()
++
++
++def copy_dataset(input_root: Path, output_root: Path, overwrite: bool) -> None:
++    if not input_root.exists():
++        raise FileNotFoundError(f"Input dataset does not exist: {input_root}")
++
++    if output_root.exists():
++        if not overwrite:
++            raise FileExistsError(
++                f"Output dataset already exists: {output_root}\n"
++                "Pass --overwrite to replace it."
++            )
++        shutil.rmtree(output_root)
++
++    shutil.copytree(input_root, output_root)
++
++
++def load_episode_goal_map(root: Path) -> dict[int, np.ndarray]:
++    episodes_files = sorted((root / "meta" / "episodes").rglob("*.parquet"))
++    if not episodes_files:
++        raise FileNotFoundError(f"No episode metadata found under {root / 'meta' / 'episodes'}")
++
++    episodes = pd.concat(
++        [pd.read_parquet(f) for f in episodes_files],
++        ignore_index=True,
++    )
++
++    if "episode_index" not in episodes.columns:
++        raise KeyError("Episode metadata has no 'episode_index' column.")
++    if "tasks" not in episodes.columns:
++        raise KeyError("Episode metadata has no 'tasks' column.")
++
++    if episodes["episode_index"].duplicated().any():
++        dups = episodes.loc[
++            episodes["episode_index"].duplicated(keep=False),
++            ["episode_index", "tasks"],
++        ]
++        raise RuntimeError(
++            "Duplicate episode indices found in metadata. Please repair the dataset first:\n"
++            + dups.to_string(index=False)
++        )
++
++    episode_to_goal: dict[int, np.ndarray] = {}
++
++    for _, row in episodes.iterrows():
++        ep_idx = int(row["episode_index"])
++        tasks = row["tasks"]
++
++        # In LeRobot episode metadata, tasks is often stored as a list-like object.
++        if isinstance(tasks, (list, tuple, np.ndarray)):
++            if len(tasks) != 1:
++                raise ValueError(f"Episode {ep_idx} has unexpected tasks field: {tasks}")
++            task = str(tasks[0])
++        else:
++            task = str(tasks)
++
++        match = TASK_PATTERN.match(task)
++        if match is None:
++            raise ValueError(
++                f"Could not parse task label for episode {ep_idx}: {task!r}\n"
++                "Expected format: Task1_x-0.15_y0.45_z0.00"
++            )
++
++        goal = np.array(
++            [
++                float(match.group("x")),
++                float(match.group("y")),
++                float(match.group("z")),
++            ],
++            dtype=np.float32,
++        )
++        episode_to_goal[ep_idx] = goal
++
++    return episode_to_goal
++
++
++def augment_data_parquets(
++    root: Path,
++    episode_to_goal: dict[int, np.ndarray],
++) -> np.ndarray:
++    data_files = sorted((root / "data").rglob("*.parquet"))
++    if not data_files:
++        raise FileNotFoundError(f"No data parquet files found under {root / 'data'}")
++
++    all_goal_rows: list[np.ndarray] = []
++    seen_episodes: set[int] = set()
++
++    for parquet_path in data_files:
++        df = pd.read_parquet(parquet_path)
++
++        if "episode_index" not in df.columns:
++            raise KeyError(f"{parquet_path} has no 'episode_index' column.")
++
++        env_values = []
++        for ep_idx in df["episode_index"].to_numpy():
++            ep_idx = int(ep_idx)
++            if ep_idx not in episode_to_goal:
++                raise ValueError(f"No bowl goal found for episode {ep_idx}.")
++            goal = episode_to_goal[ep_idx].astype(np.float32, copy=True)
++            env_values.append(goal)
++            all_goal_rows.append(goal)
++            seen_episodes.add(ep_idx)
++
++        df[FEATURE_KEY] = env_values
++        df.to_parquet(parquet_path, index=False)
++
++    unused = sorted(set(episode_to_goal) - seen_episodes)
++    if unused:
++        raise RuntimeError(f"Episode goals exist for episodes not found in frame data: {unused}")
++
++    return np.stack(all_goal_rows, axis=0)
++
++
++def update_info_json(root: Path) -> None:
++    info_path = root / "meta" / "info.json"
++    info = json.loads(info_path.read_text())
++
++    features = info.setdefault("features", {})
++    features[FEATURE_KEY] = {
++        "dtype": "float32",
++        "shape": [3],
++        "names": FEATURE_NAMES,
++    }
++
++    info_path.write_text(json.dumps(info, indent=4) + "\n")
++
++
++def vector_stats(values: np.ndarray) -> dict[str, Any]:
++    return {
++        "min": values.min(axis=0).astype(float).tolist(),
++        "max": values.max(axis=0).astype(float).tolist(),
++        "mean": values.mean(axis=0).astype(float).tolist(),
++        "std": values.std(axis=0).astype(float).tolist(),
++        "count": [int(values.shape[0])],
++        "q01": np.quantile(values, 0.01, axis=0).astype(float).tolist(),
++        "q10": np.quantile(values, 0.10, axis=0).astype(float).tolist(),
++        "q50": np.quantile(values, 0.50, axis=0).astype(float).tolist(),
++        "q90": np.quantile(values, 0.90, axis=0).astype(float).tolist(),
++        "q99": np.quantile(values, 0.99, axis=0).astype(float).tolist(),
++    }
++
++
++def update_stats_json(root: Path, all_goal_rows: np.ndarray) -> None:
++    stats_path = root / "meta" / "stats.json"
++    stats = json.loads(stats_path.read_text())
++    stats[FEATURE_KEY] = vector_stats(all_goal_rows)
++    stats_path.write_text(json.dumps(stats, indent=4) + "\n")
++
++
++def sanity_check(root: Path) -> None:
++    info = json.loads((root / "meta" / "info.json").read_text())
++    stats = json.loads((root / "meta" / "stats.json").read_text())
++
++    assert FEATURE_KEY in info["features"], f"{FEATURE_KEY} missing in info.json"
++    assert FEATURE_KEY in stats, f"{FEATURE_KEY} missing in stats.json"
++
++    first_file = sorted((root / "data").rglob("*.parquet"))[0]
++    df = pd.read_parquet(first_file)
++    assert FEATURE_KEY in df.columns, f"{FEATURE_KEY} missing in {first_file}"
++
++    print("\nSanity check passed.")
++    print(f"Example environment state: {np.asarray(df.iloc[0][FEATURE_KEY]).tolist()}")
++    print(f"Augmented dataset written to:\n  {root}")
++
++
++def main() -> None:
++    args = parse_args()
++
++    print("Copying dataset...")
++    copy_dataset(args.input_root, args.output_root, args.overwrite)
++
++    print("Parsing task labels...")
++    episode_to_goal = load_episode_goal_map(args.output_root)
++    print(f"Parsed bowl coordinates for {len(episode_to_goal)} episodes.")
++
++    print("Adding observation.environment_state to frame data...")
++    all_goal_rows = augment_data_parquets(args.output_root, episode_to_goal)
++
++    print("Updating metadata...")
++    update_info_json(args.output_root)
++    update_stats_json(args.output_root, all_goal_rows)
++
++    sanity_check(args.output_root)
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/src/lerobot/cameras/opencv/camera_opencv.py b/src/lerobot/cameras/opencv/camera_opencv.py
+index f3289ddc..c9f22174 100644
+--- a/src/lerobot/cameras/opencv/camera_opencv.py
++++ b/src/lerobot/cameras/opencv/camera_opencv.py
+@@ -47,6 +47,8 @@ from .configuration_opencv import ColorMode, OpenCVCameraConfig
+ MAX_OPENCV_INDEX = 60
+ 
+ logger = logging.getLogger(__name__)
++READ_FAILURE_WARNING_LIMIT = 10
++READ_FAILURE_WARNING_INTERVAL = 100
+ 
+ 
+ class OpenCVCamera(Camera):
+@@ -455,11 +457,17 @@ class OpenCVCamera(Camera):
+             except DeviceNotConnectedError:
+                 break
+             except Exception as e:
+-                if failure_count <= 10:
+-                    failure_count += 1
+-                    logger.warning(f"Error reading frame in background thread for {self}: {e}")
+-                else:
+-                    raise RuntimeError(f"{self} exceeded maximum consecutive read failures.") from e
++                failure_count += 1
++                if (
++                    failure_count <= READ_FAILURE_WARNING_LIMIT
++                    or failure_count % READ_FAILURE_WARNING_INTERVAL == 0
++                ):
++                    logger.warning(
++                        f"Error reading frame in background thread for {self} "
++                        f"(consecutive failures: {failure_count}). Retrying: {e}"
++                    )
++                retry_sleep_s = min(1 / max(self.fps or 30, 1), 0.1)
++                time.sleep(retry_sleep_s)
+ 
+     def _start_read_thread(self) -> None:
+         """Starts or restarts the background read thread if it's not running."""
+diff --git a/src/lerobot/datasets/dataset_tools.py b/src/lerobot/datasets/dataset_tools.py
+index 46dd9bff..2fa5cc77 100644
+--- a/src/lerobot/datasets/dataset_tools.py
++++ b/src/lerobot/datasets/dataset_tools.py
+@@ -561,6 +561,10 @@ def _copy_and_reindex_data(
+         for ep_old_idx in episodes_to_keep:
+             ep_new_idx = episode_mapping[ep_old_idx]
+             ep_df = df[df["episode_index"] == ep_new_idx]
++
++            if ep_df.empty:
++                continue
++
+             episode_data_metadata[ep_new_idx] = {
+                 "data/chunk_index": chunk_idx,
+                 "data/file_index": file_idx,
+diff --git a/src/lerobot/processor/hil_processor.py b/src/lerobot/processor/hil_processor.py
+index 49dbb810..18ea3f97 100644
+--- a/src/lerobot/processor/hil_processor.py
++++ b/src/lerobot/processor/hil_processor.py
+@@ -88,7 +88,7 @@ def _check_teleop_with_events(teleop: "Teleoperator") -> None:
+     if not isinstance(teleop, HasTeleopEvents):
+         raise TypeError(
+             f"Teleoperator {type(teleop).__name__} must implement get_teleop_events() method. "
+-            f"Compatible teleoperators: GamepadTeleop, KeyboardEndEffectorTeleop"
++            f"Ensure your teleoperator inherits from the Teleoperator base class, which provides a default implementation."
+         )
+ 
+ 
+@@ -444,6 +444,7 @@ class InterventionActionProcessorStep(ProcessorStep):
+ 
+     use_gripper: bool = False
+     terminate_on_success: bool = True
++    control_mode: str = "gamepad"
+ 
+     def __call__(self, transition: EnvTransition) -> EnvTransition:
+         """
+@@ -474,14 +475,18 @@ class InterventionActionProcessorStep(ProcessorStep):
+         # Override action if intervention is active
+         if is_intervention and teleop_action is not None:
+             if isinstance(teleop_action, dict):
+-                # Convert teleop_action dict to tensor format
+-                action_list = [
+-                    teleop_action.get("delta_x", 0.0),
+-                    teleop_action.get("delta_y", 0.0),
+-                    teleop_action.get("delta_z", 0.0),
+-                ]
+-                if self.use_gripper:
+-                    action_list.append(teleop_action.get(GRIPPER_KEY, 1.0))
++                if self.control_mode == "leader":
++                    # Joint position mode (leader arm) — values are direct joint positions
++                    action_list = list(teleop_action.values())
++                else:
++                    # End-effector delta mode (gamepad/keyboard EE)
++                    action_list = [
++                        teleop_action.get("delta_x", 0.0),
++                        teleop_action.get("delta_y", 0.0),
++                        teleop_action.get("delta_z", 0.0),
++                    ]
++                    if self.use_gripper:
++                        action_list.append(teleop_action.get(GRIPPER_KEY, 1.0))
+             elif isinstance(teleop_action, np.ndarray):
+                 action_list = teleop_action.tolist()
+             else:
+@@ -520,6 +525,7 @@ class InterventionActionProcessorStep(ProcessorStep):
+         return {
+             "use_gripper": self.use_gripper,
+             "terminate_on_success": self.terminate_on_success,
++            "control_mode": self.control_mode,
+         }
+ 
+     def transform_features(
+diff --git a/src/lerobot/processor/normalize_processor.py b/src/lerobot/processor/normalize_processor.py
+index 7516c7b4..79eed4b5 100644
+--- a/src/lerobot/processor/normalize_processor.py
++++ b/src/lerobot/processor/normalize_processor.py
+@@ -334,6 +334,17 @@ class _NormalizationMixin:
+                 )
+ 
+             mean, std = stats["mean"], stats["std"]
++
++            # Image tensors are channel-first, e.g. [B, C, H, W] or [C, H, W],
++            # while RGB dataset stats are stored as flat [C] vectors.
++            # Reshape [C] -> [..., C, 1, 1] so broadcasting works correctly.
++            if tensor.ndim >= 3 and mean.ndim == 1 and std.ndim == 1:
++                if tensor.shape[-3] == mean.shape[0]:
++                    broadcast_shape = [1] * tensor.ndim
++                    broadcast_shape[-3] = mean.shape[0]
++                    mean = mean.view(*broadcast_shape)
++                    std = std.view(*broadcast_shape)
++
+             # Avoid division by zero by adding a small epsilon.
+             denom = std + self.eps
+             if inverse:
+diff --git a/src/lerobot/rl/actor.py b/src/lerobot/rl/actor.py
+index eab52725..f6915dba 100644
+--- a/src/lerobot/rl/actor.py
++++ b/src/lerobot/rl/actor.py
+@@ -57,6 +57,7 @@ import torch
+ from torch import nn
+ from torch.multiprocessing import Event, Queue
+ 
++from lerobot.policies.factory import make_pre_post_processors
+ from lerobot.cameras import opencv  # noqa: F401
+ from lerobot.configs import parser
+ from lerobot.configs.train import TrainRLServerPipelineConfig
+@@ -91,8 +92,10 @@ from lerobot.utils.utils import (
+ 
+ from .gym_manipulator import (
+     create_transition,
++    leader_pregrasp_setup_loop,
+     make_processors,
+     make_robot_env,
++    process_env_transition_with_target_color,
+     step_env_and_process_transition,
+ )
+ from .queue import get_last_item_from_queue
+@@ -185,6 +188,8 @@ def actor_cli(cfg: TrainRLServerPipelineConfig):
+         )
+         logging.info("[ACTOR] Policy loop finished")
+     except Exception:
++        import traceback
++        traceback.print_exc()
+         logging.exception("[ACTOR] Unhandled exception in act_with_policy")
+         shutdown_event.set()
+     finally:
+@@ -261,13 +266,50 @@ def act_with_policy(
+     policy = policy.eval()
+     assert isinstance(policy, nn.Module)
+ 
++    # SAC inference requires the policy-side processor pair:
++    # - preprocessor: normalize live observations
++    # - postprocessor: unnormalize policy actions into physical env action space
++    policy_preprocessor, policy_postprocessor = make_pre_post_processors(
++        policy_cfg=cfg.policy,
++        dataset_stats=cfg.policy.dataset_stats,
++    )
++
+     obs, info = online_env.reset()
+     env_processor.reset()
+     action_processor.reset()
+ 
+-    # Process initial observation
++    # Process initial observation.
+     transition = create_transition(observation=obs, info=info)
+-    transition = env_processor(transition)
++    transition = process_env_transition_with_target_color(
++        env=online_env,
++        env_processor=env_processor,
++        transition=transition,
++    )
++
++    # Before the first RL episode, use the same leader-guided
++    # pregrasp setup flow as during HIL demo recording.
++    if cfg.env.processor.control_mode == "leader":
++        transition = leader_pregrasp_setup_loop(
++            env=online_env,
++            transition=transition,
++            env_processor=env_processor,
++            action_processor=action_processor,
++            cfg=cfg,
++            shutdown_event=shutdown_event,
++        )
++
++        # The setup phase should not count toward the actual RL episode.
++        env_processor.reset()
++        action_processor.reset()
++
++        obs = online_env._get_observation()
++        info = {TeleopEvents.IS_INTERVENTION: False}
++        transition = create_transition(observation=obs, info=info)
++        transition = process_env_transition_with_target_color(
++            env=online_env,
++            env_processor=env_processor,
++            transition=transition,
++        )
+ 
+     # NOTE: For the moment we will solely handle the case of a single environment
+     sum_reward_episode = 0
+@@ -286,13 +328,20 @@ def act_with_policy(
+             return
+ 
+         observation = {
+-            k: v for k, v in transition[TransitionKey.OBSERVATION].items() if k in cfg.policy.input_features
++            k: v
++            for k, v in transition[TransitionKey.OBSERVATION].items()
++            if k in cfg.policy.input_features
+         }
+ 
+-        # Time policy inference and check if it meets FPS requirement
++        # Use a normalized copy only for policy inference.
++        # Keep `observation` itself in env/dataset space for the learner replay buffer.
++        policy_observation = policy_preprocessor(observation)
++
+         with policy_timer:
+-            # Extract observation from transition for policy
+-            action = policy.select_action(batch=observation)
++            action = policy.select_action(batch=policy_observation)
++
++        # Convert SAC policy-space actions back into physical env action space.
++        action = policy_postprocessor(action)
+         policy_fps = policy_timer.fps_last
+ 
+         log_policy_frequency_issue(policy_fps=policy_fps, cfg=cfg, interaction_step=interaction_step)
+@@ -397,7 +446,35 @@ def act_with_policy(
+ 
+             # Process initial observation
+             transition = create_transition(observation=obs, info=info)
+-            transition = env_processor(transition)
++            transition = process_env_transition_with_target_color(
++                env=online_env,
++                env_processor=env_processor,
++                transition=transition,
++            )
++
++            # Re-establish a fresh pregrasp pose before the next RL episode.
++            if cfg.env.processor.control_mode == "leader":
++                transition = leader_pregrasp_setup_loop(
++                    env=online_env,
++                    transition=transition,
++                    env_processor=env_processor,
++                    action_processor=action_processor,
++                    cfg=cfg,
++                    shutdown_event=shutdown_event,
++                )
++
++                # The setup phase should not count toward the next RL episode.
++                env_processor.reset()
++                action_processor.reset()
++
++                obs = online_env._get_observation()
++                info = {TeleopEvents.IS_INTERVENTION: False}
++                transition = create_transition(observation=obs, info=info)
++                transition = process_env_transition_with_target_color(
++                    env=online_env,
++                    env_processor=env_processor,
++                    transition=transition,
++                )
+ 
+         if cfg.env.fps is not None:
+             dt_time = time.perf_counter() - start_time
+diff --git a/src/lerobot/rl/gym_manipulator.py b/src/lerobot/rl/gym_manipulator.py
+index 2190070f..28e205c0 100644
+--- a/src/lerobot/rl/gym_manipulator.py
++++ b/src/lerobot/rl/gym_manipulator.py
+@@ -28,6 +28,7 @@ from lerobot.configs import parser
+ from lerobot.datasets import LeRobotDataset
+ from lerobot.envs import HILSerlRobotEnvConfig
+ from lerobot.model import RobotKinematics
++from lerobot.motors.motors_bus import MotorNormMode
+ from lerobot.processor import (
+     AddBatchDimensionProcessorStep,
+     AddTeleopActionAsComplimentaryDataStep,
+@@ -81,6 +82,59 @@ from .joint_observations_processor import JointVelocityProcessorStep, MotorCurre
+ 
+ logging.basicConfig(level=logging.INFO)
+ 
++TARGET_COLOR_ORDER = ["blue", "green", "purple", "orange", "yellow", "red"]
++
++TARGET_COLOR_KEY_TO_NAME = {
++    "b": "blue",
++    "g": "green",
++    "p": "purple",
++    "o": "orange",
++    "y": "yellow",
++    "r": "red",
++}
++
++
++def target_color_onehot(color_name: str) -> torch.Tensor:
++    if color_name not in TARGET_COLOR_ORDER:
++        raise ValueError(
++            f"Unknown target color '{color_name}'. "
++            f"Expected one of {TARGET_COLOR_ORDER}."
++        )
++
++    vec = torch.zeros(len(TARGET_COLOR_ORDER), dtype=torch.float32)
++    vec[TARGET_COLOR_ORDER.index(color_name)] = 1.0
++    return vec
++
++
++def select_target_color_for_episode(env: gym.Env) -> None:
++    import sys
++    import termios
++
++    # Discard stray keyboard-event characters such as 's' or 'r'
++    # that may still be sitting in the terminal input buffer from
++    # the previous episode.
++    try:
++        termios.tcflush(sys.stdin, termios.TCIFLUSH)
++    except termios.error:
++        pass
++
++    while True:
++        raw = input(
++            "\n[Target color] Choose "
++            "b=blue, g=green, p=purple, o=orange, y=yellow, r=red: "
++        ).strip().lower()
++
++        if raw in TARGET_COLOR_KEY_TO_NAME:
++            color_name = TARGET_COLOR_KEY_TO_NAME[raw]
++            env.target_color_name = color_name
++            env.target_color_onehot = target_color_onehot(color_name)
++            print(
++                f"[Target color] Using {color_name}: "
++                f"{env.target_color_onehot.tolist()}\n"
++            )
++            return
++
++        print(f"[Target color] Invalid key: {raw!r}")
+ 
+ @dataclass
+ class DatasetConfig:
+@@ -129,6 +183,7 @@ class RobotEnv(gym.Env):
+         display_cameras: bool = False,
+         reset_pose: list[float] | None = None,
+         reset_time_s: float = 5.0,
++        control_mode: str = "gamepad",
+     ) -> None:
+         """Initialize robot environment with configuration options.
+ 
+@@ -138,11 +193,13 @@ class RobotEnv(gym.Env):
+             display_cameras: Whether to show camera feeds during execution.
+             reset_pose: Joint positions for environment reset.
+             reset_time_s: Time to wait during reset.
++            control_mode: Control mode - "leader" for direct joint control, "gamepad" for delta EE.
+         """
+         super().__init__()
+ 
+         self.robot = robot
+         self.display_cameras = display_cameras
++        self.control_mode = control_mode
+ 
+         # Connect to the robot if not already connected.
+         if not self.robot.is_connected:
+@@ -160,6 +217,11 @@ class RobotEnv(gym.Env):
+ 
+         self.use_gripper = use_gripper
+ 
++        # Default target color. This will be overwritten per episode
++        # by select_target_color_for_episode(...).
++        self.target_color_name = "blue"
++        self.target_color_onehot = target_color_onehot("blue")
++
+         self._joint_names = list(self.robot.bus.motors.keys())
+         self._raw_joint_positions = None
+ 
+@@ -202,16 +264,34 @@ class RobotEnv(gym.Env):
+ 
+         self.observation_space = gym.spaces.Dict(observation_spaces)
+ 
+-        # Define the action space for joint positions along with setting an intervention flag.
+-        action_dim = 3
+-        bounds = {}
+-        bounds["min"] = -np.ones(action_dim)
+-        bounds["max"] = np.ones(action_dim)
+-
+-        if self.use_gripper:
+-            action_dim += 1
+-            bounds["min"] = np.concatenate([bounds["min"], [0]])
+-            bounds["max"] = np.concatenate([bounds["max"], [2]])
++        # Define the action space.
++        if self.control_mode == "leader":
++            # Leader arm: direct joint positions, one per motor (including gripper).
++            # Bounds are derived from the follower's motor normalization modes, which
++            # must match the leader's modes for positions to be compatible.
++            low, high = [], []
++            for motor in self.robot.bus.motors.values():
++                if motor.norm_mode == MotorNormMode.DEGREES:
++                    low.append(-180.0)
++                    high.append(180.0)
++                elif motor.norm_mode == MotorNormMode.RANGE_M100_100:
++                    low.append(-100.0)
++                    high.append(100.0)
++                elif motor.norm_mode == MotorNormMode.RANGE_0_100:
++                    low.append(0.0)
++                    high.append(100.0)
++            action_dim = len(low)
++            bounds = {"min": np.array(low, dtype=np.float32), "max": np.array(high, dtype=np.float32)}
++        else:
++            # Gamepad/keyboard EE: delta end-effector control
++            action_dim = 3
++            bounds = {}
++            bounds["min"] = -np.ones(action_dim)
++            bounds["max"] = np.ones(action_dim)
++            if self.use_gripper:
++                action_dim += 1
++                bounds["min"] = np.concatenate([bounds["min"], [0]])
++                bounds["max"] = np.concatenate([bounds["max"], [2]])
+ 
+         self.action_space = gym.spaces.Box(
+             low=bounds["min"],
+@@ -232,15 +312,18 @@ class RobotEnv(gym.Env):
+         Returns:
+             Tuple of (observation, info) dictionaries.
+         """
+-        # Reset the robot
+-        # self.robot.reset()
+         start_time = time.perf_counter()
++
+         if self.reset_pose is not None:
++            # Existing automatic fixed-pose reset behavior
+             log_say("Reset the environment.", play_sounds=True)
+             reset_follower_position(self.robot, np.array(self.reset_pose))
+             log_say("Reset the environment done.", play_sounds=True)
+ 
+-        precise_sleep(max(self.reset_time_s - (time.perf_counter() - start_time), 0.0))
++            precise_sleep(max(self.reset_time_s - (time.perf_counter() - start_time), 0.0))
++
++        else:
++            pass
+ 
+         super().reset(seed=seed, options=options)
+ 
+@@ -253,16 +336,21 @@ class RobotEnv(gym.Env):
+ 
+     def step(self, action) -> tuple[RobotObservation, float, bool, bool, dict[str, Any]]:
+         """Execute one environment step with given action."""
+-        joint_targets_dict = {f"{key}.pos": action[i] for i, key in enumerate(self.robot.bus.motors.keys())}
++        joint_targets_dict = {
++            f"{key}.pos": action[i]
++            for i, key in enumerate(self.robot.bus.motors.keys())
++        }
+ 
+         self.robot.send_action(joint_targets_dict)
+ 
+         obs = self._get_observation()
+ 
+-        self._raw_joint_positions = {f"{key}.pos": obs[f"{key}.pos"] for key in self._joint_names}
++        self._raw_joint_positions = {
++            f"{key}.pos": obs[f"{key}.pos"] for key in self._joint_names
++        }
+ 
+         if self.display_cameras:
+-            self.render()
++            self.render(obs)
+ 
+         self.current_step += 1
+ 
+@@ -278,17 +366,41 @@ class RobotEnv(gym.Env):
+             {TeleopEvents.IS_INTERVENTION: False},
+         )
+ 
+-    def render(self) -> None:
+-        """Display robot camera feeds."""
++    def render(self, current_observation: RobotObservation | None = None) -> None:
++        """
++        Publish the latest robot camera frames for an external preview viewer.
++
++        We intentionally avoid cv2.imshow() inside the actor/control loop,
++        because it can block and freeze HIL execution in this setup.
++        """
+         import cv2
++        import os
++        from pathlib import Path
+ 
+-        current_observation = self._get_observation()
+-        if current_observation is not None:
+-            image_keys = [key for key in current_observation if "image" in key]
++        if current_observation is None:
++            current_observation = self._get_observation()
+ 
+-            for key in image_keys:
+-                cv2.imshow(key, cv2.cvtColor(current_observation[key].numpy(), cv2.COLOR_RGB2BGR))
+-                cv2.waitKey(1)
++        if current_observation is None:
++            return
++
++        preview_dir = Path("/tmp/lerobot_preview")
++        preview_dir.mkdir(parents=True, exist_ok=True)
++
++        for key, image in current_observation.get("pixels", {}).items():
++            if hasattr(image, "detach"):
++                image = image.detach().cpu().numpy()
++            elif hasattr(image, "numpy"):
++                image = image.numpy()
++
++            # Raw LeRobot camera images are RGB; OpenCV image files expect BGR.
++            image_bgr = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
++
++            final_path = preview_dir / f"{key}.jpg"
++            tmp_path = preview_dir / f"{key}.tmp.jpg"
++
++            # Atomic-ish update: the viewer never reads a half-written JPEG.
++            cv2.imwrite(str(tmp_path), image_bgr)
++            os.replace(tmp_path, final_path)
+ 
+     def close(self) -> None:
+         """Close environment and disconnect robot."""
+@@ -342,12 +454,26 @@ def make_robot_env(cfg: HILSerlRobotEnvConfig) -> tuple[gym.Env, Any]:
+         cfg.processor.observation.display_cameras if cfg.processor.observation is not None else False
+     )
+     reset_pose = cfg.processor.reset.fixed_reset_joint_positions if cfg.processor.reset is not None else None
++    control_mode = cfg.processor.control_mode if cfg.processor is not None else "gamepad"
++
++    if control_mode == "leader":
++        # The intervention pipeline converts leader actions to a positional list and
++        # RobotEnv.step() reconstructs a dict using the follower's motor order.
++        # These must match or joint positions will be silently swapped.
++        leader_keys = list(teleop_device.bus.motors.keys())
++        follower_keys = list(robot.bus.motors.keys())
++        if leader_keys != follower_keys:
++            raise ValueError(
++                f"Leader and follower motor key order must match for joint-position control. "
++                f"Leader: {leader_keys}, Follower: {follower_keys}"
++            )
+ 
+     env = RobotEnv(
+         robot=robot,
+         use_gripper=use_gripper,
+         display_cameras=display_cameras,
+         reset_pose=reset_pose,
++        control_mode=control_mode,
+     )
+ 
+     return env, teleop_device
+@@ -476,11 +602,17 @@ def make_processors(
+         InterventionActionProcessorStep(
+             use_gripper=cfg.processor.gripper.use_gripper if cfg.processor.gripper is not None else False,
+             terminate_on_success=terminate_on_success,
++            control_mode=cfg.processor.control_mode if cfg.processor is not None else "gamepad",
+         ),
+     ]
+ 
+-    # Replace InverseKinematicsProcessor with new kinematic processors
+-    if cfg.processor.inverse_kinematics is not None and kinematics_solver is not None:
++    # IK pipeline converts EE deltas → joint targets.  Leader arm actions are already
++    # joint positions, so the IK pipeline must be skipped in leader mode.
++    if (
++        cfg.processor.inverse_kinematics is not None
++        and kinematics_solver is not None
++        and cfg.processor.control_mode != "leader"
++    ):
+         # Add EE bounds and safety processor
+         inverse_kinematics_steps = [
+             MapTensorToDeltaActionDictStep(
+@@ -516,6 +648,66 @@ def make_processors(
+     )
+ 
+ 
++def append_target_color_to_transition(
++    transition: EnvTransition,
++    env: gym.Env,
++) -> EnvTransition:
++    """
++    Append the selected target-color one-hot vector to observation.state.
++
++    The existing processed state is 18D.
++    We append 6D target color -> 24D total.
++    """
++    new_transition = transition.copy()
++
++    obs = new_transition.get(TransitionKey.OBSERVATION)
++    if obs is None or OBS_STATE not in obs:
++        return new_transition
++
++    obs = obs.copy()
++    state = obs[OBS_STATE]
++
++    if not isinstance(state, torch.Tensor):
++        raise TypeError(
++            f"Expected {OBS_STATE} to be a torch.Tensor, got {type(state)}"
++        )
++
++    # Avoid accidental double-appending.
++    if state.shape[-1] == 24:
++        return new_transition
++
++    if state.shape[-1] != 18:
++        raise ValueError(
++            f"Expected processed {OBS_STATE} last dimension to be 18 before "
++            f"adding target color, got shape {tuple(state.shape)}"
++        )
++
++    color = env.target_color_onehot.to(device=state.device, dtype=state.dtype)
++
++    if state.ndim == 1:
++        state_with_color = torch.cat([state, color], dim=0)
++    elif state.ndim == 2:
++        color_batch = color.unsqueeze(0).expand(state.shape[0], -1)
++        state_with_color = torch.cat([state, color_batch], dim=-1)
++    else:
++        raise ValueError(
++            f"Unexpected {OBS_STATE} shape {tuple(state.shape)}. "
++            "Expected [18] or [B, 18]."
++        )
++
++    obs[OBS_STATE] = state_with_color
++    new_transition[TransitionKey.OBSERVATION] = obs
++    return new_transition
++
++
++def process_env_transition_with_target_color(
++    env: gym.Env,
++    env_processor: DataProcessorPipeline[EnvTransition, EnvTransition],
++    transition: EnvTransition,
++) -> EnvTransition:
++    transition = env_processor(transition)
++    return append_target_color_to_transition(transition, env)
++
+ def step_env_and_process_transition(
+     env: gym.Env,
+     transition: EnvTransition,
+@@ -543,9 +735,20 @@ def step_env_and_process_transition(
+         env.get_raw_joint_positions() if hasattr(env, "get_raw_joint_positions") else {}
+     )
+     processed_action_transition = action_processor(transition)
++
+     processed_action = processed_action_transition[TransitionKey.ACTION]
+ 
+-    obs, reward, terminated, truncated, info = env.step(processed_action)
++    # The online SAC actor emits batched actions with shape [1, action_dim],
++    # while the real robot environment expects a single unbatched action [action_dim].
++    processed_action_for_env = processed_action
++    if (
++        isinstance(processed_action_for_env, torch.Tensor)
++        and processed_action_for_env.ndim == 2
++        and processed_action_for_env.shape[0] == 1
++    ):
++        processed_action_for_env = processed_action_for_env.squeeze(0)
++
++    obs, reward, terminated, truncated, info = env.step(processed_action_for_env)
+ 
+     reward = reward + processed_action_transition[TransitionKey.REWARD]
+     terminated = terminated or processed_action_transition[TransitionKey.DONE]
+@@ -563,11 +766,73 @@ def step_env_and_process_transition(
+         info=new_info,
+         complementary_data=complementary_data,
+     )
+-    new_transition = env_processor(new_transition)
++    new_transition = process_env_transition_with_target_color(
++        env=env,
++        env_processor=env_processor,
++        transition=new_transition,
++    )
+ 
+     return new_transition
+ 
++def leader_pregrasp_setup_loop(
++    env: gym.Env,
++    transition: EnvTransition,
++    env_processor: DataProcessorPipeline[EnvTransition, EnvTransition],
++    action_processor: DataProcessorPipeline[EnvTransition, EnvTransition],
++    cfg: GymManipulatorConfig,
++    shutdown_event=None,
++) -> EnvTransition:
++    """
++    Let the user move the follower into a good pregrasp pose with the leader arm
++    before episode recording starts. Recording begins only after ENTER is pressed.
++    """
++    import select
++    import sys
++
++    select_target_color_for_episode(env)
++    dt = 1.0 / cfg.env.fps
++
++    print(
++        "\n[Pregrasp setup] Move the follower into a good pregrasp pose, "
++        "then press ENTER to start recording this episode...\n",
++        flush=True,
++    )
++
++    while True:
++        # Let Ctrl+C / actor shutdown exit cleanly.
++        if shutdown_event is not None and shutdown_event.is_set():
++            print("\n[Pregrasp setup] Shutdown requested. Exiting before episode start.\n")
++            return transition
++
++        # Non-blocking check: has the user pressed ENTER?
++        ready, _, _ = select.select([sys.stdin], [], [], 0.0)
++        if ready:
++            sys.stdin.readline()
++            break
++
++        step_start_time = time.perf_counter()
++
++        # In leader mode, 'neutral' means hold the current follower pose.
++        raw = env.get_raw_joint_positions()
++        neutral_action = torch.tensor(
++            [raw[f"{k}.pos"] for k in env.robot.bus.motors],
++            dtype=torch.float32,
++        )
+ 
++        transition = step_env_and_process_transition(
++            env=env,
++            transition=transition,
++            action=neutral_action,
++            env_processor=env_processor,
++            action_processor=action_processor,
++        )
++
++        precise_sleep(max(dt - (time.perf_counter() - step_start_time), 0.0))
++    print(
++        "\n[Episode] Recording started. "
++        "Demonstrate grasp + lift, then press 's' for success or 'r' to rerecord.\n"
++    )
++    return transition
+ def control_loop(
+     env: gym.Env,
+     env_processor: DataProcessorPipeline[EnvTransition, EnvTransition],
+@@ -603,8 +868,35 @@ def control_loop(
+ 
+     # Process initial observation
+     transition = create_transition(observation=obs, info=info, complementary_data=complementary_data)
+-    transition = env_processor(data=transition)
++    transition = process_env_transition_with_target_color(
++        env=env,
++        env_processor=env_processor,
++        transition=transition,
++    )
++
++    if cfg.env.processor.control_mode == "leader":
++        transition = leader_pregrasp_setup_loop(
++            env=env,
++            transition=transition,
++            env_processor=env_processor,
++            action_processor=action_processor,
++            cfg=cfg,
++        )
++
++        # The setup phase should not count toward the recorded episode.
++        # Reset all processor state, especially TimeLimitProcessorStep.
++        env_processor.reset()
++        action_processor.reset()
+ 
++        # Start the actual recorded episode from the final pregrasp pose.
++        obs = env._get_observation()
++        info = {TeleopEvents.IS_INTERVENTION: False}
++        transition = create_transition(observation=obs, info=info)
++        transition = process_env_transition_with_target_color(
++            env=env,
++            env_processor=env_processor,
++            transition=transition,
++        )
+     # Determine if gripper is used
+     use_gripper = cfg.env.processor.gripper.use_gripper if cfg.env.processor.gripper is not None else True
+ 
+@@ -612,6 +904,14 @@ def control_loop(
+     if cfg.mode == "record":
+         if teleop_device:
+             action_features = teleop_device.action_features
++            # Leader arm teleoperators return motor-specific format: {"motor.pos": float, ...}
++            # Convert to dataset feature format: {"dtype": "float32", "shape": (n,), "names": [...]}
++            if cfg.env.processor.control_mode == "leader":
++                action_features = {
++                    "dtype": "float32",
++                    "shape": (len(action_features),),
++                    "names": list(action_features.keys()),
++                }
+         else:
+             action_features = {
+                 "dtype": "float32",
+@@ -662,10 +962,16 @@ def control_loop(
+     while episode_idx < cfg.dataset.num_episodes_to_record:
+         step_start_time = time.perf_counter()
+ 
+-        # Create a neutral action (no movement)
+-        neutral_action = torch.tensor([0.0, 0.0, 0.0], dtype=torch.float32)
+-        if use_gripper:
+-            neutral_action = torch.cat([neutral_action, torch.tensor([0.0])])  # Gripper stay
++        # Create a neutral action (no movement).
++        # In leader mode actions are absolute joint positions, so "no movement"
++        # means holding the current position — not zeros which would slam the arm.
++        if env.control_mode == "leader":
++            raw = env.get_raw_joint_positions()
++            neutral_action = torch.tensor(
++                [raw[f"{k}.pos"] for k in env.robot.bus.motors], dtype=torch.float32
++            )
++        else:
++            neutral_action = torch.zeros(env.action_space.shape[0], dtype=torch.float32)
+ 
+         # Use the new step function
+         transition = step_env_and_process_transition(
+@@ -707,6 +1013,17 @@ def control_loop(
+         # Handle episode termination
+         if terminated or truncated:
+             episode_time = time.perf_counter() - episode_start_time
++            success = transition[TransitionKey.INFO].get(TeleopEvents.SUCCESS, False)
++            rerecord = transition[TransitionKey.INFO].get(TeleopEvents.RERECORD_EPISODE, False)
++
++            if rerecord:
++                print("\n[Episode] Rerecord requested. Discarding this episode.\n")
++            elif success:
++                print(f"\n[Episode] SUCCESS — ending episode {episode_idx + 1} and saving it.\n")
++            elif truncated:
++                print(f"\n[Episode] TIME LIMIT reached — ending episode {episode_idx + 1}.\n")
++            else:
++                print(f"\n[Episode] Ended without success — episode {episode_idx + 1}.\n")
+             logging.info(
+                 f"Episode ended after {episode_step} steps in {episode_time:.1f}s with reward {transition[TransitionKey.REWARD]}"
+             )
+@@ -721,6 +1038,12 @@ def control_loop(
+                 else:
+                     logging.info(f"Saving episode {episode_idx}")
+                     dataset.save_episode()
++                    print(f"\n[Dataset] Saved episode {episode_idx}.\n")
++
++            # Stop cleanly after the last requested episode.
++            if episode_idx >= cfg.dataset.num_episodes_to_record:
++                print(f"\n[Dataset] Finished recording {episode_idx} episodes.\n")
++                break
+ 
+             # Reset for new episode
+             obs, info = env.reset()
+@@ -728,7 +1051,36 @@ def control_loop(
+             action_processor.reset()
+ 
+             transition = create_transition(observation=obs, info=info)
+-            transition = env_processor(transition)
++            transition = process_env_transition_with_target_color(
++                env=env,
++                env_processor=env_processor,
++                transition=transition,
++            )
++
++            if cfg.env.processor.control_mode == "leader":
++                transition = leader_pregrasp_setup_loop(
++                    env=env,
++                    transition=transition,
++                    env_processor=env_processor,
++                    action_processor=action_processor,
++                    cfg=cfg,
++                )
++
++                # The setup phase should not count toward the next recorded episode.
++                env_processor.reset()
++                action_processor.reset()
++
++                # Start the actual recorded episode from the final pregrasp pose.
++                obs = env._get_observation()
++                info = {TeleopEvents.IS_INTERVENTION: False}
++                transition = create_transition(observation=obs, info=info)
++                transition = process_env_transition_with_target_color(
++                    env=env,
++                    env_processor=env_processor,
++                    transition=transition,
++                )
++
++            episode_start_time = time.perf_counter()
+ 
+         # Maintain fps timing
+         precise_sleep(max(dt - (time.perf_counter() - step_start_time), 0.0))
+diff --git a/src/lerobot/rl/learner.py b/src/lerobot/rl/learner.py
+index 14542576..1845ef93 100644
+--- a/src/lerobot/rl/learner.py
++++ b/src/lerobot/rl/learner.py
+@@ -746,6 +746,7 @@ def save_training_checkpoint(
+     repo_id_buffer_save = cfg.env.task if dataset_repo_id is None else dataset_repo_id
+     replay_buffer.to_lerobot_dataset(repo_id=repo_id_buffer_save, fps=fps, root=dataset_dir)
+ 
++    """    
+     if offline_replay_buffer is not None:
+         dataset_offline_dir = os.path.join(cfg.output_dir, "dataset_offline")
+         if os.path.exists(dataset_offline_dir) and os.path.isdir(dataset_offline_dir):
+@@ -755,7 +756,7 @@ def save_training_checkpoint(
+             cfg.dataset.repo_id,
+             fps=fps,
+             root=dataset_offline_dir,
+-        )
++        )"""
+ 
+     logging.info("Resume training")
+ 
+@@ -990,16 +991,15 @@ def initialize_offline_replay_buffer(
+     Returns:
+         ReplayBuffer: Initialized offline replay buffer
+     """
+-    if not cfg.resume:
+-        logging.info("make_dataset offline buffer")
+-        offline_dataset = make_dataset(cfg)
++    # Always rebuild the offline replay buffer from the original configured dataset.
++    # The checkpoint-time dataset_offline export is redundant and may not exist
++    # after a resumed run.
++    if cfg.resume:
++        logging.info("Resume training: reload original offline dataset from cfg.dataset")
+     else:
+-        logging.info("load offline dataset")
+-        dataset_offline_path = os.path.join(cfg.output_dir, "dataset_offline")
+-        offline_dataset = LeRobotDataset(
+-            repo_id=cfg.dataset.repo_id,
+-            root=dataset_offline_path,
+-        )
++        logging.info("make_dataset offline buffer")
++
++    offline_dataset = make_dataset(cfg)
+ 
+     logging.info("Convert to a offline replay buffer")
+     offline_replay_buffer = ReplayBuffer.from_lerobot_dataset(
+diff --git a/src/lerobot/robots/so_follower/so_follower.py b/src/lerobot/robots/so_follower/so_follower.py
+index 0651f566..3d721196 100644
+--- a/src/lerobot/robots/so_follower/so_follower.py
++++ b/src/lerobot/robots/so_follower/so_follower.py
+@@ -18,7 +18,7 @@ import logging
+ import time
+ from functools import cached_property
+ 
+-from lerobot.cameras import make_cameras_from_configs
++from lerobot.cameras import Camera, make_cameras_from_configs
+ from lerobot.motors import Motor, MotorCalibration, MotorNormMode
+ from lerobot.motors.feetech import (
+     FeetechMotorsBus,
+@@ -32,6 +32,8 @@ from ..utils import ensure_safe_goal_position
+ from .config_so_follower import SOFollowerRobotConfig
+ 
+ logger = logging.getLogger(__name__)
++CAMERA_OBSERVATION_MAX_AGE_MS = 2000
++CAMERA_OBSERVATION_RETRY_TIMEOUT_MS = 1000
+ 
+ 
+ class SOFollower(Robot):
+@@ -174,6 +176,24 @@ class SOFollower(Robot):
+             self.bus.setup_motor(motor)
+             print(f"'{motor}' motor id set to {self.bus.motors[motor].id}")
+ 
++    def _read_camera_observation(self, cam_key: str, cam: Camera):
++        try:
++            return cam.read_latest(max_age_ms=CAMERA_OBSERVATION_MAX_AGE_MS)
++        except TimeoutError as e:
++            logger.warning(
++                f"{self} camera '{cam_key}' returned a stale frame. "
++                f"Waiting for a fresh one: {e}"
++            )
++            return cam.async_read(timeout_ms=CAMERA_OBSERVATION_RETRY_TIMEOUT_MS)
++        except RuntimeError as e:
++            if "has not captured any frames yet" not in str(e):
++                raise
++            logger.warning(
++                f"{self} camera '{cam_key}' has no buffered frame yet. "
++                f"Waiting for one: {e}"
++            )
++            return cam.async_read(timeout_ms=CAMERA_OBSERVATION_RETRY_TIMEOUT_MS)
++
+     @check_if_not_connected
+     def get_observation(self) -> RobotObservation:
+         # Read arm position
+@@ -186,7 +206,7 @@ class SOFollower(Robot):
+         # Capture images from cameras
+         for cam_key, cam in self.cameras.items():
+             start = time.perf_counter()
+-            obs_dict[cam_key] = cam.read_latest()
++            obs_dict[cam_key] = self._read_camera_observation(cam_key, cam)
+             dt_ms = (time.perf_counter() - start) * 1e3
+             logger.debug(f"{self} read {cam_key}: {dt_ms:.1f}ms")
+ 
+diff --git a/src/lerobot/teleoperators/teleoperator.py b/src/lerobot/teleoperators/teleoperator.py
+index f4790442..5c4125ff 100644
+--- a/src/lerobot/teleoperators/teleoperator.py
++++ b/src/lerobot/teleoperators/teleoperator.py
+@@ -24,6 +24,7 @@ from lerobot.types import RobotAction
+ from lerobot.utils.constants import HF_LEROBOT_CALIBRATION, TELEOPERATORS
+ 
+ from .config import TeleoperatorConfig
++from .utils import KeyboardTeleopEvents
+ 
+ 
+ class Teleoperator(abc.ABC):
+@@ -55,6 +56,8 @@ class Teleoperator(abc.ABC):
+         if self.calibration_fpath.is_file():
+             self._load_calibration()
+ 
++        self._keyboard_events: KeyboardTeleopEvents | None = None
++
+     def __str__(self) -> str:
+         return f"{self.id} {self.__class__.__name__}"
+ 
+@@ -79,6 +82,8 @@ class Teleoperator(abc.ABC):
+         Attempts to disconnect if the object is garbage collected without cleanup.
+         """
+         try:
++            if self._keyboard_events is not None:
++                self._keyboard_events.stop()
+             if self.is_connected:
+                 self.disconnect()
+         except Exception:  # nosec B110
+@@ -202,6 +207,20 @@ class Teleoperator(abc.ABC):
+         """
+         pass
+ 
++    def get_teleop_events(self) -> dict[str, Any]:
++        """Get control events for episode management.
++
++        This default implementation uses keyboard keys matching the HIL-SERL
++        docs for leader arm usage (Space, s, Esc, r). Subclasses with
++        hardware-based event support (e.g., gamepad buttons) should override.
++
++        Returns:
++            Dictionary containing episode control events.
++        """
++        if self._keyboard_events is None:
++            self._keyboard_events = KeyboardTeleopEvents()
++        return self._keyboard_events.get_events()
++
+     @abc.abstractmethod
+     def disconnect(self) -> None:
+         """Disconnect from the teleoperator and perform any necessary cleanup."""
+diff --git a/src/lerobot/teleoperators/utils.py b/src/lerobot/teleoperators/utils.py
+index db685f39..2062030c 100644
+--- a/src/lerobot/teleoperators/utils.py
++++ b/src/lerobot/teleoperators/utils.py
+@@ -13,7 +13,7 @@
+ # limitations under the License.
+ 
+ from enum import Enum
+-from typing import TYPE_CHECKING, cast
++from typing import TYPE_CHECKING, Any, cast
+ 
+ from lerobot.utils.import_utils import make_device_from_device_class
+ 
+@@ -33,6 +33,122 @@ class TeleopEvents(Enum):
+     TERMINATE_EPISODE = "terminate_episode"
+ 
+ 
++class KeyboardTeleopEvents:
++    """Keyboard-based episode control for teleoperators without hardware buttons.
++
++    Key bindings match the HIL-SERL docs for leader arm usage:
++    - Space: toggle intervention (take over / release control)
++    - s: mark episode as success
++    - Escape: mark episode as failure
++    - r: rerecord episode
++    """
++
++    def __init__(self):
++        import logging
++        import os
++        import sys
++        from queue import Queue
++
++        self._logger = logging.getLogger(__name__)
++        self._listener = None
++        self._event_queue: Queue[str] = Queue()
++        self._intervention_active = False
++        self._success_active = False
++
++        self._pynput_keyboard = None
++        try:
++            if ("DISPLAY" not in os.environ) and ("linux" in sys.platform):
++                raise ImportError("No DISPLAY set — keyboard listener unavailable.")
++            from pynput import keyboard as pynput_keyboard
++
++            self._pynput_keyboard = pynput_keyboard
++        except ImportError:
++            pass
++
++    def start(self) -> None:
++        """Start the keyboard listener. Called automatically on first get_events()."""
++        if self._listener is not None:
++            return
++
++        if self._pynput_keyboard is None:
++            raise ImportError(
++                "pynput is required for keyboard-based teleop events but is unavailable. "
++                "On headless systems (no DISPLAY), keyboard input is not supported."
++            )
++
++        pynput_kb = self._pynput_keyboard
++
++        def on_press(key):
++            try:
++                if key == pynput_kb.Key.space:
++                    self._intervention_active = not self._intervention_active
++                elif key == pynput_kb.Key.esc:
++                    self._event_queue.put("failure")
++                elif hasattr(key, "char"):
++                    if key.char == "s":
++                        self._success_active = True
++                    elif key.char == "r":
++                        self._event_queue.put("rerecord")
++            except AttributeError:
++                pass
++
++        def on_release(key):
++            try:
++                if hasattr(key, "char") and key.char == "s":
++                    self._success_active = False
++            except AttributeError:
++                pass
++
++        self._listener = pynput_kb.Listener(on_press=on_press, on_release=on_release)
++        self._listener.start()
++        self._logger.info(
++            "Keyboard listener started for teleop events "
++            "(Space=intervention, s=success, Esc=failure, r=rerecord)"
++        )
++
++    def stop(self) -> None:
++        """Stop the keyboard listener if running."""
++        if self._listener is not None:
++            self._listener.stop()
++            self._listener = None
++        self._success_active = False
++
++    def get_events(self) -> dict[str, Any]:
++        """Get pending teleop events, starting the listener on first call.
++
++        Returns:
++            Dictionary containing episode control events.
++        """
++        from queue import Empty
++
++        if self._listener is None:
++            self.start()
++
++        terminate_episode = False
++        success = self._success_active
++        rerecord_episode = False
++
++        while True:
++            try:
++                event = self._event_queue.get_nowait()
++            except Empty:
++                break
++            if event == "failure":
++                terminate_episode = True
++                self._success_active = False
++            elif event == "rerecord":
++                terminate_episode = True
++                rerecord_episode = True
++                self._success_active = False
++
++        return {
++            TeleopEvents.IS_INTERVENTION: self._intervention_active,
++            TeleopEvents.TERMINATE_EPISODE: terminate_episode,
++            TeleopEvents.SUCCESS: success,
++            TeleopEvents.RERECORD_EPISODE: rerecord_episode,
++        }
++
++
+ def make_teleoperator_from_config(config: TeleoperatorConfig) -> "Teleoperator":
+     # TODO(Steven): Consider just using the make_device_from_device_class for all types
+     if config.type == "keyboard":
+diff --git a/tests/cameras/test_opencv.py b/tests/cameras/test_opencv.py
+index 720d0c9b..9afb1040 100644
+--- a/tests/cameras/test_opencv.py
++++ b/tests/cameras/test_opencv.py
+@@ -20,6 +20,7 @@
+ # ```
+ 
+ from pathlib import Path
++from threading import Event
+ from unittest.mock import patch
+ 
+ import cv2
+@@ -187,6 +188,31 @@ def test_async_read_before_connect():
+         _ = camera.async_read()
+ 
+ 
++
++def test_read_loop_recovers_after_temporary_failures():
++    config = OpenCVCameraConfig(index_or_path=DEFAULT_PNG_FILE_PATH, width=1, height=1, warmup_s=0)
++    camera = OpenCVCamera(config)
++    camera.stop_event = Event()
++    attempts = 0
++
++    def flaky_read_from_hardware():
++        nonlocal attempts
++
++        attempts += 1
++        if attempts <= 12:
++            raise RuntimeError("temporary camera drop")
++
++        camera.stop_event.set()
++        return np.zeros((1, 1, 3), dtype=np.uint8)
++
++    camera._read_from_hardware = flaky_read_from_hardware
++
++    camera._read_loop()
++
++    assert attempts == 13
++    assert camera.latest_frame is not None
++
++
+ def test_read_latest():
+     config = OpenCVCameraConfig(index_or_path=DEFAULT_PNG_FILE_PATH, warmup_s=0)
+ 
