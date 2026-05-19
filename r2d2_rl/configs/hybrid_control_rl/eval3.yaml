@@ -1,0 +1,15 @@
+extends: calibration.yaml
+
+eval:
+  task: 3
+  relocalize_before_each_goal: true
+  goals:
+    - target_color: red
+      bowl_xyz_base: [0.25, 0.10, 0.05]
+    - target_color: blue
+      bowl_xyz_base: [0.20, -0.15, 0.05]
+    - target_color: green
+      bowl_xyz_base: [0.30, 0.00, 0.05]
+
+rl:
+  require_learned_local_policy: true

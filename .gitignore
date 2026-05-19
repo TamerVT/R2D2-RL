@@ -5,6 +5,15 @@ __pycache__/
 *.egg-info/
 *.so
 
+# MuJoCo runtime log
+MUJOCO_LOG.TXT
+
+# Internal-only docs / spec / assignment PDF (not for the public repo)
+AGENTS.md
+hybrid_control_rl_trajectory_spec.md
+*.pdf
+*.pdf:Zone.Identifier
+
 # Editor / OS
 .DS_Store
 .idea/
@@ -14,6 +23,9 @@ __pycache__/
 # Parked LeRobot-pipeline plan (kept locally, not shipped)
 legacy/
 
+# External repositories cloned for local audit/integration planning
+external/
+
 # RL logs / checkpoints (created later)
 logs/
 runs/
@@ -21,7 +33,17 @@ wandb/
 checkpoints/
 
 # Skip generated artifact subfolders we don't curate; the curated ones
-# (outputs/wrist_cam_demo, outputs/left_wrist_demo) are committed below
-outputs/*
-!outputs/wrist_cam_demo/
-!outputs/left_wrist_demo/
+# below are committed because they document the pipeline output.
+# Outputs live under r2d2_rl/outputs/ after the restructure.
+r2d2_rl/outputs/*
+!r2d2_rl/outputs/wrist_cam_demo/
+!r2d2_rl/outputs/left_wrist_demo/
+!r2d2_rl/outputs/project3_screenshot/
+!r2d2_rl/outputs/pixel_to_table_validation/
+
+# RL checkpoints (binary, regenerable via training)
+r2d2_rl/outputs/align_grasp_sac/
+*.pt
+
+# Old top-level outputs/ from before the restructure
+outputs/

@@ -1,0 +1,19 @@
+extends: base.yaml
+
+camera:
+  K:
+    - [600.0, 0.0, 320.0]
+    - [0.0, 600.0, 240.0]
+    - [0.0, 0.0, 1.0]
+  dist_coeffs: [0.0, 0.0, 0.0, 0.0, 0.0]
+
+transforms:
+  T_E_C:
+    translation: [0.02, -0.02, 0.08]
+    quaternion_xyzw: [0.0, 0.0, 0.0, 1.0]
+
+uncertainty:
+  pixel_sigma_base: 3.0
+  pixel_sigma_low_confidence: 8.0
+  calibration_sigma_xy: 0.005
+  process_noise_xy: 0.0001

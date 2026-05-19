@@ -1,0 +1,15 @@
+extends: calibration.yaml
+
+eval:
+  backend: real_so101
+  relocalize_before_each_goal: true
+
+robot:
+  type: so101_follower
+  id: so101_follower_project3
+  port: /dev/ttyACM1
+
+teleop:
+  type: so101_leader
+  id: so101_leader_project3
+  port: /dev/ttyACM0
