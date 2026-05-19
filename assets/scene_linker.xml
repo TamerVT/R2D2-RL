@@ -1,0 +1,4 @@
+<mujoco>
+    <include file="ground.xml"/>
+    <include file="cubes_2cm.xml"/>
+</mujoco>

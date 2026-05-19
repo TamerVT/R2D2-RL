@@ -1,0 +1,26 @@
+<mujoco>
+  <worldbody>
+    <!-- A free body that will get welded to the gripper site -->
+    <body name="wrist_cam_mount" pos="0 0 0">
+      <freejoint/>
+        
+      <inertial pos="0 0 0" mass="0.01" diaginertia="1e-5 1e-5 1e-5"/>
+
+      <!-- Site on the mount used for welding -->
+      <site name="wrist_cam_site" pos="0 0 0" size="0.005" rgba="1 0 0 1"/>
+
+      <!-- The actual camera rigidly attached to this mount body -->
+      <camera name="wrist_cam"
+              pos="0 0 0.06"
+              xyaxes="1 0 0 0 1 0"
+              fovy="60"/>
+    </body>
+  </worldbody>
+
+  <equality>
+    <!-- Weld existing gripper site to our mount site -->
+    <weld name="wrist_cam_weld"
+          site1="robotgripper"
+          site2="wrist_cam_site"/>
+  </equality>
+</mujoco>

@@ -1,0 +1,92 @@
+
+<mujoco model="multi_cubes_2cm">
+  <compiler angle="radian" autolimits="true"/>
+  <option cone="elliptic" impratio="10"/>
+
+  <worldbody>
+
+    <!-- Blue cube -->
+    <body name="blue_cube_body" pos="0.18 0.03 0.01">
+      <joint type="free" name="blue_cube_joint"/>
+      <geom
+        type="box"
+        size="0.01 0.01 0.01"
+        rgba="0.05 0.33 0.74 1"
+        name="blue_cube_geom"
+        friction="1 0.3 0.1"
+        density="500"
+        group="1"
+      />
+    </body>
+
+    <!-- Green cube -->
+    <body name="green_cube_body" pos="0.22 0.03 0.01">
+      <joint type="free" name="green_cube_joint"/>
+      <geom
+        type="box"
+        size="0.01 0.01 0.01"
+        rgba="0 0.984 0.373 1"
+        name="green_cube_geom"
+        friction="1 0.3 0.1"
+        density="500"
+        group="1"
+      />
+    </body>
+
+    <!-- orange cube -->
+    <body name="orange_cube_body">
+      <joint type="free" name="orange_cube_joint"/>
+      <geom
+        type="box"
+        size="0.01 0.01 0.01"
+        rgba="1 0.52 0.39 1"
+        name="orange_cube_geom"
+        friction="1 0.3 0.1"
+        density="500"
+        group="1"
+      />
+      </body>
+
+    <!-- Purple cube -->
+    <body name="purple_cube_body">
+      <joint type="free" name="purple_cube_joint"/>
+      <geom
+        type="box"
+        size="0.01 0.01 0.01"
+        rgba="0.45 0.31 0.58 1"
+        name="purple_cube_geom"
+        friction="1 0.3 0.1"
+        density="500"
+        group="1"
+      />
+    </body>
+
+    <!-- Red cube -->
+    <body name="red_cube_body">
+      <joint type="free" name="red_cube_joint"/>
+      <geom
+        type="box"
+        size="0.01 0.01 0.01"
+        rgba="0.98 0.33 0.31 1"
+        name="red_cube_geom"
+        friction="1 0.3 0.1"
+        density="500"
+        group="1"
+      />
+    </body>
+
+    <!-- Yellow cube -->
+    <body name="yellow_cube_body">
+      <joint type="free" name="yellow_cube_joint"/>
+      <geom
+        type="box"
+        size="0.01 0.01 0.01"
+        rgba="1 0.88 0.45 1"
+        name="yellow_cube_geom"
+        friction="1 0.3 0.1"
+        density="500"
+        group="1"
+      />
+    </body>
+  </worldbody>
+</mujoco>
