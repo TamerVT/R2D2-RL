@@ -65,6 +65,35 @@ def make_so101_sim(*,
     env = scene.create_env(cfg)
 
     sim = env.get_wrapper_attr("sim")
+    m = sim.model
+    robot_hints = ("robot", "so101", "arm", "gripper")
+    
+    def _match(name):
+        name = (name or "").lower()
+        return any(h in name for h in robot_hints)
+    
+    n_changed = 0
+    for gid in range(m.ngeom):
+        geom = m.geom(gid)
+        gname = getattr(geom, "name", "") or ""
+        bid = int(m.geom_bodyid[gid])
+        bname = m.body(bid).name if bid >= 0 else ""
+    
+        if _match(bname) or _match(gname):
+            # Set matte black
+            if hasattr(m, "geom_rgba"):
+                m.geom_rgba[gid, :] = [0.0, 0.0, 0.0, 1.0]
+    
+            # Kill highlights → cleaner vision signal
+            if hasattr(m, "geom_specular"):
+                m.geom_specular[gid] = 0.0
+            if hasattr(m, "geom_shininess"):
+                m.geom_shininess[gid] = 0.0
+    
+            n_changed += 1
+    
+    if debug_print:
+        print(f"[env_factory] Painted {n_changed} robot geoms black")
 
     # Robot handle
     robots = env.get_wrapper_attr("robot")
