@@ -1,0 +1,3 @@
+[submodule "robot-control-stack"]
+	path = robot-control-stack
+	url = https://github.com/RobotControlStack/robot-control-stack.git
