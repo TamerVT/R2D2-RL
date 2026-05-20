@@ -1,11 +1,23 @@
 extends: calibration.yaml
 
+# Eval 3 -- multi-goal sequence. Multiple cubes start on the table; the
+# executor picks each in order and delivers it to its associated bowl. The
+# executor's run_sequence() re-localizes the next target after each release.
+scene:
+  cubes:
+    - color: red
+      xy: [0.20, 0.06]
+    - color: blue
+      xy: [0.22, -0.05]
+    - color: green
+      xy: [0.18, 0.00]
+
 eval:
   task: 3
   relocalize_before_each_goal: true
   goals:
     - target_color: red
-      bowl_xyz_base: [0.25, 0.10, 0.05]
+      bowl_xyz_base: [0.30, 0.10, 0.05]
     - target_color: blue
       bowl_xyz_base: [0.20, -0.15, 0.05]
     - target_color: green

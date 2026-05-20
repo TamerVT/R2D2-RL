@@ -27,7 +27,7 @@ def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--output-dir", type=Path, default=DEFAULT_OUT)
     p.add_argument("--cube-xy", type=float, nargs=2, default=[0.21, -0.03])
-    p.add_argument("--cube-z", type=float, default=0.02)
+    p.add_argument("--cube-z", type=float, default=0.01)
     p.add_argument("--cube-color", type=str, default="green")
     p.add_argument("--width", type=int, default=640)
     p.add_argument("--height", type=int, default=480)
@@ -39,7 +39,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument(
         "--lift-dz",
         type=float,
-        default=0.18,
+        default=0.0,
         help="After reset, step the env to lift the gripper by this many metres.",
     )
     return p.parse_args()
@@ -163,6 +163,7 @@ def main() -> int:
         wrist_camera_resolution=(args.width, args.height),
         headless=True,
     )
+    wrist_camera_name = p3_cfg.wrist_camera_name
     scene = Project3SO101Env(p3_cfg)
     env = scene.create_env(scene.config())
 
@@ -173,7 +174,7 @@ def main() -> int:
         frames = obs_dict.get("frames") if isinstance(obs_dict, dict) else None
         if not isinstance(frames, dict):
             return None
-        wrist = frames.get("wrist")
+        wrist = frames.get(wrist_camera_name)
         if not isinstance(wrist, dict):
             return _coerce_rgb(wrist)
         rgb_entry = wrist.get("rgb")

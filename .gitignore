@@ -47,3 +47,8 @@ r2d2_rl/outputs/align_grasp_sac/
 
 # Old top-level outputs/ from before the restructure
 outputs/
+
+# Large data artifacts (HIL dataset + sim training artifacts) -- not source
+p3_local_grasp_hil_multicolor_colorcond_v1.zip
+p3_required_sim_training_artifacts.zip
+*.zip

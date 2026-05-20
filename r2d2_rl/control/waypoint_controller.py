@@ -10,6 +10,7 @@ translation plus gripper state.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Sequence
 
 import numpy as np
@@ -26,6 +27,9 @@ class RcsWaypointController:
     position_tolerance_m: float = 0.025
     max_steps_per_waypoint: int = 30
     strict_position: bool = False
+    use_pregrasp_regressor: bool = False
+    pregrasp_regressor_checkpoint: str | Path | None = None
+    pregrasp_regressor_device: str = "cpu"
 
     def __post_init__(self) -> None:
         if self.max_step_m <= 0:
@@ -37,6 +41,19 @@ class RcsWaypointController:
         self.last_obs: dict[str, Any] | None = None
         self.last_info: dict[str, Any] | None = None
         self.step_count = 0
+        self._pregrasp_regressor = None
+        if self.use_pregrasp_regressor:
+            if self.pregrasp_regressor_checkpoint is None:
+                raise ValueError("pregrasp_regressor_checkpoint is required when use_pregrasp_regressor=True.")
+            try:
+                from control.pregrasp_joint_regressor import load_pregrasp_checkpoint
+            except ImportError:  # pragma: no cover - package import path
+                from r2d2_rl.control.pregrasp_joint_regressor import load_pregrasp_checkpoint
+
+            self._pregrasp_regressor = load_pregrasp_checkpoint(
+                self.pregrasp_regressor_checkpoint,
+                device=self.pregrasp_regressor_device,
+            )
 
     def reset(self, seed: int | None = None):
         obs, info = self.env.reset(seed=seed)
@@ -58,6 +75,11 @@ class RcsWaypointController:
             self.reset(seed=0)
 
         for waypoint in waypoints:
+            if self._pregrasp_regressor is not None and waypoint.name == "pregrasp":
+                if not self._execute_regressed_pregrasp(waypoint):
+                    return False
+                continue
+
             reached = False
             for _ in range(self.max_steps_per_waypoint):
                 current_xyz = self.robot_xyz
@@ -82,6 +104,24 @@ class RcsWaypointController:
                     return False
 
         return True
+
+    def _execute_regressed_pregrasp(self, waypoint: Waypoint) -> bool:
+        if self._pregrasp_regressor is None:
+            return False
+        xy = np.asarray(waypoint.xyz_base, dtype=np.float64).reshape(3)[:2]
+        cube_xyz_regressor = np.array([xy[1] - 0.02, xy[0] + 0.04, 0.0], dtype=np.float32)
+        target = self._pregrasp_regressor.predict(cube_xyz_regressor).astype(np.float32)
+        target_joints = np.deg2rad(target[:5]).astype(np.float64)
+
+        robot = self._robot()
+        if hasattr(robot, "set_joints_hard"):
+            robot.set_joints_hard(target_joints)
+            self._forward_sim()
+        else:
+            robot.set_joint_position(target_joints)
+
+        _, _, terminated, truncated, _ = self.step_delta(np.zeros(3), waypoint.gripper)
+        return not (terminated or truncated)
 
     @property
     def robot_xyz(self) -> np.ndarray:
@@ -135,6 +175,19 @@ class RcsWaypointController:
         except (TypeError, ValueError, IndexError):
             return None
         return float(np.clip(value, 0.0, 1.0))
+
+    def _robot(self) -> Any:
+        robots = self.env.get_wrapper_attr("robot")
+        return robots["robot"] if isinstance(robots, dict) else robots
+
+    def _forward_sim(self) -> None:
+        try:
+            import mujoco
+
+            sim = self.env.get_wrapper_attr("sim")
+            mujoco.mj_forward(sim.model, sim.data)
+        except (AttributeError, ImportError):
+            return
 
 
 def _proportional_step(vector: np.ndarray, max_step: float) -> np.ndarray:

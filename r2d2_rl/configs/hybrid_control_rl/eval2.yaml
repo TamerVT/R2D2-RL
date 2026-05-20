@@ -1,10 +1,26 @@
 extends: calibration.yaml
 
+# Eval 2 -- multi-cube clutter scene.
+# Multiple distractor cubes are placed in the workspace; the goal targets a
+# single color (red here). The classical perception step + per-color belief
+# tracker isolate the requested color from the distractors before the learned
+# align_grasp policy is invoked.
+scene:
+  cubes:
+    - color: red
+      xy: [0.20, 0.05]
+    - color: green
+      xy: [0.22, -0.04]
+    - color: blue
+      xy: [0.18, 0.09]
+    - color: yellow
+      xy: [0.24, 0.00]
+
 eval:
   task: 2
   goals:
     - target_color: red
-      bowl_xyz_base: [0.25, 0.00, 0.05]
+      bowl_xyz_base: [0.30, 0.10, 0.05]
 
 rl:
   require_learned_local_policy: true

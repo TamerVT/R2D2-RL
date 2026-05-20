@@ -7,20 +7,23 @@ workspace:
   table_plane_base:
     normal: [0.0, 0.0, 1.0]
     d: -0.0
-  object_height: 0.04
-  z_object_center: 0.02
+  object_height: 0.02
+  z_object_center: 0.01
   bounds_xy:
     x: [0.12, 0.45]
     y: [-0.25, 0.25]
 
 perception:
   min_area_px: 50
-  max_area_px: 30000
+  max_area_px: 50000
   morph_kernel: 3
   pixel_sigma_base: 3.0
   confidence_floor: 0.2
   confidence_min_area_px: 50
   confidence_full_area_px: 600
+  # HSV ranges ported from the team's calibrate_colors.py (cube-colors
+  # commit) -- a coherent, gap-free 6-color hue partition tuned against the
+  # actual cubes. Format: lower [H, S_min, V_min], upper [H, 255, 255].
   colors:
     red:
       hsv_ranges:
@@ -28,15 +31,26 @@ perception:
           upper: [10, 255, 255]
         - lower: [170, 90, 60]
           upper: [179, 255, 255]
-    green:
-      hsv_lower: [35, 70, 50]
-      hsv_upper: [85, 255, 255]
-    blue:
-      hsv_lower: [95, 70, 50]
-      hsv_upper: [130, 255, 255]
+    orange:
+      hsv_ranges:
+        - lower: [11, 130, 60]
+          upper: [22, 255, 255]
     yellow:
-      hsv_lower: [20, 70, 80]
-      hsv_upper: [35, 255, 255]
+      hsv_ranges:
+        - lower: [23, 90, 60]
+          upper: [38, 255, 255]
+    green:
+      hsv_ranges:
+        - lower: [39, 60, 50]
+          upper: [85, 255, 255]
+    blue:
+      hsv_ranges:
+        - lower: [86, 60, 50]
+          upper: [130, 255, 255]
+    purple:
+      hsv_ranges:
+        - lower: [131, 80, 50]
+          upper: [160, 255, 255]
 
 estimation:
   process_noise_xy: 0.0001

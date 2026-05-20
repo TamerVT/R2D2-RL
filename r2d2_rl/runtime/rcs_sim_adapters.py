@@ -14,7 +14,13 @@ from perception.color_block_detector import ColorBlockDetector, Detection2D
 from planning.hybrid_waypoint_planner import Waypoint
 
 
-def wrist_frame_from_obs(obs: dict[str, Any], camera_name: str = "wrist") -> dict[str, Any] | None:
+DEFAULT_WRIST_CAMERA_NAME = "robotwrist"
+
+
+def wrist_frame_from_obs(
+    obs: dict[str, Any],
+    camera_name: str = DEFAULT_WRIST_CAMERA_NAME,
+) -> dict[str, Any] | None:
     frames = obs.get("frames") if isinstance(obs, dict) else None
     if not isinstance(frames, dict):
         return None
@@ -25,7 +31,10 @@ def wrist_frame_from_obs(obs: dict[str, Any], camera_name: str = "wrist") -> dic
     return rgb if isinstance(rgb, dict) else None
 
 
-def wrist_rgb_from_obs(obs: dict[str, Any], camera_name: str = "wrist") -> np.ndarray | None:
+def wrist_rgb_from_obs(
+    obs: dict[str, Any],
+    camera_name: str = DEFAULT_WRIST_CAMERA_NAME,
+) -> np.ndarray | None:
     frame = wrist_frame_from_obs(obs, camera_name=camera_name)
     if frame is None:
         return None
@@ -110,7 +119,7 @@ class RcsWristBlockObserver:
 
     controller: RcsWaypointController
     config: dict[str, Any]
-    camera_name: str = "wrist"
+    camera_name: str = DEFAULT_WRIST_CAMERA_NAME
     measurements_per_observe: int = 5
 
     def __post_init__(self) -> None:
@@ -168,7 +177,7 @@ class RcsColorVisibilityChecker:
 
     controller: RcsWaypointController
     config: dict[str, Any]
-    camera_name: str = "wrist"
+    camera_name: str = DEFAULT_WRIST_CAMERA_NAME
 
     def __post_init__(self) -> None:
         self.detector = ColorBlockDetector(self.config)
@@ -222,5 +231,4 @@ class ScriptedAlignGraspPolicy:
             metadata={"target_color": target_color, "policy": "scripted"},
         )
         return self.controller.execute((align, close))
-
 

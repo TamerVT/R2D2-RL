@@ -2,14 +2,14 @@
 
 Extends ``rcs.envs.configs.EmptyWorldSO101`` with:
 
-- a wrist camera attached to the SO101 gripper attachment site;
+- the patched SO101 wrist-body camera used by Flo's LeRobot-compatible env;
 - one or more colored cubes placed on the floor in front of the arm;
 - ``headless=True`` by default so the env can be created in WSL2 / CI without
   a display.
 
-The cube assets reuse ``rcs.OBJECT_PATHS["green_cube"]`` for the green block.
-Red / blue / yellow blocks are loaded from in-tree MJCFs under
-``envs/assets/cubes/`` because RCS does not ship those colors out of the box.
+The cube assets are the same 2 cm multicolor MJCFs used by the
+LeRobot-compatible local-grasp training env, so wrist-camera framing and object
+scale match Flo's sim-to-real policy input.
 """
 
 from __future__ import annotations
@@ -27,13 +27,13 @@ import rcs
 
 CUBE_ASSETS_DIR = Path(__file__).resolve().parent / "assets" / "cubes"
 
-# Map color name -> object MJCF path. Falls back to the in-tree red/blue/yellow
-# MJCFs we add alongside RCS's green_cube.
 DEFAULT_CUBE_PATHS: dict[str, str] = {
-    "green": rcs.OBJECT_PATHS["green_cube"],
-    "red": str(CUBE_ASSETS_DIR / "red_cube.xml"),
-    "blue": str(CUBE_ASSETS_DIR / "blue_cube.xml"),
-    "yellow": str(CUBE_ASSETS_DIR / "yellow_cube.xml"),
+    "blue": str(CUBE_ASSETS_DIR / "blue_cube_2cm.xml"),
+    "green": str(CUBE_ASSETS_DIR / "green_cube_2cm.xml"),
+    "purple": str(CUBE_ASSETS_DIR / "purple_cube_2cm.xml"),
+    "orange": str(CUBE_ASSETS_DIR / "orange_cube_2cm.xml"),
+    "yellow": str(CUBE_ASSETS_DIR / "yellow_cube_2cm.xml"),
+    "red": str(CUBE_ASSETS_DIR / "red_cube_2cm.xml"),
 }
 
 
@@ -43,7 +43,7 @@ class CubeSpec:
 
     color: str
     xy: tuple[float, float]
-    z: float = 0.02
+    z: float = 0.01
     yaw: float = 0.0
 
 
@@ -56,11 +56,18 @@ class Project3SO101Config:
     """
 
     cubes: list[CubeSpec] = field(
-        default_factory=lambda: [CubeSpec(color="green", xy=(0.21, -0.03), z=0.02)]
+        default_factory=lambda: [CubeSpec(color="green", xy=(0.21, -0.03), z=0.01)]
     )
     wrist_camera_resolution: tuple[int, int] = (640, 480)
     wrist_camera_fovy: float = 55.0
+    wrist_camera_name: str = "robotwrist"
+    use_embedded_wrist_camera: bool = True
     wrist_camera_offset: rcs.common.Pose | None = None
+    # Match LeRobotAlignGraspEnv: lower the SO-101 base 3 cm so its mounting
+    # plate rests on the floor plane.  This is what Flo's training data assumes,
+    # so the regressor and the visual SAC policy generalize to the hybrid env
+    # only when this offset is applied.
+    robot_z_offset: float = -0.03
     headless: bool = True
 
 
@@ -74,10 +81,19 @@ class Project3SO101Env(EmptyWorldSO101):
     def config(self) -> SimEnvCreatorConfig:  # type: ignore[override]
         cfg = super().config()
 
+        # Mirror the LeRobotAlignGraspEnv mounting so the SB3 policy / pregrasp
+        # regressor live in the same world geometry they were trained against.
+        cfg.robot_to_shared_base_frame = {
+            "robot": rcs.common.Pose(
+                translation=np.array([0.0, 0.0, self.p3_cfg.robot_z_offset], dtype=np.float64),
+            )
+        }
+
         width, height = self.p3_cfg.wrist_camera_resolution
+        wrist_camera_name = self.p3_cfg.wrist_camera_name
         cfg.camera_cfgs = {
-            "wrist": SimCameraConfig(
-                identifier="wrist",
+            wrist_camera_name: SimCameraConfig(
+                identifier=wrist_camera_name,
                 type=CameraType.fixed,
                 resolution_width=width,
                 resolution_height=height,
@@ -85,23 +101,25 @@ class Project3SO101Env(EmptyWorldSO101):
             ),
         }
 
-        wrist_offset = self.p3_cfg.wrist_camera_offset
-        if wrist_offset is None:
-            # Sit a few cm above and forward of the SO101 gripper attachment
-            # site. The yaw bias compensates for the attachment-site frame so
-            # the default cube at (0.21, -0.03) appears near the wrist-view
-            # center after the scripted pre-render lift.
-            wrist_offset = rcs.common.Pose(
-                translation=np.array([0.04, 0.0, 0.06]),
-                rpy_vector=np.array([np.pi / 2, 0.0, -0.8]),
-            )
-        cfg.camera_adds = {
-            "wrist": CameraAdderConfig(
-                fovy=self.p3_cfg.wrist_camera_fovy,
-                offset=wrist_offset,
-                robot_name="robot",
-            ),
-        }
+        if self.p3_cfg.use_embedded_wrist_camera:
+            # Flo's sim-to-real training path uses the camera embedded in the
+            # patched SO101 XML. RCS prefixes ``<camera name="wrist">`` with
+            # the robot prefix, so it appears as ``robotwrist`` in frames.
+            cfg.camera_adds = None
+        else:
+            wrist_offset = self.p3_cfg.wrist_camera_offset
+            if wrist_offset is None:
+                wrist_offset = rcs.common.Pose(
+                    translation=np.array([0.04, 0.0, 0.06]),
+                    rpy_vector=np.array([np.pi / 2, 0.0, -0.8]),
+                )
+            cfg.camera_adds = {
+                wrist_camera_name: CameraAdderConfig(
+                    fovy=self.p3_cfg.wrist_camera_fovy,
+                    offset=wrist_offset,
+                    robot_name="robot",
+                ),
+            }
 
         cube_objects: dict[str, tuple[str, rcs.common.Pose]] = {}
         for idx, cube in enumerate(self.p3_cfg.cubes):

@@ -72,7 +72,7 @@ class ColorDetectorSyntheticTest(unittest.TestCase):
         detector = ColorBlockDetector(self.config)
 
         with self.assertRaises(ValueError):
-            detector.detect(image, target_color="purple")
+            detector.detect(image, target_color="chartreuse")
 
     def test_non_uint8_image_raises(self):
         image = np.zeros((80, 80, 3), dtype=np.float32)

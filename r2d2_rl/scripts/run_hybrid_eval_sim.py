@@ -2,8 +2,8 @@
 
 This is a plumbing/integration runner: it uses RCS for the robot sim and wrist
 camera, HSV perception for target localization, the pure-numeric waypoint
-planner, the hybrid executor state machine, and a scripted ``align_grasp``
-adapter until the learned local policy is trained.
+planner, the hybrid executor state machine, and either a scripted or learned
+``align_grasp`` adapter.
 """
 
 from __future__ import annotations
@@ -20,6 +20,7 @@ R2D2_RL = REPO_ROOT / "r2d2_rl"
 sys.path.insert(0, str(R2D2_RL))
 
 DEFAULT_OUT = R2D2_RL / "outputs" / "hybrid_eval_sim"
+DEFAULT_PREGRASP_ARTIFACTS = REPO_ROOT / "p3_required_sim_training_artifacts.zip"
 
 
 def parse_args() -> argparse.Namespace:
@@ -33,11 +34,47 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--cube-color", default="green")
     parser.add_argument("--cube-xy", type=float, nargs=2, default=[0.21, -0.03])
-    parser.add_argument("--cube-z", type=float, default=0.02)
+    parser.add_argument("--cube-z", type=float, default=0.01)
     parser.add_argument("--bowl-xyz", type=float, nargs=3, default=None)
     parser.add_argument("--width", type=int, default=640)
     parser.add_argument("--height", type=int, default=480)
-    parser.add_argument("--initial-lift-dz", type=float, default=0.18)
+    parser.add_argument("--initial-lift-dz", type=float, default=0.0)
+    parser.add_argument(
+        "--use-pregrasp-regressor",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Use Flo's xy->joint pregrasp regressor for the hybrid approach phase.",
+    )
+    parser.add_argument(
+        "--pregrasp-regressor-checkpoint",
+        type=Path,
+        default=DEFAULT_PREGRASP_ARTIFACTS,
+    )
+    parser.add_argument(
+        "--sb3-align-grasp-checkpoint",
+        type=Path,
+        default=None,
+        help="Optional Flo/SB3 SAC checkpoint zip for the learned align_grasp phase.",
+    )
+    parser.add_argument(
+        "--sb3-align-grasp-device",
+        default="cpu",
+        help="Device passed to stable_baselines3.SAC.load when using the SB3 adapter.",
+    )
+    parser.add_argument(
+        "--sb3-align-grasp-max-steps",
+        type=int,
+        default=80,
+        help="Maximum learned-policy control steps during the align_grasp phase.",
+    )
+    parser.add_argument(
+        "--sb3-align-grasp-camera-name",
+        default=None,
+        help=(
+            "RCS camera key to expose as observation.images.wrist for the SB3 policy. "
+            "Defaults to the Project3SO101Env wrist camera."
+        ),
+    )
     parser.add_argument(
         "--enable-watchdog",
         action="store_true",
@@ -107,9 +144,18 @@ def main() -> int:
         wrist_camera_resolution=(args.width, args.height),
         headless=True,
     )
+    wrist_camera_name = p3_cfg.wrist_camera_name
+    sb3_camera_name = args.sb3_align_grasp_camera_name or wrist_camera_name
     scene = Project3SO101Env(p3_cfg)
     env = scene.create_env(scene.config())
-    controller = RcsWaypointController(env, strict_position=args.strict_controller)
+    controller = RcsWaypointController(
+        env,
+        strict_position=args.strict_controller,
+        use_pregrasp_regressor=args.use_pregrasp_regressor,
+        pregrasp_regressor_checkpoint=args.pregrasp_regressor_checkpoint
+        if args.use_pregrasp_regressor
+        else None,
+    )
 
     try:
         controller.reset(seed=args.seed)
@@ -117,15 +163,35 @@ def main() -> int:
             controller.step_delta(np.array([0.0, 0.0, args.initial_lift_dz]), gripper=1.0)
 
         if args.save_images and controller.last_obs is not None:
-            initial_rgb = wrist_rgb_from_obs(controller.last_obs)
+            initial_rgb = wrist_rgb_from_obs(controller.last_obs, camera_name=wrist_camera_name)
             if initial_rgb is not None:
                 save_rgb(initial_rgb, args.output_dir / "initial_wrist.png")
             save_external_view(env, args.output_dir / "initial_external.png", args.width, args.height)
 
         planner = HybridWaypointPlanner(config)
-        observer = RcsWristBlockObserver(controller, config)
-        policy = ScriptedAlignGraspPolicy(controller, config)
-        visibility = RcsColorVisibilityChecker(controller, config) if args.enable_watchdog else None
+        observer = RcsWristBlockObserver(controller, config, camera_name=wrist_camera_name)
+        policy_name = "scripted"
+        if args.sb3_align_grasp_checkpoint is not None:
+            if not args.sb3_align_grasp_checkpoint.exists():
+                raise FileNotFoundError(args.sb3_align_grasp_checkpoint)
+            from runtime.sb3_visual_align_grasp_policy import SB3VisualAlignGraspPolicy
+
+            policy = SB3VisualAlignGraspPolicy(
+                controller=controller,
+                config=config,
+                checkpoint_path=args.sb3_align_grasp_checkpoint,
+                device=args.sb3_align_grasp_device,
+                max_steps=args.sb3_align_grasp_max_steps,
+                camera_name=sb3_camera_name,
+            )
+            policy_name = "sb3_visual"
+        else:
+            policy = ScriptedAlignGraspPolicy(controller, config)
+        visibility = (
+            RcsColorVisibilityChecker(controller, config, camera_name=wrist_camera_name)
+            if args.enable_watchdog
+            else None
+        )
         executor = HybridTaskExecutor(
             config=config,
             planner=planner,
@@ -138,12 +204,14 @@ def main() -> int:
         result = executor.run_goal(TaskGoal(target_color=target_color, bowl_xyz_base=bowl_xyz))
 
         if args.save_images and controller.last_obs is not None:
-            final_rgb = wrist_rgb_from_obs(controller.last_obs)
+            final_rgb = wrist_rgb_from_obs(controller.last_obs, camera_name=wrist_camera_name)
             if final_rgb is not None:
                 save_rgb(final_rgb, args.output_dir / "final_wrist.png")
             save_external_view(env, args.output_dir / "final_external.png", args.width, args.height)
 
         print("Hybrid sim result:")
+        print(f"  align_policy:   {policy_name}")
+        print(f"  wrist_camera:   {wrist_camera_name}")
         print(f"  success:        {result.success}")
         print(f"  final_state:    {result.final_state.value}")
         print(f"  attempts:       {result.attempts}")

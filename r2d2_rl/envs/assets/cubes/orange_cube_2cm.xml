@@ -1,0 +1,11 @@
+<mujoco model="orange_cube_2cm">
+  <compiler angle="radian" autolimits="true"/>
+  <option cone="elliptic" impratio="10"/>
+  <worldbody>
+    <body name="box_body">
+      <geom type="box" size="0.01 0.01 0.01" rgba="1.00 0.45 0.05 1"
+            name="box_geom" friction="1 0.3 0.1" density="500" group="1"/>
+      <joint type="free" name="box_joint"/>
+    </body>
+  </worldbody>
+</mujoco>
