@@ -1,17 +1,30 @@
 <mujoco>
     <worldbody>
+        <!-- 1. Main Key Light: Shifted off-center to produce clean depth profiles -->
         <light name="light_main"
-               pos="0 0 1.2"
-               dir="0 0 -1"
-               diffuse="1 0.95 0.85"
-               specular="0.3 0.3 0.3"
-               ambient="0.3 0.3 0.3"/>
+               pos="0.4 -0.2 1.5"
+               dir="-0.4 0.2 -1"
+               diffuse="0.6 0.57 0.52"
+               specular="0.15 0.15 0.15"
+               directional="false"
+               castshadow="true" />
 
+        <!-- 2. Ambient Fill Light: Low intensity to soften shadows without creating highlights -->
         <light name="light_fill"
-               pos="0.5 0.5 1.0"
-               dir="-1 -1 -1"
-               diffuse="0.8 0.8 0.8"
+               pos="-0.6 0.5 1.0"
+               dir="0.6 -0.5 -1"
+               diffuse="0.3 0.3 0.35"
+               specular="0.05 0.05 0.05"
+               directional="false"
+               castshadow="false" />
+
+        <!-- 3. Rim Light: Subtle backward backlight to separate tracking blocks from background planes -->
+        <light name="light_rim"
+               pos="0.0 1.2 0.8"
+               dir="0.0 -1.2 -0.8"
+               diffuse="0.25 0.25 0.25"
                specular="0.2 0.2 0.2"
-               ambient="0.2 0.2 0.2"/>
+               directional="false"
+               castshadow="false" />
     </worldbody>
 </mujoco>

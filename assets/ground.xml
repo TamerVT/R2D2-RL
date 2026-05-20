@@ -15,19 +15,22 @@
                 rgba="0.72 0.68 0.66 1"/>
     </asset>
     <worldbody>
-
+        <!-- 1. The infinite floor backdrop layer stays deep below the action -->
         <geom name="background"
-              type="plane"
-              size="10 10 0.1"
-              pos="0 0 -0.001"
-              material="noise_mat"/>
+            type="plane"
+            size="10 10 0.1"
+            pos="0 0 -0.5"
+            material="noise_mat"/>
 
+        <!-- 2. Change 'ground' from a plane to a structural 3D Box (Tabletop) -->
+        <!-- Size for box is half-lengths: [half_width_X, half_depth_Y, half_thickness_Z] -->
+        <!-- A half-thickness of 0.05 gives you a solid 10cm thick block -->
         <geom name="ground"
-              type="plane"
-              size="1.5 1.5 0.1"
-              pos="0 0 0"
-              material="ground_mat"/>
-
+            type="box"
+            size="0.4 0.4 0.05"
+            pos="0.2 0.0 -0.05"
+            material="ground_mat"
+            contype="1"
+            conaffinity="1"/>
     </worldbody>
-
 </mujoco>

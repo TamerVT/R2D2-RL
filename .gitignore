@@ -28,3 +28,5 @@ __pycache__/
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+
+collected_data/

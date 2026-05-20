@@ -34,7 +34,7 @@
     </body>
 
     <!-- orange cube -->
-    <body name="orange_cube_body">
+    <body name="orange_cube_body" pos="0.18 0.03 0.01">
       <joint type="free" name="orange_cube_joint"/>
       <geom
         type="box"
@@ -48,7 +48,7 @@
       </body>
 
     <!-- Purple cube -->
-    <body name="purple_cube_body">
+    <body name="purple_cube_body" pos="0.18 0.03 0.01">
       <joint type="free" name="purple_cube_joint"/>
       <geom
         type="box"
@@ -62,7 +62,7 @@
     </body>
 
     <!-- Red cube -->
-    <body name="red_cube_body">
+    <body name="red_cube_body" pos="0.18 0.03 0.01">
       <joint type="free" name="red_cube_joint"/>
       <geom
         type="box"
@@ -76,7 +76,7 @@
     </body>
 
     <!-- Yellow cube -->
-    <body name="yellow_cube_body">
+    <body name="yellow_cube_body" pos="0.18 0.03 0.01">
       <joint type="free" name="yellow_cube_joint"/>
       <geom
         type="box"
