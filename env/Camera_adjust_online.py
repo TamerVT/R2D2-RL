@@ -111,6 +111,18 @@ def calibrate_camera_live(camera_name: str = "wrist_cam", width: int = 640, heig
     bundle = make_so101_sim(with_cameras=True, headless=True, debug_print=True)
     sim = bundle.sim
     m = sim.model
+    
+    from camera_config import default_camera_specs
+    
+    # find your camera spec
+    specs = default_camera_specs()
+    spec = next(s for s in specs if s.name == camera_name)
+    
+    cam_id = _find_camera_id(m, camera_name)
+    
+    # enforce EXACT config pose (no transforms)
+    m.cam_pos[cam_id] = np.asarray(spec.translation, dtype=float)
+    m.cam_quat[cam_id] = np.asarray(spec.quaternion, dtype=float)
 
     import mujoco
     
@@ -233,11 +245,60 @@ def calibrate_camera_live(camera_name: str = "wrist_cam", width: int = 640, heig
 
     cv2.destroyAllWindows()
 
-    print("--- Final camera offset (copy into camera_defs.py) ---")
-    print("translation =", pos.tolist())
-    print("quaternion  =", quat.tolist())
+    import mujoco
 
-    return pos, quat
+    # --- MuJoCo handles ---
+    m = sim.model
+    d = data
+
+    # --- camera world pose ---
+    cam_id = _find_camera_id(m, camera_name)
+    cam_pos = m.cam_pos[cam_id].copy()
+    cam_quat = m.cam_quat[cam_id].copy()   # wxyz
+
+    # --- gripper site pose (world frame) ---
+    SITE_NAME = "robotgripper"
+
+    site_id = mujoco.mj_name2id(
+        m,
+        mujoco.mjtObj.mjOBJ_SITE,
+        SITE_NAME
+    )
+
+    gripper_pos = d.site_xpos[site_id].copy()
+    gripper_quat = d.site_xquat[site_id].copy()  # wxyz
+
+    # -------- quaternion helpers --------
+    def quat_conj(q):
+        return np.array([q[0], -q[1], -q[2], -q[3]])
+
+    def quat_mul(a, b):
+        w1,x1,y1,z1 = a
+        w2,x2,y2,z2 = b
+        return np.array([
+            w1*w2 - x1*x2 - y1*y2 - z1*z2,
+            w1*x2 + x1*w2 + y1*z2 - z1*y2,
+            w1*y2 - x1*z2 + y1*w2 + z1*x2,
+            w1*z2 + x1*y2 - y1*x2 + z1*w2
+        ])
+
+    def quat_rotate(q, v):
+        qv = np.array([0.0, v[0], v[1], v[2]])
+        return quat_mul(quat_mul(q, qv), quat_conj(q))[1:]
+
+    # -------- compute relative pose --------
+    q_rel = quat_mul(quat_conj(gripper_quat), cam_quat)
+    p_rel = quat_rotate(quat_conj(gripper_quat), cam_pos - gripper_pos)
+
+    # normalize (important!)
+    q_rel = q_rel / (np.linalg.norm(q_rel) + 1e-12)
+
+    print("\n--- ✅ FINAL CameraSpec values ---")
+    print("translation =", p_rel.tolist())
+    print("quaternion  =", q_rel.tolist())
+
+    return p_rel, q_rel
+
 
 
 def main(argv: list[str]) -> int:

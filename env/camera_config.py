@@ -78,7 +78,7 @@ def apply_cameras(cfg: Any,
 
     If include_depth=True, configures wrapper to include depth.
     """
-
+    print(cfg.robot_cfgs["robot"].attachment_site)
     # Runtime properties
     camera_cfgs: Dict[str, SimCameraConfig] = {}
 

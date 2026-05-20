@@ -1,0 +1,30 @@
+# ==========================================
+# Python Bytecode & Runtime Cache Ignored Files
+# ==========================================
+
+# Ignore all __pycache__ directories anywhere in the repository tree
+**/__pycache__/
+__pycache__/
+
+# Ignore compiled python bytecode files
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore Python optimization and core dump caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# ==========================================
+# WSL / Windows Interoperability Metadata
+# ==========================================
+# Ignore all alternate data stream zone identifier files
+*:Zone.Identifier
+**/*:Zone.Identifier
+
+# Standard Windows system clutter
+Thumbs.db
+ehthumbs.db
+Desktop.ini
