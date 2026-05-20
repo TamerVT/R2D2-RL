@@ -20,7 +20,13 @@ mkdir -p r2d2_rl/outputs/hil_dataset
 unzip -o p3_local_grasp_hil_multicolor_colorcond_v1.zip \
       -d r2d2_rl/outputs/hil_dataset/
 
-# RCS SO-101 XML is patched in place (see external/robot-control-stack/...).
+# Apply the RCS SO-101 patch (wrist camera + black robot + gray table).
+# external/ is git-ignored, so a fresh RCS clone MUST be patched or the env
+# fails ("fixed camera id outside valid range"). See r2d2_rl/patches/README.md.
+( cd external/robot-control-stack \
+  && git apply --check ../../r2d2_rl/patches/rcs_so101_project3.patch \
+  && git apply         ../../r2d2_rl/patches/rcs_so101_project3.patch )
+
 # All 62 unit tests should pass before any demo:
 MUJOCO_GL=egl python -m unittest discover -s r2d2_rl/tests -p 'test_*.py'
 ```
