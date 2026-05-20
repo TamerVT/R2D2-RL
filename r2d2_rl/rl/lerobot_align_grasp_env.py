@@ -100,13 +100,19 @@ class LeRobotAlignGraspEnvConfig:
     wrist_image_height: int = 128
 
     success_lift_delta_m: float = 0.005
-    # TCP-to-cube distance under which a grasp counts as "valid" (gates the
-    # grasp/lift/success rewards). 0.025 (2.5 cm) was too loose for a 2 cm
-    # cube -- the gripper could be a near-miss and still be credited, so the
-    # policy learned to bump the cube rather than enclose it. 0.012 (1.2 cm)
-    # forces the gripper genuinely centered on the cube so the fingers close
-    # *around* it -> firm grasp that survives a lift.
+    # TCP-to-cube distance under which a grasp can count as a candidate grasp.
+    # The final ``valid_cube_grasp`` below is stricter: it must be caged,
+    # commanded closed, not pressing the cube down, and stable for a few steps.
+    # 0.025 (2.5 cm) was too loose for a 2 cm cube -- the gripper could be a
+    # near-miss and still be credited, so the policy learned to bump the cube
+    # rather than enclose it.
     valid_grasp_radius_m: float = 0.012
+    caging_xy_radius_m: float = 0.008
+    caging_z_radius_m: float = 0.012
+    gripper_closed_threshold: float = 0.75
+    cube_press_tolerance_m: float = 0.0005
+    stable_grasp_steps: int = 3
+    success_hold_steps: int = 3
     action_penalty_weight: float = 0.01
 
     # --- reward shaping (robosuite-Lift-inspired, anti-hover) -------------
@@ -119,8 +125,9 @@ class LeRobotAlignGraspEnvConfig:
     #   3. a flat success reward that strictly dominates, paid every step
     #      the grasp is held (the env no longer terminates on success, so
     #      holding a successful grasp is the only route to large return).
-    # time_penalty (0.6) strictly exceeds the max dense approach shaping
-    # (reach+xy_align+descend = 0.50), so an aligned hover nets ~-0.1/step.
+    # time_penalty (0.6) matches the max dense approach shaping
+    # (reach+xy_align+descend+caging = 0.60), so an aligned hover nets <= 0
+    # after action/change penalties.
     # Once grasped the reward is grasp_hold + lift_weight * normalized_lift:
     # a *continuous* lift gradient (the v1 reward lacked this, so the policy
     # grasped but never pushed the cube past the success threshold). The
@@ -131,9 +138,13 @@ class LeRobotAlignGraspEnvConfig:
     reach_weight: float = 0.20
     xy_align_weight: float = 0.15
     descend_weight: float = 0.15
+    caging_weight: float = 0.10
+    candidate_grasp_reward: float = 0.40
     grasp_hold_reward: float = 1.0
     lift_weight: float = 2.5
     success_reward: float = 5.0
+    gripper_reopen_penalty_weight: float = 1.0
+    gripper_action_change_penalty_weight: float = 0.05
     # Penalty for shoving the cube *below* its resting height -- the trained
     # policy was descending onto the cube and pressing it into the floor
     # (cube z went ~6 mm negative) instead of grasping and lifting. This
@@ -176,7 +187,10 @@ class LeRobotAlignGraspEnv(gym.Env):
         self._episode_cube_start_z = float(self.cfg.cube_center[2])
         self._has_grasped = False
         self._tcp_z_at_first_grasp: float | None = None
+        self._candidate_grasp_steps = 0
+        self._success_hold_steps = 0
         self._prev_tcp_cube_dist: float | None = None
+        self._prev_gripper_action_real: float | None = None
         self._prev_real_positions: np.ndarray | None = None
 
         self._pregrasp_regressor: LoadedPregraspRegressor | None = None
@@ -454,19 +468,16 @@ class LeRobotAlignGraspEnv(gym.Env):
 
         Three mutually-exclusive regimes, evaluated top-down:
 
-        - ``success`` (grasped + lifted past threshold): flat
-          ``success_reward`` -- strictly dominates every other regime and is
-          paid *every step the grasp is held* (the env is fixed-horizon and
-          no longer terminates on success), so the optimal policy reaches
-          success fast and holds it.
-        - ``valid grasp`` (grasped, not yet lifted enough): a modest
-          ``grasp_hold_reward - time_penalty`` -- positive, but far below
-          ``success_reward`` so it is only a stepping stone.
-        - otherwise (approaching): bounded ``tanh`` shaping whose maximum
-          (``reach_weight + xy_align_weight + descend_weight``) is <=
-          ``time_penalty``. Hovering aligned therefore nets <= 0 per step;
-          merely approaching nets clearly negative. The only route to
-          positive episode return is to grasp and lift.
+        - ``success`` (stable grasp + lifted past threshold): flat
+          ``success_reward`` -- strictly dominates every other regime.
+        - ``stable grasp`` (caged and closed for several steps): a modest
+          hold reward plus lift-progress gradient.
+        - ``candidate grasp``: one-step caged/closed contact gets a small
+          reward, but does not unlock full lift shaping until it is stable.
+        - otherwise (approaching): bounded ``tanh`` shaping whose maximum is
+          <= ``time_penalty``. Hovering aligned therefore nets <= 0 per step;
+          merely approaching nets clearly negative. The only route to positive
+          episode return is to grasp and lift.
         """
         cfg = self.cfg
         cube_xyz = flat_obs["cube_xyz"].astype(np.float64)
@@ -482,38 +493,86 @@ class LeRobotAlignGraspEnv(gym.Env):
         reach = 1.0 - float(np.tanh(10.0 * xyz_dist))
         xy_align = 1.0 - float(np.tanh(10.0 * xy_dist))
         descend = 1.0 - float(np.tanh(10.0 * z_dist))
+        xy_caging = 1.0 - float(np.tanh(xy_dist / max(1e-6, cfg.caging_xy_radius_m)))
+        z_caging = 1.0 - float(np.tanh(z_dist / max(1e-6, cfg.caging_z_radius_m)))
+        caging = xy_caging * z_caging
         gripper_closed_amount = float(np.clip(1.0 - gripper_open, 0.0, 1.0))
 
         robot_info = raw_info.get("robot", {}) if isinstance(raw_info, dict) else {}
         sim_is_grasped = float(
             bool(raw_info.get("is_grasped", False) or robot_info.get("is_grasped", False))
         )
-        valid_cube_grasp = sim_is_grasped * float(xyz_dist < cfg.valid_grasp_radius_m)
 
         cube_lift = max(0.0, float(cube_xyz[2] - self._episode_cube_start_z))
         normalized_lift = float(np.clip(cube_lift / max(1e-6, cfg.success_lift_delta_m), 0.0, 1.0))
-        success = bool(cube_lift >= cfg.success_lift_delta_m and valid_cube_grasp > 0.5)
 
-        # Press-down penalty: the cube should never go *below* its resting
-        # height. If it does, the policy is shoving it into the floor instead
-        # of grasping (observed dominant failure mode). Penalty normalized by
-        # the same 5 mm scale as the lift.
+        # Cube press depth: how far the cube sits *below* its resting height.
+        # Kept for logging/diagnostics only. The press *penalty* was removed:
+        # in the v6 run it subtracted from every grasped step (grasping a 2 cm
+        # cube always presses it a little) and collapsed grasp success from
+        # 100% -> 0%. The tight valid_grasp_radius_m + caging predicate already
+        # rule out the shove-into-floor degenerate grasp, so the penalty was
+        # both redundant and actively harmful.
         cube_press = max(0.0, float(self._episode_cube_start_z - cube_xyz[2]))
         normalized_press = float(np.clip(cube_press / max(1e-6, cfg.success_lift_delta_m), 0.0, 1.0))
         press_penalty = cfg.cube_press_penalty_weight * normalized_press
 
-        if valid_cube_grasp > 0.5 and not self._has_grasped:
+        closed_enough = gripper_closed_amount >= cfg.gripper_closed_threshold
+        caged_enough = xy_dist <= cfg.caging_xy_radius_m and z_dist <= cfg.caging_z_radius_m
+        not_pressing = cube_press <= cfg.cube_press_tolerance_m
+        candidate_cube_grasp = float(
+            sim_is_grasped > 0.5
+            and closed_enough
+            and xyz_dist < cfg.valid_grasp_radius_m
+            and caged_enough
+        )
+        if candidate_cube_grasp > 0.5:
+            self._candidate_grasp_steps += 1
+        else:
+            self._candidate_grasp_steps = 0
+        valid_cube_grasp = float(self._candidate_grasp_steps >= cfg.stable_grasp_steps)
+
+        if candidate_cube_grasp > 0.5 and not self._has_grasped:
             self._has_grasped = True
             self._tcp_z_at_first_grasp = float(tcp_xyz[2])
 
         scaled_action = lerobot_to_scaled_action(action)
         action_penalty = cfg.action_penalty_weight * float(np.mean(np.square(scaled_action)))
+        gripper_target_real = float(action[5])
+        if self._prev_gripper_action_real is None:
+            gripper_action_change_penalty = 0.0
+        else:
+            normalized_gripper_change = abs(gripper_target_real - self._prev_gripper_action_real) / max(
+                1e-6, cfg.real_gripper_max
+            )
+            gripper_action_change_penalty = (
+                cfg.gripper_action_change_penalty_weight * normalized_gripper_change
+            )
+        self._prev_gripper_action_real = gripper_target_real
 
-        if success:
+        gripper_reopen_penalty = 0.0
+        if self._has_grasped and not closed_enough:
+            gripper_reopen_penalty = cfg.gripper_reopen_penalty_weight
+
+        instant_success = bool(cube_lift >= cfg.success_lift_delta_m and valid_cube_grasp > 0.5)
+        if instant_success:
+            self._success_hold_steps += 1
+        else:
+            self._success_hold_steps = 0
+        success = bool(self._success_hold_steps >= cfg.success_hold_steps)
+        # press_penalty intentionally excluded -- see the cube_press comment
+        # above (it collapsed grasp success in v6).
+        behavior_penalty = (
+            action_penalty
+            + gripper_action_change_penalty
+            + gripper_reopen_penalty
+        )
+
+        if instant_success:
             # Flat, dominant, paid each held step (no early termination).
             # (cube is lifted here, so press_penalty is 0 -- subtracted for
             # uniformity.)
-            reward = cfg.success_reward - action_penalty - press_penalty
+            reward = cfg.success_reward - behavior_penalty
         elif valid_cube_grasp > 0.5:
             # Grasped but not yet lifted to threshold. Flat hold reward plus a
             # *continuous* lift-progress gradient so every extra mm of lift
@@ -523,8 +582,17 @@ class LeRobotAlignGraspEnv(gym.Env):
                 cfg.grasp_hold_reward
                 + cfg.lift_weight * normalized_lift
                 - cfg.time_penalty
-                - action_penalty
-                - press_penalty
+                - behavior_penalty
+            )
+        elif candidate_cube_grasp > 0.5:
+            # One-step candidate grasp. This keeps the stable-grasp condition
+            # learnable without letting a momentary bump earn full lift credit.
+            reward = (
+                cfg.candidate_grasp_reward
+                + cfg.caging_weight * caging
+                + 0.25 * cfg.lift_weight * normalized_lift
+                - cfg.time_penalty
+                - behavior_penalty
             )
         else:
             # Approaching. Bounded dense shaping minus the time penalty, minus
@@ -534,25 +602,40 @@ class LeRobotAlignGraspEnv(gym.Env):
                 cfg.reach_weight * reach
                 + cfg.xy_align_weight * xy_align
                 + cfg.descend_weight * descend * xy_align
+                + cfg.caging_weight * caging
                 - cfg.time_penalty
-                - action_penalty
-                - press_penalty
+                - behavior_penalty
             )
 
         terms = {
             "xy_dist": xy_dist,
             "xyz_dist": xyz_dist,
             "z_dist": z_dist,
+            "xy_caging": xy_caging,
+            "z_caging": z_caging,
+            "caging": caging,
             "cube_z": float(cube_xyz[2]),
             "cube_lift": cube_lift,
             "normalized_lift": normalized_lift,
+            "cube_press": cube_press,
+            "normalized_press": normalized_press,
             "sim_is_grasped": sim_is_grasped,
+            "closed_enough": float(closed_enough),
+            "caged_enough": float(caged_enough),
+            "not_pressing": float(not_pressing),
+            "candidate_cube_grasp": candidate_cube_grasp,
+            "stable_grasp_steps": float(self._candidate_grasp_steps),
             "valid_cube_grasp": valid_cube_grasp,
+            "instant_success": float(instant_success),
+            "success_hold_steps": float(self._success_hold_steps),
             "gripper_closed_amount": gripper_closed_amount,
             "reach": reach,
             "xy_align": xy_align,
             "descend": descend,
             "action_penalty": action_penalty,
+            "gripper_action_change_penalty": gripper_action_change_penalty,
+            "gripper_reopen_penalty": gripper_reopen_penalty,
+            "press_penalty": press_penalty,
             "local_success": float(success),
         }
         return float(reward), success, terms
@@ -570,7 +653,10 @@ class LeRobotAlignGraspEnv(gym.Env):
         self._prev_real_positions = None
         self._has_grasped = False
         self._tcp_z_at_first_grasp = None
+        self._candidate_grasp_steps = 0
+        self._success_hold_steps = 0
         self._prev_tcp_cube_dist = None
+        self._prev_gripper_action_real = None
 
         obs, info = self.env.reset(seed=seed, options=options)
         flat_obs = self._flat_obs(obs)
@@ -615,7 +701,17 @@ class LeRobotAlignGraspEnv(gym.Env):
         info["success"] = local_success
         info["local_success"] = local_success
         info["reward_terms"] = reward_terms
-        for key in ("cube_z", "cube_lift", "xy_dist", "xyz_dist", "sim_is_grasped"):
+        for key in (
+            "cube_z",
+            "cube_lift",
+            "cube_press",
+            "xy_dist",
+            "xyz_dist",
+            "sim_is_grasped",
+            "candidate_cube_grasp",
+            "valid_cube_grasp",
+            "instant_success",
+        ):
             info[key] = reward_terms[key]
         info["lerobot_action"] = clipped_action
         info["rcs_joint_delta_rad"] = rcs_action["robot"]["joints"]

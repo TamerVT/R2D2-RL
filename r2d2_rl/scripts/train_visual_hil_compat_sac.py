@@ -195,6 +195,14 @@ class LocalGraspInfoCallback(BaseCallback):
         for key in ("cube_lift", "xy_dist", "xyz_dist"):
             if key in info:
                 self.logger.record(f"env/{key}", float(info[key]))
+        for key in (
+            "cube_press",
+            "candidate_cube_grasp",
+            "valid_cube_grasp",
+            "instant_success",
+        ):
+            if key in info:
+                self.logger.record(f"env/{key}", float(info[key]))
         if "local_success" in info:
             self.logger.record("env/local_success", float(bool(info["local_success"])))
         if "sim_is_grasped" in info:
@@ -237,11 +245,14 @@ class GraspEvalCallback(BaseCallback):
         mean_xy_dist: float,
         mean_peak_lift: float,
         success_threshold: float,
+        instant_success_rate: float = 0.0,
     ) -> str:
         if success_rate >= 0.5:
             return "GRASPING (good -- policy lifts the cube)"
         if success_rate > 0.0:
             return "PARTIAL (some successes -- keep training)"
+        if instant_success_rate > 0.0:
+            return "UNSTABLE-LIFT (brief lifted grasp -- needs held success)"
         if grasp_rate > 0.0:
             pct = 100.0 * mean_peak_lift / max(1e-9, success_threshold)
             return (
@@ -255,14 +266,14 @@ class GraspEvalCallback(BaseCallback):
     def _run_eval(self) -> dict:
         n = self._n_eval_episodes
         threshold = float(self._eval_env.cfg.success_lift_delta_m)
-        n_grasp = n_lift = n_success = 0
+        n_candidate_grasp = n_grasp = n_lift = n_instant_success = n_success = 0
         returns: list[float] = []
         final_xy: list[float] = []
         peak_lifts: list[float] = []
         for ep in range(n):
             obs, _info = self._eval_env.reset(seed=10_000 + ep)
             ep_ret = 0.0
-            ep_grasp = ep_lift = ep_success = False
+            ep_candidate_grasp = ep_grasp = ep_lift = ep_instant_success = ep_success = False
             ep_peak_lift = 0.0
             terms: dict = {}
             for _step in range(self._eval_env.cfg.max_episode_steps):
@@ -270,55 +281,75 @@ class GraspEvalCallback(BaseCallback):
                 obs, reward, terminated, truncated, info = self._eval_env.step(action)
                 ep_ret += float(reward)
                 terms = info.get("reward_terms", {})
+                if float(terms.get("candidate_cube_grasp", 0.0)) > 0.5:
+                    ep_candidate_grasp = True
                 if float(terms.get("valid_cube_grasp", 0.0)) > 0.5:
                     ep_grasp = True
                 cube_lift = float(terms.get("cube_lift", 0.0))
                 ep_peak_lift = max(ep_peak_lift, cube_lift)
                 if cube_lift >= threshold:
                     ep_lift = True
+                if bool(terms.get("instant_success", False)):
+                    ep_instant_success = True
                 if bool(info.get("local_success", False)):
                     ep_success = True
                 if terminated or truncated:
                     break
+            n_candidate_grasp += int(ep_candidate_grasp)
             n_grasp += int(ep_grasp)
             n_lift += int(ep_lift)
+            n_instant_success += int(ep_instant_success)
             n_success += int(ep_success)
             returns.append(ep_ret)
             final_xy.append(float(terms.get("xy_dist", float("nan"))))
             peak_lifts.append(ep_peak_lift)
+        candidate_grasp_rate = n_candidate_grasp / n
         grasp_rate = n_grasp / n
         lift_rate = n_lift / n
+        instant_success_rate = n_instant_success / n
         success_rate = n_success / n
         mean_xy = float(np.nanmean(final_xy)) if final_xy else float("nan")
         mean_peak_lift = float(np.mean(peak_lifts)) if peak_lifts else 0.0
         return {
             "step": int(self.num_timesteps),
             "n_episodes": n,
+            "candidate_grasp_rate": candidate_grasp_rate,
             "grasp_rate": grasp_rate,
             "lift_rate": lift_rate,
+            "instant_success_rate": instant_success_rate,
             "success_rate": success_rate,
             "mean_return": float(np.mean(returns)),
             "mean_final_xy_dist": mean_xy,
             "mean_peak_lift": mean_peak_lift,
             "success_threshold": threshold,
             "verdict": self._verdict(
-                grasp_rate, success_rate, mean_xy, mean_peak_lift, threshold
+                grasp_rate,
+                success_rate,
+                mean_xy,
+                mean_peak_lift,
+                threshold,
+                instant_success_rate,
             ),
         }
 
     def _emit(self, result: dict) -> None:
         with self._log_path.open("a") as f:
             f.write(json.dumps(result) + "\n")
+        self.logger.record("eval/candidate_grasp_rate", result["candidate_grasp_rate"])
         self.logger.record("eval/grasp_rate", result["grasp_rate"])
         self.logger.record("eval/lift_rate", result["lift_rate"])
+        self.logger.record("eval/instant_success_rate", result["instant_success_rate"])
         self.logger.record("eval/success_rate", result["success_rate"])
         self.logger.record("eval/mean_return", result["mean_return"])
         self.logger.record("eval/mean_final_xy_dist", result["mean_final_xy_dist"])
         self.logger.record("eval/mean_peak_lift", result["mean_peak_lift"])
         print(
             f"[eval @ step {result['step']:6d}] "
-            f"grasp={result['grasp_rate']:.0%}  lift={result['lift_rate']:.0%}  "
-            f"success={result['success_rate']:.0%}  "
+            f"candidate={result['candidate_grasp_rate']:.0%}  "
+            f"stable_grasp={result['grasp_rate']:.0%}  "
+            f"lift={result['lift_rate']:.0%}  "
+            f"instant_success={result['instant_success_rate']:.0%}  "
+            f"held_success={result['success_rate']:.0%}  "
             f"mean_return={result['mean_return']:+.1f}  "
             f"peak_lift={result['mean_peak_lift'] * 1000:.1f}mm  "
             f"xy_dist={result['mean_final_xy_dist']:.4f}  ->  {result['verdict']}",
