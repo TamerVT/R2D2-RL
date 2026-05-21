@@ -34,105 +34,40 @@ cube_names = [
 ]
 
 
-@dataclass
-class SimBundle:
-    env: Any          # RCS gym env
-    sim: Any          # MuJoCo sim wrapper
-    robot: Any        # robot handle
-    camera_names: list[str]
+def build_so101_env():
+    """Compiles the SO101 environment scene graph and returns raw handles.
     
-class CustomScene(EmptyWorldSO101):
-    def create_model(self, cfg):
-        # 2. Bypass the hardcoded rcs XML generation and load your custom wrapper
-        return str(SCENE_XML)
-
-def make_so101_sim(*,
-                   with_cameras = True,
-                   headless = True,
-                   debug_print = False,
-                   background_noise = True,
-                   noise_low = 0.3,
-                   noise_high = 0.7,
-                   seed = None) -> SimBundle:
-
-    """Create SO101 environment and return handles.
-
-    Parameters
-    ----------
-    with_cameras:
-        If True, adds cameras through RCS config (camera_cfgs + camera_adds).
-    headless:
-        If True, disables GUI.
-    debug_print:
-        If True, prints bodies/cameras found after compilation.
+    Acts strictly as a structural builder, free of runtime randomization 
+    or debugging side-effects.
     """
     scene = EmptyWorldSO101()
     cfg = scene.config()
     
-    cfg.scene = str(SCENE_XML) # loads the linker xml file
+    # 1. Bind the structural XML paths
+    cfg.scene = str(SCENE_XML)
     if isinstance(cfg.robot_cfgs, list) and len(cfg.robot_cfgs) > 0:
-        # If it's a list, modify the first robot config entry
-        cfg.robot_cfgs[0].xml_path = "assets/so101.xml"  # Replace with your actual custom file path
-        print(f"Redirected robot_cfgs[0] path to: {cfg.robot_cfgs[0].xml_path}")
+        cfg.robot_cfgs[0].xml_path = "assets/so101.xml"
     elif isinstance(cfg.robot_cfgs, dict):
-        # If it's a dictionary, modify the first entry
         first_key = list(cfg.robot_cfgs.keys())[0]
-        robot_config = cfg.robot_cfgs[first_key]
+        cfg.robot_cfgs[first_key].kinematic_model_path = "assets/so101.xml"
         
-        # 2. Assign your custom file path to the correct attribute
-        robot_config.kinematic_model_path = "assets/so101.xml"
-    # Control config
+    # 2. Enforce the control constraints
     cfg.control_mode = ControlMode.JOINTS
     cfg.relative_to = RelativeTo.LAST_STEP
-    
-
-    
-    # Optional headless mode
     cfg.headless = True
 
+    # 3. Instantiate the core ecosystem framework
     env = scene.create_env(cfg)
     sim = env.get_wrapper_attr("sim")
-    _randomize_background(sim, noise_low, noise_high, seed)
-    #dump_compiled_xml(sim)
-    m, d = get_m_and_d(sim)
     
-    randomize_cube_positions(
-        sim,
-        cube_names,
-        ws,
-        surface_z=0.0,              # floor plane z (or table top z)
-        base_body_name="robotbase", # your robot root in the compiled model
-        robot_body_prefix="robot",  # matches your body names
-        debug=False,
-    )
-
-    mujoco.mj_forward(m, d)
-
-    randomize_lights(sim, n_lights=3, debug=debug_print)
-    mujoco.mj_forward(m, d)
+    # 4. Extract the direct underlying MuJoCo pointers
+    model = sim.model
+    data = getattr(sim, "mjdata", None) or getattr(sim, "data", None)
     
-    # Robot handle
-    robots = env.get_wrapper_attr("robot")
-    robot = robots["robot"] if isinstance(robots, dict) else robots
-    
-    for i in range(m.nbody):
-        name = m.body(i).name
-        print(name, d.xpos[i])
-
-    robot_cfg = cfg.robot_cfgs[0] if isinstance(cfg.robot_cfgs, list) else list(cfg.robot_cfgs.values())[0]
-    print(robot_cfg)
-    print("fields:", [a for a in dir(robot_cfg) if "pos" in a or "quat" in a or "pose" in a])
-
-    # Names for debugging
-    cam_names = [sim.model.camera(i).name for i in range(sim.model.ncam)]
-
-    if debug_print:
-        m = sim.model
-        print("Bodies:", [m.body(i).name for i in range(m.nbody)])
-        print("Sites :", [m.site(i).name for i in range(m.nsite)])
-        print("Cams  :", cam_names)
-
-    return SimBundle(env=env, sim=sim, robot=robot, camera_names=cam_names)
+    if data is None:
+        raise RuntimeError("No mjData handle found on the compiled simulation instance.")
+        
+    return model, data
 
 
 # some helper functions        
