@@ -1,0 +1,46 @@
+{
+  "model_config": {
+    "input_dim": 3,
+    "output_dim": 5,
+    "hidden_dim": 128,
+    "num_hidden_layers": 3
+  },
+  "normalization": {
+    "x_mean": [
+      -0.012105260975658894,
+      0.29684212803840637,
+      0.0
+    ],
+    "x_std": [
+      0.16178539395332336,
+      0.08602646738290787,
+      9.999999974752427e-07
+    ],
+    "y_mean": [
+      -4.0069403648376465,
+      -8.437248229980469,
+      21.455177307128906,
+      32.3331413269043,
+      -0.2290342003107071
+    ],
+    "y_std": [
+      36.948848724365234,
+      33.49443054199219,
+      32.27854537963867,
+      11.313117980957031,
+      2.2519900798797607
+    ]
+  },
+  "joint_names": [
+    "shoulder_pan",
+    "shoulder_lift",
+    "elbow_flex",
+    "wrist_flex",
+    "wrist_roll"
+  ],
+  "dataset_json": "project3_modular/data/bowl_transfer_dataset/bowl_transfer_examples.json",
+  "num_examples": 24,
+  "best_epoch": 95,
+  "train_joint_mae": 1.69915771484375,
+  "val_joint_mae": 11.183477401733398
+}

@@ -43,46 +43,62 @@ class CubeDetectorConfig:
 # HSV ranges are in OpenCV convention:
 # H ∈ [0, 179], S ∈ [0, 255], V ∈ [0, 255].
 #
-# These are only initial thresholds. The debug script makes them easy to tune.
+# These ranges are tightened around the known project cube palette.
+# Earlier camera-color checks gave approximate OpenCV-HSV centers of:
+#   red    ≈ H=1
+#   orange ≈ H=6
+#   yellow ≈ H=24
+#   blue   ≈ H=108
+#   purple ≈ H=136
+#
+# Green is kept somewhat wider for now because its earlier camera-vs-XML
+# comparison was the least clean of the six colors.
+#
+# Goal:
+#   - reduce false positive colored blobs from the robot/background,
+#   - reduce overlap between red/orange/yellow,
+#   - retain enough tolerance for lighting variation in the wrist scans.
 COLOR_RANGES_HSV: dict[str, list[tuple[np.ndarray, np.ndarray]]] = {
     "red": [
         (
-            np.array([0, 70, 50], dtype=np.uint8),
-            np.array([12, 255, 255], dtype=np.uint8),
+            np.array([0, 110, 80], dtype=np.uint8),
+            np.array([4, 255, 255], dtype=np.uint8),
         ),
         (
-            np.array([165, 70, 50], dtype=np.uint8),
+            np.array([176, 110, 80], dtype=np.uint8),
             np.array([179, 255, 255], dtype=np.uint8),
         ),
     ],
     "orange": [
         (
-            np.array([8, 80, 60], dtype=np.uint8),
-            np.array([25, 255, 255], dtype=np.uint8),
+            np.array([5, 100, 80], dtype=np.uint8),
+            np.array([15, 255, 255], dtype=np.uint8),
         ),
     ],
     "yellow": [
         (
-            np.array([20, 70, 70], dtype=np.uint8),
-            np.array([40, 255, 255], dtype=np.uint8),
+            np.array([18, 90, 90], dtype=np.uint8),
+            np.array([34, 255, 255], dtype=np.uint8),
         ),
     ],
     "green": [
         (
-            np.array([40, 50, 40], dtype=np.uint8),
-            np.array([90, 255, 255], dtype=np.uint8),
+            # Project cube XML green rgba=(0.125, 0.522, 0.302, 1)
+            # corresponds approximately to OpenCV HSV=(73, 194, 133).
+            np.array([62, 90, 60], dtype=np.uint8),
+            np.array([84, 255, 230], dtype=np.uint8),
         ),
     ],
     "blue": [
         (
-            np.array([90, 50, 40], dtype=np.uint8),
-            np.array([130, 255, 255], dtype=np.uint8),
+            np.array([98, 110, 60], dtype=np.uint8),
+            np.array([118, 255, 255], dtype=np.uint8),
         ),
     ],
     "purple": [
         (
-            np.array([125, 40, 40], dtype=np.uint8),
-            np.array([165, 255, 255], dtype=np.uint8),
+            np.array([126, 70, 60], dtype=np.uint8),
+            np.array([150, 255, 230], dtype=np.uint8),
         ),
     ],
 }

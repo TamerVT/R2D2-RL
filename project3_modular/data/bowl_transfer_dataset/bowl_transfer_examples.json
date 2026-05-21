@@ -1,0 +1,613 @@
+{
+  "description": "Bowl transfer regressor dataset: bowl_xyz -> over-bowl joint pose.",
+  "joint_names": [
+    "shoulder_pan",
+    "shoulder_lift",
+    "elbow_flex",
+    "wrist_flex",
+    "wrist_roll",
+    "gripper"
+  ],
+  "examples": [
+    {
+      "timestamp": "2026-05-21T05:31:21",
+      "bowl_xyz": [
+        0.14,
+        0.42,
+        0.0
+      ],
+      "release_joint_positions": [
+        22.153846153846153,
+        27.912087912087912,
+        -14.417582417582418,
+        26.46153846153846,
+        7.34065934065934,
+        9.4287680660702
+      ],
+      "joint_names": [
+        "shoulder_pan",
+        "shoulder_lift",
+        "elbow_flex",
+        "wrist_flex",
+        "wrist_roll",
+        "gripper"
+      ],
+      "note": ""
+    },
+    {
+      "timestamp": "2026-05-21T05:31:59",
+      "bowl_xyz": [
+        0.0,
+        0.42,
+        0.0
+      ],
+      "release_joint_positions": [
+        -1.2307692307692308,
+        15.516483516483516,
+        -1.5824175824175823,
+        26.46153846153846,
+        2.5054945054945055,
+        9.635237439779766
+      ],
+      "joint_names": [
+        "shoulder_pan",
+        "shoulder_lift",
+        "elbow_flex",
+        "wrist_flex",
+        "wrist_roll",
+        "gripper"
+      ],
+      "note": ""
+    },
+    {
+      "timestamp": "2026-05-21T05:32:48",
+      "bowl_xyz": [
+        -0.15,
+        0.42,
+        0.0
+      ],
+      "release_joint_positions": [
+        -21.01098901098901,
+        32.48351648351648,
+        -24.263736263736263,
+        26.46153846153846,
+        2.5054945054945055,
+        9.359944941500343
+      ],
+      "joint_names": [
+        "shoulder_pan",
+        "shoulder_lift",
+        "elbow_flex",
+        "wrist_flex",
+        "wrist_roll",
+        "gripper"
+      ],
+      "note": ""
+    },
+    {
+      "timestamp": "2026-05-21T05:33:42",
+      "bowl_xyz": [
+        -0.14,
+        0.31,
+        0.0
+      ],
+      "release_joint_positions": [
+        -31.384615384615383,
+        -7.252747252747253,
+        24.87912087912088,
+        27.164835164835164,
+        2.5054945054945055,
+        9.359944941500343
+      ],
+      "joint_names": [
+        "shoulder_pan",
+        "shoulder_lift",
+        "elbow_flex",
+        "wrist_flex",
+        "wrist_roll",
+        "gripper"
+      ],
+      "note": ""
+    },
+    {
+      "timestamp": "2026-05-21T05:34:37",
+      "bowl_xyz": [
+        -0.07,
+        0.33,
+        0.0
+      ],
+      "release_joint_positions": [
+        -16.087912087912088,
+        -18.065934065934066,
+        39.56043956043956,
+        27.164835164835164,
+        -1.1868131868131868,
+        9.772883688919478
+      ],
+      "joint_names": [
+        "shoulder_pan",
+        "shoulder_lift",
+        "elbow_flex",
+        "wrist_flex",
+        "wrist_roll",
+        "gripper"
+      ],
+      "note": ""
+    },
+    {
+      "timestamp": "2026-05-21T05:35:33",
+      "bowl_xyz": [
+        0.02,
+        0.33,
+        0.0
+      ],
+      "release_joint_positions": [
+        0.0,
+        -20.35164835164835,
+        42.10989010989011,
+        23.560439560439562,
+        -1.2747252747252746,
+        9.635237439779766
+      ],
+      "joint_names": [
+        "shoulder_pan",
+        "shoulder_lift",
+        "elbow_flex",
+        "wrist_flex",
+        "wrist_roll",
+        "gripper"
+      ],
+      "note": ""
+    },
+    {
+      "timestamp": "2026-05-21T05:35:55",
+      "bowl_xyz": [
+        0.09,
+        0.33,
+        0.0
+      ],
+      "release_joint_positions": [
+        15.824175824175825,
+        -10.153846153846153,
+        30.153846153846153,
+        23.64835164835165,
+        -1.2747252747252746,
+        9.4287680660702
+      ],
+      "joint_names": [
+        "shoulder_pan",
+        "shoulder_lift",
+        "elbow_flex",
+        "wrist_flex",
+        "wrist_roll",
+        "gripper"
+      ],
+      "note": ""
+    },
+    {
+      "timestamp": "2026-05-21T05:36:28",
+      "bowl_xyz": [
+        0.18,
+        0.32,
+        0.0
+      ],
+      "release_joint_positions": [
+        30.857142857142858,
+        5.142857142857143,
+        11.956043956043956,
+        23.64835164835165,
+        -1.2747252747252746,
+        9.359944941500343
+      ],
+      "joint_names": [
+        "shoulder_pan",
+        "shoulder_lift",
+        "elbow_flex",
+        "wrist_flex",
+        "wrist_roll",
+        "gripper"
+      ],
+      "note": ""
+    },
+    {
+      "timestamp": "2026-05-21T05:36:50",
+      "bowl_xyz": [
+        0.18,
+        0.24,
+        0.0
+      ],
+      "release_joint_positions": [
+        45.62637362637363,
+        -33.97802197802198,
+        52.92307692307692,
+        23.64835164835165,
+        -1.2747252747252746,
+        9.4287680660702
+      ],
+      "joint_names": [
+        "shoulder_pan",
+        "shoulder_lift",
+        "elbow_flex",
+        "wrist_flex",
+        "wrist_roll",
+        "gripper"
+      ],
+      "note": ""
+    },
+    {
+      "timestamp": "2026-05-21T05:37:14",
+      "bowl_xyz": [
+        0.18,
+        0.15,
+        0.0
+      ],
+      "release_joint_positions": [
+        64.96703296703296,
+        -62.54945054945055,
+        73.23076923076923,
+        23.64835164835165,
+        -1.2747252747252746,
+        9.4287680660702
+      ],
+      "joint_names": [
+        "shoulder_pan",
+        "shoulder_lift",
+        "elbow_flex",
+        "wrist_flex",
+        "wrist_roll",
+        "gripper"
+      ],
+      "note": ""
+    },
+    {
+      "timestamp": "2026-05-21T05:37:37",
+      "bowl_xyz": [
+        0.1,
+        0.15,
+        0.0
+      ],
+      "release_joint_positions": [
+        49.494505494505496,
+        -83.91208791208791,
+        56.967032967032964,
+        80.35164835164835,
+        -1.2747252747252746,
+        9.772883688919478
+      ],
+      "joint_names": [
+        "shoulder_pan",
+        "shoulder_lift",
+        "elbow_flex",
+        "wrist_flex",
+        "wrist_roll",
+        "gripper"
+      ],
+      "note": ""
+    },
+    {
+      "timestamp": "2026-05-21T05:38:00",
+      "bowl_xyz": [
+        0.0,
+        0.2,
+        0.0
+      ],
+      "release_joint_positions": [
+        -1.8461538461538463,
+        -62.46153846153846,
+        50.46153846153846,
+        80.43956043956044,
+        -1.2747252747252746,
+        9.635237439779766
+      ],
+      "joint_names": [
+        "shoulder_pan",
+        "shoulder_lift",
+        "elbow_flex",
+        "wrist_flex",
+        "wrist_roll",
+        "gripper"
+      ],
+      "note": ""
+    },
+    {
+      "timestamp": "2026-05-21T05:38:37",
+      "bowl_xyz": [
+        -0.08,
+        0.18,
+        0.0
+      ],
+      "release_joint_positions": [
+        -25.582417582417584,
+        -63.252747252747255,
+        57.75824175824176,
+        65.4065934065934,
+        -1.2747252747252746,
+        9.359944941500343
+      ],
+      "joint_names": [
+        "shoulder_pan",
+        "shoulder_lift",
+        "elbow_flex",
+        "wrist_flex",
+        "wrist_roll",
+        "gripper"
+      ],
+      "note": ""
+    },
+    {
+      "timestamp": "2026-05-21T05:39:20",
+      "bowl_xyz": [
+        -0.15,
+        0.19,
+        0.0
+      ],
+      "release_joint_positions": [
+        -50.285714285714285,
+        -46.10989010989011,
+        47.032967032967036,
+        58.10989010989011,
+        -1.4505494505494505,
+        9.56641431520991
+      ],
+      "joint_names": [
+        "shoulder_pan",
+        "shoulder_lift",
+        "elbow_flex",
+        "wrist_flex",
+        "wrist_roll",
+        "gripper"
+      ],
+      "note": ""
+    },
+    {
+      "timestamp": "2026-05-21T05:39:51",
+      "bowl_xyz": [
+        -0.23,
+        0.25,
+        0.0
+      ],
+      "release_joint_positions": [
+        -57.142857142857146,
+        3.7362637362637363,
+        16.087912087912088,
+        31.560439560439562,
+        -1.2747252747252746,
+        9.4287680660702
+      ],
+      "joint_names": [
+        "shoulder_pan",
+        "shoulder_lift",
+        "elbow_flex",
+        "wrist_flex",
+        "wrist_roll",
+        "gripper"
+      ],
+      "note": ""
+    },
+    {
+      "timestamp": "2026-05-21T05:40:20",
+      "bowl_xyz": [
+        -0.25,
+        0.36,
+        0.0
+      ],
+      "release_joint_positions": [
+        -43.07692307692308,
+        51.032967032967036,
+        -48.0,
+        31.560439560439562,
+        -1.2747252747252746,
+        9.4287680660702
+      ],
+      "joint_names": [
+        "shoulder_pan",
+        "shoulder_lift",
+        "elbow_flex",
+        "wrist_flex",
+        "wrist_roll",
+        "gripper"
+      ],
+      "note": ""
+    },
+    {
+      "timestamp": "2026-05-21T05:41:51",
+      "bowl_xyz": [
+        -0.1,
+        0.36,
+        0.0
+      ],
+      "release_joint_positions": [
+        -18.10989010989011,
+        5.846153846153846,
+        10.901098901098901,
+        31.560439560439562,
+        -1.2747252747252746,
+        9.497591190640055
+      ],
+      "joint_names": [
+        "shoulder_pan",
+        "shoulder_lift",
+        "elbow_flex",
+        "wrist_flex",
+        "wrist_roll",
+        "gripper"
+      ],
+      "note": ""
+    },
+    {
+      "timestamp": "2026-05-21T05:44:26",
+      "bowl_xyz": [
+        0.0,
+        0.3,
+        0.0
+      ],
+      "release_joint_positions": [
+        -2.901098901098901,
+        -30.54945054945055,
+        48.08791208791209,
+        31.64835164835165,
+        -1.2747252747252746,
+        9.841706813489333
+      ],
+      "joint_names": [
+        "shoulder_pan",
+        "shoulder_lift",
+        "elbow_flex",
+        "wrist_flex",
+        "wrist_roll",
+        "gripper"
+      ],
+      "note": ""
+    },
+    {
+      "timestamp": "2026-05-21T05:45:31",
+      "bowl_xyz": [
+        -0.07,
+        0.46,
+        0.0
+      ],
+      "release_joint_positions": [
+        -12.571428571428571,
+        59.472527472527474,
+        -62.15384615384615,
+        31.64835164835165,
+        -1.2747252747252746,
+        9.56641431520991
+      ],
+      "joint_names": [
+        "shoulder_pan",
+        "shoulder_lift",
+        "elbow_flex",
+        "wrist_flex",
+        "wrist_roll",
+        "gripper"
+      ],
+      "note": ""
+    },
+    {
+      "timestamp": "2026-05-21T05:46:01",
+      "bowl_xyz": [
+        -0.08,
+        0.35,
+        0.0
+      ],
+      "release_joint_positions": [
+        -14.68131868131868,
+        1.5384615384615385,
+        21.186813186813186,
+        31.560439560439562,
+        -1.2747252747252746,
+        9.772883688919478
+      ],
+      "joint_names": [
+        "shoulder_pan",
+        "shoulder_lift",
+        "elbow_flex",
+        "wrist_flex",
+        "wrist_roll",
+        "gripper"
+      ],
+      "note": ""
+    },
+    {
+      "timestamp": "2026-05-21T05:46:38",
+      "bowl_xyz": [
+        0.3,
+        0.34,
+        0.0
+      ],
+      "release_joint_positions": [
+        45.53846153846154,
+        41.18681318681319,
+        -29.01098901098901,
+        31.64835164835165,
+        -1.2747252747252746,
+        9.635237439779766
+      ],
+      "joint_names": [
+        "shoulder_pan",
+        "shoulder_lift",
+        "elbow_flex",
+        "wrist_flex",
+        "wrist_roll",
+        "gripper"
+      ],
+      "note": ""
+    },
+    {
+      "timestamp": "2026-05-21T05:46:54",
+      "bowl_xyz": [
+        0.3,
+        0.24,
+        0.0
+      ],
+      "release_joint_positions": [
+        58.37362637362637,
+        18.417582417582416,
+        1.3186813186813187,
+        31.64835164835165,
+        -1.2747252747252746,
+        9.497591190640055
+      ],
+      "joint_names": [
+        "shoulder_pan",
+        "shoulder_lift",
+        "elbow_flex",
+        "wrist_flex",
+        "wrist_roll",
+        "gripper"
+      ],
+      "note": ""
+    },
+    {
+      "timestamp": "2026-05-21T05:48:45",
+      "bowl_xyz": [
+        -0.26,
+        0.15,
+        0.0
+      ],
+      "release_joint_positions": [
+        -69.0989010989011,
+        -12.527472527472527,
+        30.593406593406595,
+        31.560439560439562,
+        -1.2747252747252746,
+        9.635237439779766
+      ],
+      "joint_names": [
+        "shoulder_pan",
+        "shoulder_lift",
+        "elbow_flex",
+        "wrist_flex",
+        "wrist_roll",
+        "gripper"
+      ],
+      "note": ""
+    },
+    {
+      "timestamp": "2026-05-21T05:49:43",
+      "bowl_xyz": [
+        0.12,
+        0.22,
+        0.0
+      ],
+      "release_joint_positions": [
+        33.40659340659341,
+        -57.97802197802198,
+        58.02197802197802,
+        45.010989010989015,
+        -1.1868131868131868,
+        9.359944941500343
+      ],
+      "joint_names": [
+        "shoulder_pan",
+        "shoulder_lift",
+        "elbow_flex",
+        "wrist_flex",
+        "wrist_roll",
+        "gripper"
+      ],
+      "note": ""
+    }
+  ]
+}
