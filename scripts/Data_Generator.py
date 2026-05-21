@@ -53,19 +53,15 @@ class SpatialDataGenerator:
             self.ee_body_name = self.model.body(self.model.nbody - 1).name
         
         self.ee_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, self.ee_body_name)
-        print(f"✓ Connected to camera target: '{self.camera_name}'")
-        print(f"✓ Target end-effector body mapped to: '{self.ee_body_name}'")
 
         # Processors and file path management
         self.preprocessor = ImagePreprocessor(target_size=(320, 320))
         self.renderer = mujoco.Renderer(self.model, height=480, width=640)
-        self.output_dir = os.path.expanduser("~/RL_Proj/collected_data")
+        self.output_dir = os.path.expanduser("~/Documents/RL_ProjFelix/collected_data")
         os.makedirs(self.output_dir, exist_ok=True)
         
         self.cube_names = [self.model.body(i).name for i in range(self.model.nbody) 
                            if "cube_body" in self.model.body(i).name]
-        print(f"✓ Found {len(self.cube_names)} sample target cubes in workspace.")
-        print("=================================================\n")
 
     def get_cube_transform(self, cube_name):
         """Extracts global position and quaternion orientation of a cube."""
@@ -114,7 +110,7 @@ class SpatialDataGenerator:
             
         return False
 
-    def generate_samples(self, num_sequences=10, samples_per_sequence=5, noise_std=0.02):
+    def generate_samples(self, num_sequences=10, samples_per_sequence=5, noise_std=0.2):
         """Generates visual network dataset matching the required input/label shapes."""
         sample_count = 0
         metadata_records = []
@@ -140,7 +136,7 @@ class SpatialDataGenerator:
                 anchor_pos = cube_world_xyz + np.array([0.0, 0.0, 0.15]) # 5cm above
                 
                 # Sample a localized tracking position around our 5cm target anchor
-                target_pos = anchor_pos + np.random.uniform(-0.01, 0.01, size=3)
+                target_pos = anchor_pos + np.random.uniform(-0.02, 0.02, size=3)
                 
                 # Execute Inverse Kinematics calculations
                 ik_success = self._solve_ik_with_upright_bias(target_pos)
@@ -171,15 +167,15 @@ class SpatialDataGenerator:
                 noisy_input_xy = cube_world_xyz[:2] + noise_xy
                 
                 # Update the graphics buffer frame and read processed matrix views
-                self.renderer.update_scene(self.data, camera=self.camera_name)
-                #edge_map_post = self.renderer.render()
+                # Pass camera id (integer) to renderer.update_scene
+                self.renderer.update_scene(self.data, camera=self.cam_id)
                 rendered_frame = self.renderer.render()
                 edge_map_post = self.preprocessor.process(rendered_frame)
                 
                 # Save processed visual frame
                 image_filename = f"sample_{sample_count:05d}_edge.png"
-                cv2.imwrite(os.path.join(self.output_dir, image_filename), edge_map_post)
                 
+                cv2.imwrite(os.path.join(self.output_dir, image_filename), edge_map_post)
                 true_relative_xyzw = np.concatenate([cube_local_xyz, cube_local_xyzw])
                 
                 record = {
@@ -200,4 +196,4 @@ class SpatialDataGenerator:
 
 if __name__ == "__main__":
     generator = SpatialDataGenerator(target_camera="robotwrist")
-    generator.generate_samples(num_sequences=4, samples_per_sequence=5)
+    generator.generate_samples(num_sequences=2000, samples_per_sequence=20)
